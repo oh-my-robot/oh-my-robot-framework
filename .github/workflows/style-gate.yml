@@ -1,0 +1,84 @@
+name: style-gate
+
+on:
+  pull_request:
+    branches:
+      - integration
+      - main
+    paths:
+      - ".clang-format"
+      - ".clang-tidy"
+      - "oh-my-robot/.clang-format"
+      - "oh-my-robot/.clang-tidy"
+      - "xmake.lua"
+      - "oh-my-robot/xmake.lua"
+      - "lib/**"
+      - "platform/**"
+      - "samples/**"
+      - ".github/workflows/style-gate.yml"
+      - "oh-my-robot/.github/workflows/style-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  style-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+
+      - name: Install clang tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format clang-tidy
+
+      - name: Resolve changed source files
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base_ref="${{ github.base_ref }}"
+          git fetch --no-tags --prune --depth=1 origin "${base_ref}:${base_ref}"
+
+          repo_prefix=""
+          if [ -d "oh-my-robot" ] && [ -f "oh-my-robot/xmake.lua" ]; then
+            repo_prefix="oh-my-robot/"
+          fi
+
+          source_regex="^${repo_prefix}(lib|samples)/.*\\.(c|cc|cpp|cxx|h|hh|hpp|hxx)$"
+
+          mapfile -t files < <(
+            git diff --name-only "${base_ref}...HEAD" \
+              | grep -E "${source_regex}" \
+              || true
+          )
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "has_files=false" >> "$GITHUB_OUTPUT"
+            echo "No style-managed source file changed."
+            exit 0
+          fi
+
+          files_joined="$(printf '%s;' "${files[@]}")"
+          files_joined="${files_joined%;}"
+
+          echo "has_files=true" >> "$GITHUB_OUTPUT"
+          echo "files=${files_joined}" >> "$GITHUB_OUTPUT"
+
+          printf 'Changed files (%d):\n' "${#files[@]}"
+          printf '  - %s\n' "${files[@]}"
+
+      - name: Run style gate
+        if: steps.changed.outputs.has_files == 'true'
+        run: |
+          xmake format --dry-run --error --files="${{ steps.changed.outputs.files }}"
+          xmake check clang.tidy --files="${{ steps.changed.outputs.files }}"
