@@ -1,0 +1,46 @@
+name: 🐛 提交 Bug / 缺陷
+description: 报告框架中存在的错误、死机或不符合预期的行为
+title: "bug: [模块名] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: bug_desc
+    attributes:
+      label: 🚨 问题描述
+      description: 请清晰、简洁地描述你遇到了什么问题。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 👣 复现步骤
+      description: 请列出复现该问题的具体步骤。
+      placeholder: |
+        1. 使用 XMake 编译目标...
+        2. 烧录到...
+        3. 执行操作...
+        4. 看到错误...
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: 💻 运行环境 (硬件平台/开发板)
+      description: 嵌入式排错高度依赖环境，请务必填写具体的板子型号或控制对象。
+      placeholder: 例如：rm-c-board 主板 / P1010B_111 电机
+    validations:
+      required: true
+  - type: input
+    id: compiler
+    attributes:
+      label: 🛠️ 编译环境 (XMake/编译器)
+      placeholder: 例如：XMake v3.0.7, arm-none-eabi-gcc 14.2
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 📜 日志与附录
+      description: 如果有串口崩溃日志、断言(Assert)信息、或是逻辑分析仪的波形截图，请直接粘贴或拖拽到这里。
+    validations:
+      required: false

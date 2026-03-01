@@ -1,0 +1,32 @@
+name: ✨ 开发新功能 / 模块
+description: 申请开发新的驱动、系统机制、数据结构或上层服务
+title: "feat: [模块名] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: task_desc
+    attributes:
+      label: 🎯 任务目标
+      description: 请清晰地描述这个开发任务的目标是什么？为了解决什么痛点？
+      placeholder: 例如：实现一个多生产者单消费者（MPSC）的无锁队列...
+    validations:
+      required: true
+  - type: checkboxes
+    id: layers
+    attributes:
+      label: 🧩 归属架构层级
+      description: 请勾选该任务主要涉及的层级（可多选）
+      options:
+        - label: BSP层 (BSP)
+        - label: 驱动层 (Driver)
+        - label: 系统层 (OSAL, Sync, Async, Middleware, Service)
+        - label: 逻辑层 (通用数据结构, 通用算法库等)
+        - label: 应用层 (Sample 演示，应用层)
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: ✅ 验收标准 (Acceptance Criteria)
+      description: 因为目前依赖手动编写测试程序，请明确写出该任务完成的标志是什么？需要通过怎样的测试？
+      placeholder: 例如：连续运行 10 小时无数据丢失或内存越界。
+    validations:
+      required: true
