@@ -1,4 +1,4 @@
-# OH-MY-ROBOT 快速开始（完全新手）
+﻿# OH-MY-ROBOT 快速开始（完全新手）
 
 本指南面向第一次接触本项目的开发者，目标是：
 - 先把环境装好并验证。
@@ -259,7 +259,7 @@ target("robot_project")
     add_deps("tar_oh_my_robot")
     set_policy("check.auto_ignore_flags", false)
     add_rules("oh_my_robot.context", "oh_my_robot.board_assets", "oh_my_robotimage_convert")
-    add_files("oh-my-robot/samples/stm32f407/dji_motor/main.c")	-- 示例文件
+    add_files("oh-my-robot/samples/motor/dji_motor/main.c")	-- 示例文件
 target_end()
 ```
 
@@ -398,3 +398,4 @@ xmake
 - 工具链已安装但命令不可用：`PATH` 未生效，重开终端或在 `om_preset.lua` 明确配置 `sdk/bin`。
 - `xmake` 可以执行但编译失败：先执行 `xmake f -c ...` 重新配置，再执行 `xmake`。
 - VSCode 没有代码跳转：先确认 Clangd 已启用，再确认项目根目录存在 `compile_commands.json`。
+

@@ -1,4 +1,4 @@
-# OM XMake 新手开发者手册
+﻿# OM XMake 新手开发者手册
 
 ## 1. 适用范围
 本手册面向首次使用 OM 的开发者，目标是让你在最短时间内完成可运行的构建，并理解最常用的配置入口。内容完全基于当前仓库代码实现。
@@ -209,7 +209,7 @@ xmake clean
   - 仅当你明确需要 semihost 主机 I/O 时使用 `on`，并同步配置调试器侧 semihost 支持。
 
 ### 11.3 Cortex-Debug 多工具链模板（开发者）
-零基础用户可先看：`oh-my-robot/document/QuickStart.md` 的 `4. 配置 VSCode 调试（.vscode/launch.json）`。
+零基础用户可先看：`oh-my-robot/docs/quick_start.md` 的 `4. 配置 VSCode 调试（.vscode/launch.json）`。
 
 建议使用“同一调试器参数 + 分工具链下载策略”的模板：`gnu-rm` 使用 `load`，`armclang` 使用 `restore .hex`。
 
@@ -393,10 +393,11 @@ xmake clean
 - 若校验失败，构建会直接报错并提示修复方向。
 
 ## 12. 任务文档
-- `oh-my-robot/document/build/BuildTasksManual.md`：内置任务与参数说明（含 `xmake flash`）。
+- `oh-my-robot/docs/build/build_tasks_manual.md`：内置任务与参数说明（含 `xmake flash`）。
 
 ## 13. 工程实践
-- `oh-my-robot/document/build/BuildSystemBestPractices.md`：构建系统最佳工程实践。
+- `oh-my-robot/docs/build/build_system_best_practices.md`：构建系统最佳工程实践。
 
 ## 14. 外部问题追踪
-- `oh-my-robot/document/build/upstream_xmake_armlink_sourcefile_nil.md`：XMake `armlink.lua` 的 `sourcefile=nil` 上游缺陷复现与提交流水。
+- `oh-my-robot/docs/build/upstream_xmake_armlink_sourcefile_nil.md`：XMake `armlink.lua` 的 `sourcefile=nil` 上游缺陷复现与提交流水。
+

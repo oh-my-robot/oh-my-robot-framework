@@ -127,8 +127,8 @@ target_end()
 
 ## 12. 文档与变更同步
 - 构建流程变更需同步更新：
-  - `oh-my-robot/document/build/reference_manual.md`
-  - `oh-my-robot/document/build/maintenance_manual.md`
+  - `oh-my-robot/docs/build/reference_manual.md`
+  - `oh-my-robot/docs/build/maintenance_manual.md`
 - 新增构建文档需在两份手册中建立索引或链接。
 - 重要变更需记录到维护手册“变更记录”。
 
@@ -145,4 +145,5 @@ target_end()
 - 工具链与 BSP 数据分离。
 - 规则职责单一、目标职责单一。
 - 任务执行前做参数完整性校验。
+
 

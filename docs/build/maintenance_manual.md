@@ -1,12 +1,12 @@
-# OM XMake 维护者手册
+﻿# OM XMake 维护者手册
 
 ## 1. 目标与维护边界
 本手册面向维护者，目标是说明 OM 构建体系的模块边界、依赖关系、数据流与扩展方式。文档内容完全基于当前仓库实现。
 
 相关文档索引：
-- `oh-my-robot/document/build/BuildTasksManual.md`：内置任务与参数说明。
-- `oh-my-robot/document/build/BuildSystemBestPractices.md`：构建系统最佳工程实践。
-- `oh-my-robot/document/build/upstream_xmake_armlink_sourcefile_nil.md`：XMake `armlink.lua` 缺陷的上游提交材料（复现、根因、建议 patch）。
+- `oh-my-robot/docs/build/build_tasks_manual.md`：内置任务与参数说明。
+- `oh-my-robot/docs/build/build_system_best_practices.md`：构建系统最佳工程实践。
+- `oh-my-robot/docs/build/upstream_xmake_armlink_sourcefile_nil.md`：XMake `armlink.lua` 缺陷的上游提交材料（复现、根因、建议 patch）。
 
 ## 2. 构建系统设计方法论
 - **分层原则**：构建系统只在 `oh-my-robot/build/` 集中管理“选项、规则、工具链、共享模块”，模块级构建脚本就地维护，避免全局脚本侵入模块。
@@ -412,7 +412,7 @@ end
 - 2026-02-07：新增 `--semihosting=off|on` 构建选项；默认 `off`。当 toolchain=armclang 且 `off` 时，自动注入 syscall 覆盖桩以消除 semihosting BKPT 风险。
 - 2026-02-07：`xmake flash` 新增 `--native_output` 参数，用于按需透传烧录器原生输出。
 - 2026-02-04：board/os 列表改为静态索引，避免描述域目录扫描。
-- 2026-02-01：新增《BuildSystemBestPractices.md》最佳工程实践文档。
+- 2026-02-01：新增 `build_system_best_practices.md` 最佳工程实践文档。
 - 2026-02-01：记录已知限制：`xmake flash` 使用 ELF 可能无法实际烧录，建议使用 HEX。
 - 2026-02-01：`robot_project` 输出文件名显式为 `.elf`；`xmake flash` 要求固件路径必须带扩展名。
 - 2026-02-01：`xmake flash` 参数优先级调整为 CLI > config > preset > default；当 preset 与配置不一致时烧录前给出提示。
@@ -424,3 +424,4 @@ end
 - 2026-01-31：preset 拆分为 `toolchain_default` 与 `toolchain_presets`，支持多工具链路径预设。
 - 2026-01-31：构建脚本入口迁移至 `oh-my-robot/build/xmake.lua`，并将 `config/rules/toolchains/modules` 统一归档到 `oh-my-robot/build/`。
 - 2026-02-01：启用 `plugin.compile_commands.autoupdate`，构建后自动生成 `compile_commands.json` 到项目根目录。
+

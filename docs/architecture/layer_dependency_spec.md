@@ -1,11 +1,11 @@
-# OM 分层与依赖规范（长期稳定）
+﻿# OM 分层与依赖规范（长期稳定）
 本文用于明确 **core / OSAL / sync / services(comm) / drivers / systems** 的职责边界与依赖方向，目标是：
 - 让模块可复用、可移植、可扩展
 - 避免循环依赖与层级倒置
 - 允许在关键路径做端口级性能优化，但不污染公共 API
 
 ## 规范来源约束（强制）
-- 本文档 `oh-my-robot/document/architecture/分层与依赖规范.md` 是全仓“分层与依赖方向”的唯一总规范源。
+- 本文档 `oh-my-robot/docs/architecture/layer_dependency_spec.md` 是全仓“分层与依赖方向”的唯一总规范源。
 - 其他文档（OSAL/SYNC、services、drivers、build）只能做专项补充，必须引用本文，不得重新定义总依赖矩阵。
 
 ## 名词与层级
@@ -120,3 +120,4 @@
 2. 框架内部实现应优先包含最小必需头文件，避免依赖聚合头形成隐式耦合。
 3. 聚合头内容应受控扩展，不得成为“全局大头文件”。
 4. 若出现 clangd `unused-includes` 提示，内部实现应按最小依赖原则清理；对外入口可忽略提示。
+
