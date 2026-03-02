@@ -3,33 +3,62 @@ Checks: '-*,readability-identifier-naming'
 WarningsAsErrors: 'readability-identifier-naming'
 HeaderFilterRegex: '(^|.*[\\/])(oh-my-robot[\\/])?(lib|samples)[\\/]'
 CheckOptions:
+  # 类命名规范：驼峰命名 (如: OsalMutex)
   - key: readability-identifier-naming.ClassCase
     value: CamelCase
+  
+  # 结构体命名规范：驼峰命名 (如: OsalMutex)
   - key: readability-identifier-naming.StructCase
     value: CamelCase
+  
+  # 联合体命名规范：驼峰命名
   - key: readability-identifier-naming.UnionCase
     value: CamelCase
+  
+  # 枚举命名规范：驼峰命名
   - key: readability-identifier-naming.EnumCase
     value: CamelCase
+  
+  # 函数命名规范：全小写下划线
   - key: readability-identifier-naming.FunctionCase
     value: lower_case
+  
+  # 全局函数命名规范：全小写下划线
   - key: readability-identifier-naming.GlobalFunctionCase
     value: lower_case
+  
+  # 类型定义命名规范：全小写下划线
   - key: readability-identifier-naming.TypedefCase
     value: lower_case
+  
+  # 可保留后缀
   - key: readability-identifier-naming.TypedefIgnoredRegexp
     value: '.*_(t|s|e|u)$'
+  
+  # 类型别名命名规范：全小写下划线
   - key: readability-identifier-naming.TypeAliasCase
     value: lower_case
+  
+  # 变量命名规范：全小写下划线
   - key: readability-identifier-naming.VariableCase
     value: lower_case
+
+  # 局部变量命名规范：全小写下划线
   - key: readability-identifier-naming.LocalVariableCase
     value: lower_case
+
+  # 参数命名规范：全小写下划线
   - key: readability-identifier-naming.ParameterCase
     value: lower_case
+  
+  # 成员变量命名规范：驼峰命名
   - key: readability-identifier-naming.MemberCase
     value: camelBack
+  
+  # 全局变量命名规范：全小写下划线
   - key: readability-identifier-naming.GlobalVariableCase
     value: lower_case
+  
+  # 枚举常量命名规范：全大写下划线
   - key: readability-identifier-naming.EnumConstantCase
     value: UPPER_CASE
