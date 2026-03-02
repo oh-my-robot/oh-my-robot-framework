@@ -1,12 +1,11 @@
-# 分支发布工作流（integration 主线）
+﻿# 分支发布工作流（integration 主线）
 
 ## 1. 分支角色
 1. `main`：仅保留可发布资产，禁止直接推送。
 2. `integration`：发布前集成主线，所有功能分支先合入此分支。
-3. `feature-async-incubator`：`lib/async` 长期开发分支。
-4. `feature-services-incubator`：`lib/services` 长期开发分支。
-5. `release/x.y`：从 `integration` 切出，执行发布清理、验证后合并到 `main`。
-6. `hotfix/*`：从 `main` 切出，修复后回灌 `integration`。
+3. `feature/*`：功能开发分支，按任务目标创建与回收。
+4. `release/x.y`：从 `integration` 切出，执行发布清理、验证后合并到 `main`。
+5. `hotfix/*`：从 `main` 切出，修复后回灌 `integration`。
 
 ## 2. 合入路径约束
 1. 常规需求：`feature/* -> integration`。
@@ -34,7 +33,7 @@
    - `lib/async/doc/**`
    - `lib/services/doc/**`
    - `lib/services/src/**/doc/**`
-2. 人工搜索并修复对上述目录的残留引用（重点检查 `README.md`、`document/**`、`lib/**/README.md`）。
+2. 人工搜索并修复对上述目录的残留引用（重点检查 `README.md`、`docs/**`、`lib/**/README.md`）。
 3. 完成构建和回归验证后，方可发起 `release/x.y -> main` PR。
 
 ## 5. 协作建议（Git 高级工作流）
@@ -43,6 +42,7 @@
 3. 改写历史后统一使用 `push --force-with-lease`，禁止裸 `--force`。
 4. 发生误操作时使用 `reflog` 恢复。
 
-## 6. 命名与兼容说明
-1. 仓库当前已存在分支名 `feature`，不能再创建 `feature/xxx` 命名空间分支。
-2. 因此采用 `feature-async-incubator`、`feature-services-incubator` 作为等价长期 feature 分支命名。
+## 6. 命名约束
+1. 功能分支统一使用 `feature/*` 命名空间。
+2. 不再使用 `feature-xxx` 平铺命名。
+
