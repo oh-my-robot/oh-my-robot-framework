@@ -1,4 +1,4 @@
-# P1010B 驱动落地计划（CAN 首版）
+﻿# P1010B 驱动落地计划（CAN 首版）
 
 ## 0. 计划摘要
 
@@ -155,7 +155,7 @@ flowchart LR
 4. `0x34/0x35/0x36/0x37/0x38/0x39` 同步事务统一 completion 实现。
 5. ISR 路径完成协议解析、实例路由、状态更新与回调通知。
 6. `register` 不再自动开启主动反馈，改为外部显式调用。
-7. 样例更新：`oh-my-robot/samples/motor/my_p1010b/main.c`、`oh-my-robot/samples/motor/p1010b/main.c`。
+7. 样例更新：`oh-my-robot/samples/motor/p1010b/main.c`。
 
 未完成：
 1. Phase 5 六类场景的完整联调报告与缺陷闭环记录。
@@ -173,3 +173,4 @@ flowchart LR
 1. `2026-02-19`：首版 CAN 驱动从空实现落地。
 2. `2026-02-20`：读参改为同步等待并补齐完成通知。
 3. `2026-02-21`：移除 `p1010b_process`，完成同步/异步协议重构并更新样例流程。
+

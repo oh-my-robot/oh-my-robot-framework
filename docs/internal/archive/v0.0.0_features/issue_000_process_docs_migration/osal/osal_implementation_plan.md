@@ -270,7 +270,9 @@
 ## 来源映射
 
 1. 原文件：历史混合文档
-2. 拆分策略：保留原信息并以 OSAL 机制视角组织，SYNC 语义见 oh-my-robot/lib/sync/doc/SYNC工程落地规划.md。
+2. 拆分策略：保留原信息并以 OSAL 机制视角组织，SYNC 语义见 oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/sync/sync_requirements_volume.md。
+
+
 
 
 

@@ -1,4 +1,4 @@
-## 目标与成功标准
+﻿## 目标与成功标准
 
   1. 目标：把 enable/disable/set_active_report/active_query/write/read/save/set_target/... 的重复组帧、匹配、后处理逻辑收敛到单一执行管线。
   2. 成功标准：P1010B.c 中不再存在按命令复制的发送-等待-取结果模板代码；ISR 匹配逻辑从大 switch 收敛到表驱动分发。
@@ -50,11 +50,10 @@
   2. 实现：oh-my-robot/lib/drivers/src/motor/vendors/direct_drive/P1010B.c
   3. 样例：
       - oh-my-robot/samples/motor/p1010b/main.c
-      - oh-my-robot/samples/motor/my_p1010b/main.c
   4. 文档：
       - oh-my-robot/lib/drivers/include/drivers/motor/vendors/direct_drive/doc/参考手册.md
       - oh-my-robot/lib/drivers/include/drivers/motor/vendors/direct_drive/doc/顶层设计指南.md
-      - oh-my-robot/lib/drivers/include/drivers/motor/vendors/direct_drive/doc/工作进度报告.md
+      - oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/motor/p1010b_work_progress_report.md
 
 ## 实施步骤
 
@@ -62,7 +61,7 @@
   2. 实现描述符表和统一执行器，接入同步事务上下文。
   3. 改造 ISR 应答匹配为描述符分发。
   4. 删除旧命令式实现函数。
-  5. 迁移两个 sample 到新 API。
+  5. 迁移 sample 到新 API。
   6. 更新文档中的 API 列表、接入顺序、时序语义。
   7. 运行构建与最小回归验证。
 
@@ -104,3 +103,4 @@
   1. 仍只支持单驱动实例单未决同步事务。
   2. 本次不引入新的队列机制，保持 ISR 直解直路由模型。
   3. 不新增 RS485 运行实现，仅保持 CAN 首版语义。
+
