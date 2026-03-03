@@ -6,7 +6,7 @@
 ## 2. 术语与约定
 - board：板级名称，对应 `oh-my-robot/platform/bsp/data/boards/<board>.lua`。
 - os：OS/RTOS 名称，对应 `oh-my-robot/platform/osal/<os>/` 目录。
-- toolchain：工具链名称，来自 `oh-my-robot/build/toolchains/data.lua`。
+- toolchain：工具链名称，来自 [`oh-my-robot/build/toolchains/data.lua`](../../build/toolchains/data.lua)。
 - arch traits：芯片提供的架构数据（CPU/FPU/float-abi），由工具链映射为编译参数。
 - build profile：输出目录结构，由 XMake `plat/arch/mode` 决定，形如 `build/<plat>/<arch>/<mode>`。
 
@@ -22,15 +22,15 @@ xmake --version
 
 ## 4. 项目结构速览
 - `xmake.lua`：项目顶层构建入口。
-- `oh-my-robot/xmake.lua`：OM 构建入口转发（实际入口在 `oh-my-robot/build/xmake.lua`）。
-- `oh-my-robot/build/xmake.lua`：OM 构建入口。
-- `oh-my-robot/build/config/`：构建选项定义与默认值。
-- `oh-my-robot/build/rules/`：构建规则（上下文注入/板级资源/镜像转换）。
-- `oh-my-robot/build/toolchains/`：工具链数据与脚本逻辑。
-- `oh-my-robot/build/tasks/`：自定义任务（如 flash 烧录）。
-- `oh-my-robot/platform/bsp/`：BSP 数据与板级构建脚本。
-- `oh-my-robot/platform/osal/`：OS 抽象层与 OS 端口。
-- `oh-my-robot/platform/sync/`：同步原语与加速后端。
+- [`oh-my-robot/xmake.lua`](../../xmake.lua)：OM 构建入口转发（实际入口在 [`oh-my-robot/build/xmake.lua`](../../build/xmake.lua)）。
+- [`oh-my-robot/build/xmake.lua`](../../build/xmake.lua)：OM 构建入口。
+- [`oh-my-robot/build/config/`](../../build/config/)：构建选项定义与默认值。
+- [`oh-my-robot/build/rules/`](../../build/rules/)：构建规则（上下文注入/板级资源/镜像转换）。
+- [`oh-my-robot/build/toolchains/`](../../build/toolchains/)：工具链数据与脚本逻辑。
+- [`oh-my-robot/build/tasks/`](../../build/tasks/)：自定义任务（如 flash 烧录）。
+- [`oh-my-robot/platform/bsp/`](../../platform/bsp/)：BSP 数据与板级构建脚本。
+- [`oh-my-robot/platform/osal/`](../../platform/osal/)：OS 抽象层与 OS 端口。
+- [`oh-my-robot/platform/sync/`](../../platform/sync/)：同步原语与加速后端。
 
 ## 5. 第一次构建（完整示例）
 ### 5.1 配置
@@ -73,11 +73,11 @@ target_end()
 ### 7.1 选项说明
 | 选项 | 说明 | 来源/可选值 |
 | --- | --- | --- |
-| `--board` | 板级名称 | `oh-my-robot/platform/bsp/data/boards/index.lua` |
-| `--os` | OS/RTOS 名称 | `oh-my-robot/platform/osal/index.lua` |
+| `--board` | 板级名称 | [`oh-my-robot/platform/bsp/data/boards/index.lua`](../../platform/bsp/data/boards/index.lua) |
+| `--os` | OS/RTOS 名称 | [`oh-my-robot/platform/osal/index.lua`](../../platform/osal/index.lua) |
 | `--sync_accel` | 同步加速模式 | `auto` / `none` |
 | `--semihosting` | semihosting 模式 | `off` / `on` |
-| `--toolchain` | 工具链名称 | `oh-my-robot/build/toolchains/data.lua` |
+| `--toolchain` | 工具链名称 | [`oh-my-robot/build/toolchains/data.lua`](../../build/toolchains/data.lua) |
 | `--sdk` | 工具链 SDK 目录 | 命令行或 preset 提供 |
 | `--bin` | 工具链可执行目录 | 命令行或 preset 提供 |
 | `-m` | 构建模式 | `debug` / `release` |
@@ -85,10 +85,10 @@ target_end()
 board/os 可选值由以上索引文件维护，新增条目时需同步更新索引。
 
 ### 7.2 默认值优先级
-- board / os：命令行 > `om_preset.lua` > `oh-my-robot/build/config/defaults.lua` > 数据目录按名称排序的第一个。
-- sync_accel：命令行 > `oh-my-robot/build/config/defaults.lua`（未配置时等价于 `auto`）。
-- semihosting：命令行 > `oh-my-robot/build/config/defaults.lua`（未配置时等价于 `off`）。
-- toolchain：命令行 > `om_preset.lua` 的 `toolchain_default.name` > 已保存配置 > `oh-my-robot/build/toolchains/data.lua` 中的 `default`。
+- board / os：命令行 > `om_preset.lua` > [`oh-my-robot/build/config/defaults.lua`](../../build/config/defaults.lua) > 数据目录按名称排序的第一个。
+- sync_accel：命令行 > [`oh-my-robot/build/config/defaults.lua`](../../build/config/defaults.lua)（未配置时等价于 `auto`）。
+- semihosting：命令行 > [`oh-my-robot/build/config/defaults.lua`](../../build/config/defaults.lua)（未配置时等价于 `off`）。
+- toolchain：命令行 > `om_preset.lua` 的 `toolchain_default.name` > 已保存配置 > [`oh-my-robot/build/toolchains/data.lua`](../../build/toolchains/data.lua) 中的 `default`。
 - sdk / bin：命令行 > `om_preset.lua` 的 `toolchain_presets[toolchain]` > 已保存配置 > toolchain 数据默认值（若都没有会报错）。
 
 ## 8. `om_preset.lua`（推荐配置方式）
@@ -196,9 +196,9 @@ xmake clean
 
 ### 11.2 armclang semihosting 说明（开发者）
 - 配置入口：`xmake f -c --toolchain=armclang --semihosting=off|on ...`。
-- 默认值：`off`（定义于 `oh-my-robot/build/config/defaults.lua`）。
+- 默认值：`off`（定义于 [`oh-my-robot/build/config/defaults.lua`](../../build/config/defaults.lua)）。
 - `semihosting=off`：
-  - 构建系统会为 `binary` 目标自动注入 `oh-my-robot/build/runtime/armclang/semihost_stub.c`。
+  - 构建系统会为 `binary` 目标自动注入 [`oh-my-robot/build/runtime/armclang/semihost_stub.c`](../../build/runtime/armclang/semihost_stub.c)。
   - 目的：避免运行期触发 semihost BKPT，减少调试器 semihost 通道依赖。
   - 代价：`printf/fopen` 等主机 I/O 不会输出到主机，`_sys_exit` 会停在死循环（符合裸机场景预期）。
 - `semihosting=on`：
@@ -209,7 +209,7 @@ xmake clean
   - 仅当你明确需要 semihost 主机 I/O 时使用 `on`，并同步配置调试器侧 semihost 支持。
 
 ### 11.3 Cortex-Debug 多工具链模板（开发者）
-零基础用户可先看：`oh-my-robot/docs/quick_start.md` 的 `4. 配置 VSCode 调试（.vscode/launch.json）`。
+零基础用户可先看：[`oh-my-robot/docs/quick_start.md`](../quick_start.md) 的 `4. 配置 VSCode 调试（.vscode/launch.json）`。
 
 建议使用“同一调试器参数 + 分工具链下载策略”的模板：`gnu-rm` 使用 `load`，`armclang` 使用 `restore .hex`。
 
@@ -393,11 +393,11 @@ xmake clean
 - 若校验失败，构建会直接报错并提示修复方向。
 
 ## 12. 任务文档
-- `oh-my-robot/docs/build/build_tasks_manual.md`：内置任务与参数说明（含 `xmake flash`）。
+- [`oh-my-robot/docs/build/build_tasks_manual.md`](build_tasks_manual.md)：内置任务与参数说明（含 `xmake flash`）。
 
 ## 13. 工程实践
-- `oh-my-robot/docs/build/build_system_best_practices.md`：构建系统最佳工程实践。
+- [`oh-my-robot/docs/build/build_system_best_practices.md`](build_system_best_practices.md)：构建系统最佳工程实践。
 
 ## 14. 外部问题追踪
-- `oh-my-robot/docs/build/upstream_xmake_armlink_sourcefile_nil.md`：XMake `armlink.lua` 的 `sourcefile=nil` 上游缺陷复现与提交流水。
+- [`oh-my-robot/docs/build/upstream_xmake_armlink_sourcefile_nil.md`](upstream_xmake_armlink_sourcefile_nil.md)：XMake `armlink.lua` 的 `sourcefile=nil` 上游缺陷复现与提交流水。
 

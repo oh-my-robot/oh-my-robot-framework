@@ -12,15 +12,15 @@
 ## 1. 适用范围与依据
 
 适用范围：
-- `oh-my-robot/lib/drivers/include/drivers/motor/vendors/direct_drive`
-- `oh-my-robot/lib/drivers/src/motor/vendors/direct_drive`
-- `oh-my-robot/samples/motor/p1010b`
-- `oh-my-robot/samples/motor/p1010b`
+- [`oh-my-robot/lib/drivers/include/drivers/motor/vendors/direct_drive`](../../../../../../lib/drivers/include/drivers/motor/vendors/direct_drive)
+- [`oh-my-robot/lib/drivers/src/motor/vendors/direct_drive`](../../../../../../lib/drivers/src/motor/vendors/direct_drive)
+- [`oh-my-robot/samples/motor/p1010b`](../../../../../../samples/motor/p1010b)
+- [`oh-my-robot/samples/motor/p1010b`](../../../../../../samples/motor/p1010b)
 
 规划依据：
-- `oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/motor/p1010b_implementation_plan.md`
-- `oh-my-robot/lib/drivers/include/drivers/motor/vendors/direct_drive/doc/顶层设计指南.md`
-- `oh-my-robot/lib/drivers/include/drivers/motor/vendors/direct_drive/doc/能力边界说明.md`
+- [`oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/motor/p1010b_implementation_plan.md`](p1010b_implementation_plan.md)
+- [`oh-my-robot/lib/drivers/include/drivers/motor/vendors/direct_drive/doc/顶层设计指南.md`](../../../../../../lib/drivers/include/drivers/motor/vendors/direct_drive/doc/顶层设计指南.md)
+- [`oh-my-robot/lib/drivers/include/drivers/motor/vendors/direct_drive/doc/能力边界说明.md`](../../../../../../lib/drivers/include/drivers/motor/vendors/direct_drive/doc/能力边界说明.md)
 
 ---
 
@@ -32,8 +32,8 @@
 | Phase 1 协议编解码 | 已完成 | 维护态 | `P1010B.h`、`P1010B.c` | `0x32~0x40` 请求与 `0x50~0xB0` 应答路由可回溯 | 无 |
 | Phase 2 状态机与闭锁 | 已完成 | 维护态 | `P1010B.h`、`P1010B.c` | 状态守卫、拒绝原因、闭锁优先可回溯 | 报警自动降级策略未实现（计划项未完成） |
 | Phase 3 参数通道 | 已完成 | 维护态 | `P1010B.h`、`P1010B.c` | 白名单写入、同步读参、完成通知、重试计数可回溯 | 参数级退避策略未实现（计划项未完成） |
-| Phase 4 反馈与事件 | 已完成 | 维护态 | `P1010B.c`、`samples/motor/p1010b/main.c` | ISR 直解析直路由、同步匹配、回调触发可回溯 | 在线超时判定暂未引入（按当前方案刻意留空） |
-| Phase 5 验证收敛 | 部分完成 | 进行中 | `samples/motor/p1010b/main.c` | 样例入口已落地，构建通过 | 六类场景联调报告未形成（计划项未完成） |
+| Phase 4 反馈与事件 | 已完成 | 维护态 | `P1010B.c`、[`samples/motor/p1010b/main.c`](../../../../../../samples/motor/p1010b/main.c) | ISR 直解析直路由、同步匹配、回调触发可回溯 | 在线超时判定暂未引入（按当前方案刻意留空） |
+| Phase 5 验证收敛 | 部分完成 | 进行中 | [`samples/motor/p1010b/main.c`](../../../../../../samples/motor/p1010b/main.c) | 样例入口已落地，构建通过 | 六类场景联调报告未形成（计划项未完成） |
 | Phase 6 RS485 预留检查 | 待验收 | 待开始 | `P1010B.h`、`P1010B.c` | “仅 CAN”边界明确 | RS485 扩展评审记录未形成（计划项未完成） |
 
 ---
@@ -89,7 +89,7 @@
 ### 3.6 Phase 5（验证收敛）
 
 - 样例入口：
-- `oh-my-robot/samples/motor/p1010b/main.c`
+- [`oh-my-robot/samples/motor/p1010b/main.c`](../../../../../../samples/motor/p1010b/main.c)
 - 样例已迁移到统一 API（`p1010b_submit` / `p1010b_request_sync`）。
 - 构建证据：`xmake build robot_project` 通过。
 
@@ -113,7 +113,7 @@
 - ISR 统一写入 `syncResponse`，调用线程统一读取 `P1010BResponse_s`。
 
 3. 样例迁移：
-- `samples/motor/p1010b/main.c` 已切换到新 API。
+- [`samples/motor/p1010b/main.c`](../../../../../../samples/motor/p1010b/main.c) 已切换到新 API。
 - 两个样例已切换到 `p1010b_req_*` 请求构造器，减少显式字段拼装。
 - `p1010b_bus_init` 改为仅接收 `bus + canDevice`，移除 `defaultMotorId` 相关路径。
 - 初始化序列保持不变：`disable -> set_mode -> set_active_report -> enable`，实现方式改为 request 命令。

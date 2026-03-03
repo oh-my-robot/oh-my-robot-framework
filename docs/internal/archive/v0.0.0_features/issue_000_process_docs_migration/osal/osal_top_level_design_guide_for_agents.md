@@ -15,7 +15,7 @@
 
 本规范关注：接口、语义、返回码、超时规则、并发与 ISR 约束、模块依赖与演进路径。
 本规范不涵盖：文件系统/网络/进程等 Linux 特有能力（建议放入 service 层适配）。
-分层总依赖矩阵以 `oh-my-robot/docs/architecture/layer_dependency_spec.md` 为准，本文只定义 OSAL+SYNC 专项约束。
+分层总依赖矩阵以 [`oh-my-robot/docs/architecture/layer_dependency_spec.md`](../../../../../architecture/layer_dependency_spec.md) 为准，本文只定义 OSAL+SYNC 专项约束。
 
 ------
 

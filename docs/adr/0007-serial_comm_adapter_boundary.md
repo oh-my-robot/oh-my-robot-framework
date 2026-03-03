@@ -13,7 +13,7 @@
 - 采用方案 B，并明确禁止方案 C。
 - comm adapter 负责总线消息与 `CommMsg` 抽象映射、注册接入。
 - 不负责业务协议解析，不在 ISR 路径执行阻塞逻辑。
-- 分层依赖以 `docs/architecture/layer_dependency_spec.md` 为准。
+- 分层依赖以 [`docs/architecture/layer_dependency_spec.md`](../architecture/layer_dependency_spec.md) 为准。
 
 ## 影响 (Consequences)
 - `services/comm(core)` 与硬件实现解耦，提升平台迁移能力。

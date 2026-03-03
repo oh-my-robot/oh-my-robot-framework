@@ -12,25 +12,25 @@
 
 ## 1. 适用范围与依据
 
-- 适用范围：`oh-my-robot/lib/osal` 与 `oh-my-robot/lib/sync` 相关重构进度。
+- 适用范围：[`oh-my-robot/lib/osal`](../../../../../../lib/osal) 与 [`oh-my-robot/lib/sync`](../../../../../../lib/sync) 相关重构进度。
 - 规划依据：
-  - `oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/osal/osal_implementation_plan.md`
-  - `oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/osal/osal_refactor_plan.md`
-  - `oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/osal/osal_top_level_design_guide_for_agents.md`
+  - [`oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/osal/osal_implementation_plan.md`](osal_implementation_plan.md)
+  - [`oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/osal/osal_refactor_plan.md`](osal_refactor_plan.md)
+  - [`oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/osal/osal_top_level_design_guide_for_agents.md`](osal_top_level_design_guide_for_agents.md)
 - 当前代码参考（time 子域）：
-  - `oh-my-robot/lib/osal/include/osal/osal_time.h`
-  - `oh-my-robot/platform/osal/freertos/osal_time_freertos.c`
-  - `oh-my-robot/platform/osal/freertos/osal_time_freertos.h`
+  - [`oh-my-robot/lib/osal/include/osal/osal_time.h`](../../../../../../lib/osal/include/osal/osal_time.h)
+  - [`oh-my-robot/platform/osal/freertos/osal_time_freertos.c`](../../../../../../platform/osal/freertos/osal_time_freertos.c)
+  - [`oh-my-robot/platform/osal/freertos/osal_time_freertos.h`](../../../../../../platform/osal/freertos/osal_time_freertos.h)
   - `oh-my-robot/samples/stm32f407xx/osal_time/main.c`
 
 ## 2. 阶段总览（按阶段原地维护）
 
 | 阶段 | 验收结论 | 当前状态 | 代码证据 | 验证状态 | 未解决问题 |
 | --- | --- | --- | --- | --- | --- |
-| Phase 0 | 已阶段验收（按既定“规划-确认-执行”完成） | 已冻结，进入维护态 | `oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/osal/osal_refactor_plan.md`、`oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/osal/osal_top_level_design_guide_for_agents.md` | 已完成边界冻结与阶段确认 | 需继续按阶段补齐“验收证据可追溯”记录 |
-| Phase 1 | 已阶段验收（v1 范围内 time + core + thread + semaphore + mutex + queue + event_flags + timer 收口） | 已收口，进入维护态（`join` 延期至 v2） | `oh-my-robot/lib/osal/include/osal/osal_time.h`、`oh-my-robot/platform/osal/freertos/osal_time_freertos.c`、`oh-my-robot/platform/osal/freertos/osal_time_freertos.h`、`oh-my-robot/samples/stm32f407xx/osal_time/main.c`、`oh-my-robot/lib/osal/include/osal/osal_core.h`、`oh-my-robot/platform/osal/freertos/osal_core_freertos.c`、`oh-my-robot/lib/osal/include/osal/osal_queue.h`、`oh-my-robot/platform/osal/freertos/osal_queue_freertos.c`、`oh-my-robot/samples/stm32f407xx/osal_queue/main.c`、`oh-my-robot/lib/osal/include/osal/osal_event.h`、`oh-my-robot/platform/osal/freertos/osal_event_freertos.c`、`oh-my-robot/samples/stm32f407xx/osal_event/main.c`、`oh-my-robot/lib/osal/include/osal/osal_thread.h`、`oh-my-robot/platform/osal/freertos/osal_thread_freertos.c`、`oh-my-robot/lib/osal/include/osal/osal_sem.h`、`oh-my-robot/platform/osal/freertos/osal_sem_freertos.c`、`oh-my-robot/lib/osal/include/osal/osal_mutex.h`、`oh-my-robot/platform/osal/freertos/osal_mutex_freertos.c`、`oh-my-robot/lib/osal/include/osal/osal_timer.h`、`oh-my-robot/platform/osal/freertos/osal_timer_freertos.c`、`oh-my-robot/samples/stm32f407xx/osal_timer/main.c` | `xmake build robot_project` 已通过 | `join` 延期到 v2；OSAL 其余原语后续按需求逐项审计 |
-| Phase 2 | 部分验收通过（completion 子域） | 进行中（completion 已切换为编译期后端直连；样例已收敛为“功能正确性 + 并发压力”单模式验收） | `oh-my-robot/lib/sync/include/sync/completion.h`、`oh-my-robot/lib/sync/src/completion.c`、`oh-my-robot/samples/sync_completion/main.c` | `xmake build robot_project` 已通过（2026-02-20） | event 子域待收敛；真实 ISR 路径验证待独立样例补齐 |
-| Phase 3 | 部分验收通过（selector/capability 子域） | 进行中（capability 宏注入链路已落地） | `oh-my-robot/platform/sync/xmake.lua`、`oh-my-robot/platform/sync/freertos/sync_accel.lua`、`oh-my-robot/platform/sync/linux/sync_accel.lua` | `xmake build robot_project` 已通过（2026-02-20） | 分原语 capability 仍待按实际加速后端逐项声明 |
+| Phase 0 | 已阶段验收（按既定“规划-确认-执行”完成） | 已冻结，进入维护态 | [`oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/osal/osal_refactor_plan.md`](osal_refactor_plan.md)、[`oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/osal/osal_top_level_design_guide_for_agents.md`](osal_top_level_design_guide_for_agents.md) | 已完成边界冻结与阶段确认 | 需继续按阶段补齐“验收证据可追溯”记录 |
+| Phase 1 | 已阶段验收（v1 范围内 time + core + thread + semaphore + mutex + queue + event_flags + timer 收口） | 已收口，进入维护态（`join` 延期至 v2） | [`oh-my-robot/lib/osal/include/osal/osal_time.h`](../../../../../../lib/osal/include/osal/osal_time.h)、[`oh-my-robot/platform/osal/freertos/osal_time_freertos.c`](../../../../../../platform/osal/freertos/osal_time_freertos.c)、[`oh-my-robot/platform/osal/freertos/osal_time_freertos.h`](../../../../../../platform/osal/freertos/osal_time_freertos.h)、`oh-my-robot/samples/stm32f407xx/osal_time/main.c`、[`oh-my-robot/lib/osal/include/osal/osal_core.h`](../../../../../../lib/osal/include/osal/osal_core.h)、[`oh-my-robot/platform/osal/freertos/osal_core_freertos.c`](../../../../../../platform/osal/freertos/osal_core_freertos.c)、[`oh-my-robot/lib/osal/include/osal/osal_queue.h`](../../../../../../lib/osal/include/osal/osal_queue.h)、[`oh-my-robot/platform/osal/freertos/osal_queue_freertos.c`](../../../../../../platform/osal/freertos/osal_queue_freertos.c)、`oh-my-robot/samples/stm32f407xx/osal_queue/main.c`、[`oh-my-robot/lib/osal/include/osal/osal_event.h`](../../../../../../lib/osal/include/osal/osal_event.h)、[`oh-my-robot/platform/osal/freertos/osal_event_freertos.c`](../../../../../../platform/osal/freertos/osal_event_freertos.c)、`oh-my-robot/samples/stm32f407xx/osal_event/main.c`、[`oh-my-robot/lib/osal/include/osal/osal_thread.h`](../../../../../../lib/osal/include/osal/osal_thread.h)、[`oh-my-robot/platform/osal/freertos/osal_thread_freertos.c`](../../../../../../platform/osal/freertos/osal_thread_freertos.c)、[`oh-my-robot/lib/osal/include/osal/osal_sem.h`](../../../../../../lib/osal/include/osal/osal_sem.h)、[`oh-my-robot/platform/osal/freertos/osal_sem_freertos.c`](../../../../../../platform/osal/freertos/osal_sem_freertos.c)、[`oh-my-robot/lib/osal/include/osal/osal_mutex.h`](../../../../../../lib/osal/include/osal/osal_mutex.h)、[`oh-my-robot/platform/osal/freertos/osal_mutex_freertos.c`](../../../../../../platform/osal/freertos/osal_mutex_freertos.c)、[`oh-my-robot/lib/osal/include/osal/osal_timer.h`](../../../../../../lib/osal/include/osal/osal_timer.h)、[`oh-my-robot/platform/osal/freertos/osal_timer_freertos.c`](../../../../../../platform/osal/freertos/osal_timer_freertos.c)、`oh-my-robot/samples/stm32f407xx/osal_timer/main.c` | `xmake build robot_project` 已通过 | `join` 延期到 v2；OSAL 其余原语后续按需求逐项审计 |
+| Phase 2 | 部分验收通过（completion 子域） | 进行中（completion 已切换为编译期后端直连；样例已收敛为“功能正确性 + 并发压力”单模式验收） | [`oh-my-robot/lib/sync/include/sync/completion.h`](../../../../../../lib/sync/include/sync/completion.h)、[`oh-my-robot/lib/sync/src/completion.c`](../../../../../../lib/sync/src/completion.c)、`oh-my-robot/samples/sync_completion/main.c` | `xmake build robot_project` 已通过（2026-02-20） | event 子域待收敛；真实 ISR 路径验证待独立样例补齐 |
+| Phase 3 | 部分验收通过（selector/capability 子域） | 进行中（capability 宏注入链路已落地） | [`oh-my-robot/platform/sync/xmake.lua`](../../../../../../platform/sync/xmake.lua)、[`oh-my-robot/platform/sync/freertos/sync_accel.lua`](../../../../../../platform/sync/freertos/sync_accel.lua)、[`oh-my-robot/platform/sync/linux/sync_accel.lua`](../../../../../../platform/sync/linux/sync_accel.lua) | `xmake build robot_project` 已通过（2026-02-20） | 分原语 capability 仍待按实际加速后端逐项声明 |
 | Phase 4 | 待验收 | 待开始 | 待补录 | 待补录 | 待补录 |
 | Phase 5 | 待验收 | 待开始 | 待补录 | 待补录 | 待补录 |
 
@@ -86,7 +86,7 @@
   - `set_from_isr` 已收敛为 ISR-only 合同（误用：断言 + 安全返回）。
   - `set_from_isr` 失败路径返回码已收敛为 `OSAL_NO_RESOURCE`，不再笼统归类 `OSAL_INTERNAL`。
   - 新增 `OSAL_EVENT_FLAGS_USABLE_MASK` 合同，接口固定为 `uint32_t`；公共头不再提供默认兜底，必须由端口层注入。
-  - FreeRTOS 端已在 `oh-my-robot/platform/osal/freertos/xmake.lua` 通过 `tar_awapi_osal` 单点注入 `OM_OSAL_EVENT_FLAGS_USABLE_MASK=0x00FFFFFFu`。
+  - FreeRTOS 端已在 [`oh-my-robot/platform/osal/freertos/xmake.lua`](../../../../../../platform/osal/freertos/xmake.lua) 通过 `tar_awapi_osal` 单点注入 `OM_OSAL_EVENT_FLAGS_USABLE_MASK=0x00FFFFFFu`。
   - 构建约束已收敛为单一来源：`tar_os` 等消费者目标不得重复注入该宏，统一经 `add_deps("tar_awapi_osal")` 继承。
   - FreeRTOS 后端已统一对 `set/clear/wait/set_from_isr` 输入位进行掩码校验，超出掩码返回 `OSAL_INVALID`。
   - `wait` 输出值已收敛为仅返回可用业务位，屏蔽底层控制位。
@@ -133,7 +133,7 @@
 
 - 当前状态：进行中（selector/capability 子域）。
 - 细化进度：
-  - `oh-my-robot/platform/sync/xmake.lua` 已支持从各端口 `sync_accel.lua` 的 `capabilities` 字段注入 `OM_SYNC_ACCEL_CAP_*` 编译宏。
+  - [`oh-my-robot/platform/sync/xmake.lua`](../../../../../../platform/sync/xmake.lua) 已支持从各端口 `sync_accel.lua` 的 `capabilities` 字段注入 `OM_SYNC_ACCEL_CAP_*` 编译宏。
   - capability 注入支持两种表达：数组形式（`{"completion"}`）与键值形式（`{completion=true}`）。
   - capability 名称已统一做宏安全归一化（大写 + 非字母数字转下划线），避免平台宏命名漂移。
   - 当前 FreeRTOS/Linux 端 `capabilities` 为空，因此不会注入 completion capability，构建结果保持 reference 回退语义。
@@ -154,7 +154,7 @@
 
 | 阶段 | 功能域 | 当前状态 | 代码证据 | 验证状态 | 未解决问题 |
 | --- | --- | --- | --- | --- | --- |
-| Phase X | 示例：OSAL queue | 示例：进行中 | 示例：`oh-my-robot/platform/osal/freertos/osal_queue_freertos.c` | 示例：构建通过/用例通过 | 示例：ISR 路径待压测 |
+| Phase X | 示例：OSAL queue | 示例：进行中 | 示例：[`oh-my-robot/platform/osal/freertos/osal_queue_freertos.c`](../../../../../../platform/osal/freertos/osal_queue_freertos.c) | 示例：构建通过/用例通过 | 示例：ISR 路径待压测 |
 
 
 ## 来源映射

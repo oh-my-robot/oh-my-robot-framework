@@ -52,12 +52,12 @@ rule_end()
 
 ## 5. 组织结构最佳实践
 ### 5.1 分层结构
-- `oh-my-robot/build/`：配置、规则、工具链、任务与共享模块。
-- `oh-my-robot/platform/`：BSP 与 OS/Sync 的模块级构建脚本。
-- `oh-my-robot/lib/`：运行时库与算法模块。
+- [`oh-my-robot/build/`](../../build/)：配置、规则、工具链、任务与共享模块。
+- [`oh-my-robot/platform/`](../../platform/)：BSP 与 OS/Sync 的模块级构建脚本。
+- [`oh-my-robot/lib/`](../../lib/)：运行时库与算法模块。
 
 ### 5.2 上移准则
-仅在以下条件满足时上移到 `oh-my-robot/build`：
+仅在以下条件满足时上移到 [`oh-my-robot/build`](../../build)：
 - 多模块复用
 - 与板级无关
 - 不依赖运行时代码
@@ -95,7 +95,7 @@ target_end()
 ## 8. 工具链设计
 ### 8.1 内置与自定义
 - 内置工具链保持 `kind=builtin`，不私自修改名称或 kind。
-- 自定义工具链通过 `oh-my-robot/build/toolchains/data.lua` 扩展。
+- 自定义工具链通过 [`oh-my-robot/build/toolchains/data.lua`](../../build/toolchains/data.lua) 扩展。
 
 ### 8.2 参数注入策略
 - 编译参数：由工具链映射 `arch_traits` 生成。
@@ -127,8 +127,8 @@ target_end()
 
 ## 12. 文档与变更同步
 - 构建流程变更需同步更新：
-  - `oh-my-robot/docs/build/reference_manual.md`
-  - `oh-my-robot/docs/build/maintenance_manual.md`
+  - [`oh-my-robot/docs/build/reference_manual.md`](reference_manual.md)
+  - [`oh-my-robot/docs/build/maintenance_manual.md`](maintenance_manual.md)
 - 新增构建文档需在两份手册中建立索引或链接。
 - 重要变更需记录到维护手册“变更记录”。
 

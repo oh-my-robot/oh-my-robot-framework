@@ -28,4 +28,4 @@ flowchart LR
 ## 影响 (Consequences)
 - 新增 vendor 必须先声明能力，再实现协议映射，不得向业务层泄漏私有协议。
 - 故障动作、状态机、调度语义由 `MotorCore` 统一主导。
-- 文档分层固定：决策放 `docs/adr`，API/参考手册保留代码邻近目录。
+- 文档分层固定：决策放 [`docs/adr`](../adr)，API/参考手册保留代码邻近目录。
