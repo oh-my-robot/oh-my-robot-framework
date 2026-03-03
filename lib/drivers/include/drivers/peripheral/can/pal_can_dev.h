@@ -540,7 +540,7 @@ typedef struct CanHwInterface {
      * @param can CAN璁惧鍙ユ焺
      * @param cfg CAN閰嶇疆缁撴瀯浣撴寚閽?
      * @return OmRet_e 閰嶇疆缁撴灉
-     * @retval AWLF_OK 鎴愬姛
+     * @retval OM_OK 鎴愬姛
      * @retval AWLF_ERROR_PARAM 鍙傛暟閿欒
      * @note 鎴愬姛鏃讹紝閰嶇疆CAN纭欢涓烘寚瀹氱殑宸ヤ綔妯″紡銆佹尝鐗圭巼銆佽繃婊ゅ櫒銆佸彂閫侀偖绠便€佹帴鏀禙IFO绛夊弬鏁?
      */
@@ -550,7 +550,7 @@ typedef struct CanHwInterface {
      * @param can CAN璁惧鍙ユ焺
      * @param cmd 鎺у埗鍛戒护 @ref CAN_CMD_DEF
      * @param arg 鎺у埗鍙傛暟鎸囬拡
-     * @retval AWLF_OK 鎴愬姛
+     * @retval OM_OK 鎴愬姛
      * @retval AWLF_ERROR_PARAM 鍙傛暟閿欒
      * @note 鎴愬姛鏃讹紝鏍规嵁cmd鎵ц瀵瑰簲鐨勬帶鍒舵搷浣滐紝濡傚惎鍔ㄣ€佸仠姝€佽缃弬鏁扮瓑
      */
@@ -560,7 +560,7 @@ typedef struct CanHwInterface {
      * @param can CAN璁惧鍙ユ焺
      * @param msg CAN纭欢娑堟伅缁撴瀯浣撴寚閽?
      * @return OmRet_e 鍙戦€佺粨鏋?
-     * @retval AWLF_OK 鎴愬姛
+     * @retval OM_OK 鎴愬姛
      * @retval AWLF_ERROR_PARAM 鍙傛暟閿欒
      * @retval AWLF_ERR_OVERFLOW CAN鍙戦€侀偖绠卞凡婊?
      * @note 鎴愬姛鏃讹紝纭欢搴斿洖濉?`msg->hwTxMailbox`锛堝疄闄呭彂閫侀偖绠辩紪鍙凤級銆?
@@ -572,7 +572,7 @@ typedef struct CanHwInterface {
      * @param msg CAN鐢ㄦ埛娑堟伅缁撴瀯浣撴寚閽?
      * @param rxfifo_bank 鎺ユ敹FIFO缂栧彿
      * @return OmRet_e 鎺ユ敹缁撴灉
-     * @retval AWLF_OK 鎴愬姛
+     * @retval OM_OK 鎴愬姛
      * @retval AWLF_ERROR_PARAM 鍙傛暟閿欒
      * @retval AWLF_ERROR_EMPTY CAN鎺ユ敹FIFO涓虹┖
      * @retval AWLF_ERR_OVERFLOW CAN鎺ユ敹FIFO涓虹┖
@@ -646,7 +646,7 @@ CanAdapterInterface_t hal_can_get_canfd_adapter_interface(void);
  * @param handle 纭欢鍙ユ焺
  * @param regparams 娉ㄥ唽鍙傛暟 @ref CAN_REG_DEF
  * @return OmRet_e 娉ㄥ唽缁撴灉
- * @retval AWLF_OK 鎴愬姛
+ * @retval OM_OK 鎴愬姛
  * @retval AWLF_ERROR_PARAM 鍙傛暟閿欒
  * @retval AWLF_ERR_CONFLICT 璁惧鍚嶇О鍐茬獊
  */

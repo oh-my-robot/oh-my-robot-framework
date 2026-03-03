@@ -1,11 +1,13 @@
-﻿#include "sync/completion.h"
+#include "sync/completion.h"
 
 #include "osal/osal_core.h"
 #include "osal/osal_port.h"
 
 /*
- * completion 鍚庣閫夋嫨绛栫暐锛? * - reference 鍚庣濮嬬粓鍙敤锛堝熀浜?OSAL semaphore锛? * - 鍔犻€熷悗绔€氳繃 capability 鏄惧紡澹版槑
- * - 褰撳墠 FreeRTOS 鏈０鏄?completion capability锛屽洜姝ゅ浐瀹氬洖閫€ reference
+ * completion 后端选择策略：
+ * - reference 后端始终可用（基于 OSAL semaphore）；
+ * - 加速后端通过 capability 显式声明；
+ * - 当前 FreeRTOS 未声明 completion capability，因此固定回退到 reference 后端。
  */
 #if defined(OM_SYNC_ACCEL) && (OM_SYNC_ACCEL == 1) && defined(OM_SYNC_ACCEL_CAP_COMPLETION) && \
     (OM_SYNC_ACCEL_CAP_COMPLETION == 1)

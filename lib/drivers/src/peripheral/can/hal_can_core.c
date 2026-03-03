@@ -1,4 +1,4 @@
-﻿#include "core/data_struct/bitmap.h"
+#include "core/data_struct/bitmap.h"
 #include "core/om_def.h"
 #include "drivers/peripheral/can/pal_can_dev.h"
 #include "osal/osal_core.h"
@@ -24,15 +24,15 @@ static inline void can_irq_unlock(OsalIrqIsrState_t state)
 }
 
 /**
- * @brief 鏍规嵁纭欢婊ゆ尝鍣?bank 鏌ユ壘妗嗘灦灞?filter slot銆?
- * @note 浠呭湪 slot 宸插崰鐢ㄦ椂妫€鏌ユ槧灏勫叧绯伙紝杩斿洖鍊煎彲鐩存帴浣滀负 `filterHandle` 浣跨敤銆?
+ * @brief 根据硬件滤波 bank 查找框架 filter slot
+ * @note 仅在 slot 已占用时检查映射关系，返回值可直接作为 `filterHandle` 使用
  */
 static int32_t can_find_slot_by_hwbank(HalCanHandler_t can, int32_t hw_bank)
 {
     CanFilterResMgr_t mgr = &can->filterResMgr;
     for (uint16_t slot = 0; slot < mgr->slotCount; slot++)
     {
-        // 鍙湪鈥滃凡鍗犵敤 slot鈥濅笂鍋氭槧灏勫尮閰嶏紝閬垮厤璇诲彇鍒板巻鍙叉畫鐣欑殑 slotToHwBank 鍊笺€?
+        // 只在“已占用 slot”上做映射匹配，避免读取到历史残留的 slotToHwBank 值
         if (!om_bitmap_atomic_test(&mgr->slotUsedMap, slot))
             continue;
         if (mgr->slotToHwBank[slot] == hw_bank)
@@ -42,14 +42,14 @@ static int32_t can_find_slot_by_hwbank(HalCanHandler_t can, int32_t hw_bank)
 }
 
 /**
- * @brief 閲婃斁鎸囧畾 slot锛屽苟鍥炴敹瀵瑰簲纭欢 bank 鍗犵敤鐘舵€併€?
+ * @brief 释放指定 slot，并回收对应硬件 bank 占用状态
  */
 static void can_release_slot(HalCanHandler_t can, uint16_t slot)
 {
     CanFilterResMgr_t mgr = &can->filterResMgr;
     OsalIrqIsrState_t int_level = can_irq_lock();
     int16_t hw_bank = mgr->slotToHwBank[slot];
-    // 閲婃斁椤哄簭锛氬厛鍥炴敹纭欢 bank锛屽啀鍥炴敹 slot锛屾渶鍚庢竻绌烘槧灏勶紝淇濇寔璧勬簮鐘舵€佷竴鑷淬€?
+    // 释放顺序：先回收硬件 bank，再回收 slot，最后清空映射，保持资源状态一致
     if (hw_bank >= 0 && hw_bank <= mgr->maxHwBank)
         om_bitmap_atomic_clear(&mgr->hwBankUsedMap, (size_t)hw_bank);
     om_bitmap_atomic_clear(&mgr->slotUsedMap, slot);
@@ -58,8 +58,8 @@ static void can_release_slot(HalCanHandler_t can, uint16_t slot)
 }
 
 /**
- * @brief 鍒嗛厤涓€涓?filter slot 鍜屼竴涓彲鐢ㄧ‖浠?bank銆?
- * @note 璇ュ嚱鏁板湪涓寸晫鍖哄唴鍚屾椂鏇存柊 slot/hwBank 涓や釜浣嶅浘锛屼繚璇佸垎閰嶅師瀛愭€с€?
+ * @brief 分配一个 filter slot 和一个可用硬件 bank
+ * @note 该函数在临界区内同时更新 slot/hwBank 两个位图，保证分配原子性
  */
 static OmRet_e can_reserve_slot(HalCanHandler_t can, uint16_t *slot_out, int16_t *hw_bank_out)
 {
@@ -68,7 +68,7 @@ static OmRet_e can_reserve_slot(HalCanHandler_t can, uint16_t *slot_out, int16_t
     uint16_t slot = (uint16_t)0xFFFFu;
     int16_t hw_bank = -1;
 
-    // 绗竴姝ワ細鍦ㄧ嚎鎬?slot 绌洪棿涓壘涓€涓┖闂查€昏緫鍙ユ焺銆?
+    // 第一步：在 slot 空间中找一个空闲逻辑句柄
     for (uint16_t idx = 0; idx < mgr->slotCount; idx++)
     {
         if (!om_bitmap_atomic_test(&mgr->slotUsedMap, idx))
@@ -83,8 +83,8 @@ static OmRet_e can_reserve_slot(HalCanHandler_t can, uint16_t *slot_out, int16_t
         return OM_ERROR_BUSY;
     }
 
-    // 绗簩姝ワ細鍙湪 capability 缁欏嚭鐨?bank 鍒楄〃涓寫閫夊彲鐢ㄧ‖浠?bank锛?
-    // 涓嶅亣璁?bank 杩炵画锛屼篃涓嶄緷璧栧浐瀹氬尯闂淬€?
+    // 第二步：只在 capability 给出的 bank 列表中挑选可用硬件 bank
+    // 不假设 bank 连续，也不依赖固定区间
     for (uint16_t idx = 0; idx < mgr->slotCount; idx++)
     {
         uint16_t candidate = mgr->hwBankList[idx];
@@ -100,14 +100,14 @@ static OmRet_e can_reserve_slot(HalCanHandler_t can, uint16_t *slot_out, int16_t
         return OM_ERROR_BUSY;
     }
 
-    // 绗笁姝ワ細CAS 鏂瑰紡鍗犵敤 slot锛涘け璐ヨ鏄庡苟鍙戜笅琚叾浠栬矾寰勬姠鍗犮€?
+    // 第三步：CAS 方式占用 slot；失败说明并发下被其他路径抢占
     if (!om_bitmap_atomic_try_set(&mgr->slotUsedMap, slot))
     {
         can_irq_unlock(int_level);
         return OM_ERROR_BUSY;
     }
 
-    // 绗洓姝ワ細鍗犵敤纭欢 bank锛涜嫢澶辫触鍒欏洖婊?slot锛屼繚璇佲€滀笉鍗婃垚鍔熲€濄€?
+    // 第四步：占用硬件 bank；若失败则回滚 slot，保证“不半成功”
     if (!om_bitmap_atomic_try_set(&mgr->hwBankUsedMap, (size_t)hw_bank))
     {
         om_bitmap_atomic_clear(&mgr->slotUsedMap, slot);
@@ -124,12 +124,12 @@ static OmRet_e can_reserve_slot(HalCanHandler_t can, uint16_t *slot_out, int16_t
 }
 
 /**
- * @brief 閲婃斁杩囨护鍣ㄨ祫婧愮鐞嗗櫒鍐呴儴鍔ㄦ€佽祫婧愩€?
+ * @brief 释放过滤器资源管理器内部动态资源
  */
 static void can_filter_resmgr_deinit(HalCanHandler_t can)
 {
     CanFilterResMgr_t mgr = &can->filterResMgr;
-    // words 鐢?init 闃舵鍔ㄦ€佸垎閰嶏紝杩欓噷缁熶竴鍥炴敹銆?
+    // words init 阶段动态分配，这里统一回收
     if (mgr->slotUsedMap.words != NULL)
         osal_free((void *)mgr->slotUsedMap.words);
     if (mgr->hwBankUsedMap.words != NULL)
@@ -138,13 +138,13 @@ static void can_filter_resmgr_deinit(HalCanHandler_t can)
         osal_free(mgr->hwBankList);
     if (mgr->slotToHwBank)
         osal_free(mgr->slotToHwBank);
-    // 娓呴浂鍚庡彲瀹夊叏閲嶅鍒濆鍖栵紝閬垮厤鎮寕鎸囬拡銆?
+    // 清零后可安全重复初始化，避免悬挂指针
     memset(mgr, 0, sizeof(CanFilterResMgr_s));
 }
 
 /**
- * @brief 浠庣‖浠惰兘鍔涘垵濮嬪寲杩囨护鍣ㄨ祫婧愮鐞嗗櫒銆?
- * @note slot 鏁伴噺鐢?BSP 涓婃姤鐨?`hwBankCount` 鍐冲畾锛宻lot 涓?hw bank 閫氳繃 `slotToHwBank` 寤虹珛鏄犲皠銆?
+ * @brief 从硬件能力初始化过滤器资源管理器
+ * @note slot 数量由 BSP 上报 `hwBankCount` 决定，slot 与 hw bank 通过 `slotToHwBank` 建立映射
  */
 static OmRet_e can_filter_resmgr_init(HalCanHandler_t can)
 {
@@ -154,7 +154,7 @@ static OmRet_e can_filter_resmgr_init(HalCanHandler_t can)
     if (ret != OM_OK || capability.hwBankCount == 0 || capability.hwBankList == NULL)
         return OM_ERROR_PARAM;
 
-    // 鏀寔閲嶅 open/init锛氬厛娓呯悊鏃ц祫婧愶紝鍐嶆寜鏈€鏂?capability 閲嶅缓銆?
+    // 支持重复 open/init：先清理旧资源，再按最新 capability 重建
     can_filter_resmgr_deinit(can);
 
     mgr->slotCount = capability.hwBankCount;
@@ -165,20 +165,20 @@ static OmRet_e can_filter_resmgr_init(HalCanHandler_t can)
         can_filter_resmgr_deinit(can);
         return OM_ERROR_MEMORY;
     }
-    // 鎷疯礉 bank 鍒楄〃锛岄伩鍏嶇洿鎺ヤ緷璧?BSP 渚у唴瀛樼敓鍛藉懆鏈熴€?
+    // 拷贝 bank 列表，避免直接依赖 BSP 侧内存生命周期
     memcpy(mgr->hwBankList, capability.hwBankList, mgr->slotCount);
 
     mgr->maxHwBank = 0;
     for (uint16_t i = 0; i < mgr->slotCount; i++)
     {
-        // -1 琛ㄧず璇?slot 褰撳墠鏈粦瀹氫换浣曠‖浠?bank銆?
+        // -1 表示 slot 当前未绑定任何硬件 bank
         mgr->slotToHwBank[i] = -1;
         if (mgr->hwBankList[i] > mgr->maxHwBank)
             mgr->maxHwBank = mgr->hwBankList[i];
     }
 
-    // slot 浣嶅浘鎸夐€昏緫鍙ユ焺鏁伴噺鍒嗛厤锛?
-    // hwBank 浣嶅浘鎸夆€滄渶澶?bank 涓嬫爣 + 1鈥濆垎閰嶏紝鏀寔绂绘暎 bank 缂栧彿銆?
+    // slot 位图按逻辑句柄数量分配
+    // hwBank 位图按“最大 bank 下标 + 1”分配，支持离散 bank 编号
     size_t hw_bank_bit_count = (size_t)mgr->maxHwBank + 1u;
     om_atomic_ulong_t *slot_words = om_bitmap_atomic_buffer_alloc((size_t)mgr->slotCount, osal_malloc);
     om_atomic_ulong_t *hw_bank_words = om_bitmap_atomic_buffer_alloc(hw_bank_bit_count, osal_malloc);
@@ -192,7 +192,7 @@ static OmRet_e can_filter_resmgr_init(HalCanHandler_t can)
         return OM_ERROR_MEMORY;
     }
 
-    // 鍒濆鍖栧悗涓ゅ紶浣嶅浘鍧囦负绌洪棽鐘舵€侊紙鍏?0锛夈€?
+    // 初始化后两张位图均为空闲状态（0）
     ret = om_bitmap_atomic_init(&mgr->slotUsedMap, slot_words, (size_t)mgr->slotCount);
     if (ret != OM_OK)
     {
@@ -216,7 +216,7 @@ static void can_status_timer_cb(OsalTimer_t x_timer)
 {
     HalCanHandler_t can = (HalCanHandler_t)osal_timer_get_id(x_timer);
     CanStatusManager_t status_manager = &can->statusManager;
-    // 妫€鏌?CAN 鐘舵€?
+    // 检查 CAN 状态
     can->hwInterface->control(can, CAN_CMD_GET_STATUS, (void *)&status_manager->errCounter);
     size_t can_tx_err_cnt = status_manager->errCounter.txErrCnt;
     size_t can_rx_err_cnt = status_manager->errCounter.rxErrCnt;
@@ -230,12 +230,12 @@ static void can_status_timer_cb(OsalTimer_t x_timer)
 }
 
 /*
- * @brief 鍒濆鍖朇AN鎺ユ敹FIFO
- * @param Can CAN鍙ユ焺
- * @param msgNum 鎺ユ敹娑堟伅缂撳瓨鏁伴噺
- * @retval  閿欒鐮侊紙OmRet_e锛夋弿杩?
- *          OM_OK             鎴愬姛
- *          OM_ERROR_MEMORY   鍐呭瓨鍒嗛厤澶辫触
+ * @brief 初始化 CAN 接收 FIFO
+ * @param Can CAN 句柄
+ * @param msgNum 接收消息缓存数量
+ * @retval  错误码（OmRet_e）描述
+ *          OM_OK             成功
+ *          OM_ERROR_MEMORY   内存分配失败
  */
 static OmRet_e can_fifo_init(HalCanHandler_t can, CanMsgFifo_t can_fifo, uint32_t msg_num, uint8_t is_over_write)
 {
@@ -245,7 +245,7 @@ static OmRet_e can_fifo_init(HalCanHandler_t can, CanMsgFifo_t can_fifo, uint32_
     while (can_fifo->msgBuffer == NULL)
     {
     };
-    // 鍒濆鍖栭摼琛?
+    // 初始化链表
     INIT_LIST_HEAD(&can_fifo->usedList);
     can_fifo->freeCount = msg_num;
     can_fifo->isOverwrite = is_over_write;
@@ -253,12 +253,12 @@ static OmRet_e can_fifo_init(HalCanHandler_t can, CanMsgFifo_t can_fifo, uint32_
 }
 
 /*
- * @brief 鍒濆鍖朇AN鎺ユ敹杩囨护鍣?
- * @param RxHandler CAN鎺ユ敹鍙ユ焺
- * @param filterNum 鎺ユ敹杩囨护鍣ㄦ暟閲?
- * @retval  閿欒鐮侊紙OmRet_e锛夋弿杩?
- *          OM_OK             鎴愬姛
- *          OM_ERROR_MEMORY   鍐呭瓨鍒嗛厤澶辫触
+ * @brief 初始化 CAN 接收过滤器
+ * @param RxHandler CAN 接收句柄
+ * @param filterNum 接收过滤器数量
+ * @retval  错误码（OmRet_e）描述
+ *          OM_OK             成功
+ *          OM_ERROR_MEMORY   内存分配失败
  */
 static OmRet_e can_filter_init(CanRxHandler_t rx_handler, uint32_t filter_num)
 {
@@ -284,14 +284,14 @@ static OmRet_e can_filter_init(CanRxHandler_t rx_handler, uint32_t filter_num)
 }
 
 /*
- * @brief 鍒濆鍖朇AN鎺ユ敹鍙ユ焺
- * @param Can CAN鍙ユ焺
- * @param filterNum 鎺ユ敹杩囨护鍣ㄦ暟閲?
- * @param msgNum 鎺ユ敹娑堟伅缂撳瓨鏁伴噺
- * @retval  閿欒鐮侊紙OmRet_e锛夋弿杩?
- *          OM_OK             鎴愬姛
- *          OM_ERROR_BUSY     鍙ユ焺宸插垵濮嬪寲
- *          OM_ERROR_MEMORY   鍐呭瓨鍒嗛厤澶辫触
+ * @brief 初始化 CAN 接收句柄
+ * @param Can CAN 句柄
+ * @param filterNum 接收过滤器数量
+ * @param msgNum 接收消息缓存数量
+ * @retval  错误码（OmRet_e）描述
+ *          OM_OK             成功
+ *          OM_ERROR_BUSY     句柄已初始化
+ *          OM_ERROR_MEMORY   内存分配失败
  */
 static OmRet_e can_rxhandler_init(HalCanHandler_t can, uint32_t iotype, uint32_t filter_num, uint32_t msg_num)
 {
@@ -299,12 +299,12 @@ static OmRet_e can_rxhandler_init(HalCanHandler_t can, uint32_t iotype, uint32_t
     uint32_t reg_io_type;
     uint32_t is_oparam_valid;
     OmRet_e ret = OM_OK;
-    // 鑷冲皯鍒濆鍖栦竴涓护娉㈠櫒
+    // 至少初始化一个滤波器
     while (filter_num <= 0 || msg_num <= 0 || !can->adapterInterface->msgbufferAlloc)
     {
     }; // TODO: ASSERT
 
-    // 妫€鏌O绫诲瀷鏄惁鏈夋晥
+    // 检查 IO 类型是否有效
     reg_io_type = device_get_regparams(&can->parent) & DEVICE_REG_RXTYPE_MASK;
     is_oparam_valid = (iotype & reg_io_type);
     if (!is_oparam_valid)
@@ -379,7 +379,7 @@ static OmRet_e can_txhandler_init(HalCanHandler_t can, uint32_t iotype, size_t m
     {
     }; // TODO: ASSERT
 
-    // 妫€鏌O绫诲瀷鏄惁鏈夋晥
+    // 检查 IO 类型是否有效
     reg_io_type = device_get_regparams(&can->parent) & DEVICE_REG_TXTYPE_MASK;
     is_oparam_valid = (reg_io_type & iotype);
     if (!is_oparam_valid)
@@ -388,14 +388,14 @@ static OmRet_e can_txhandler_init(HalCanHandler_t can, uint32_t iotype, size_t m
         return OM_ERROR_PARAM;
     }
 
-    // 鍒濆鍖朏IFO
+    // 初始化FIFO
     tx_handler = &can->txHandler;
     size_t tx_mail_boxsz = can->cfg.mailboxNum * sizeof(CanMailbox_s);
     ret = can_fifo_init(can, &tx_handler->txFifo, tx_msg_num, can->cfg.functionalCfg.isTxOverwrite);
     while (ret != OM_OK)
     {
     }; // TODO: ASSERT
-    // 鍒濆鍖朚ailbox
+    // 初始化Mailbox
     tx_handler->pMailboxes = (CanMailbox_t)osal_malloc(tx_mail_boxsz);
     while (tx_handler->pMailboxes == NULL)
     {
@@ -427,8 +427,8 @@ static void can_txhandler_deinit(CanTxHandler_t tx_handler)
 }
 
 /*
- * @brief CAN 鎺ユ敹妯″潡鍙嶅垵濮嬪寲
- * @param RxHandler CAN鎺ユ敹鍙ユ焺
+ * @brief CAN 接收模块反初始化
+ * @param RxHandler CAN 接收句柄
  */
 static void can_rxhandler_deinit(CanRxHandler_t rx_handler)
 {
@@ -445,57 +445,57 @@ static void can_rxhandler_deinit(CanRxHandler_t rx_handler)
 }
 
 /*
- * @brief 灏咰AN娑堟伅閾捐〃椤逛腑鐨勬暟鎹嫹璐濆埌CAN鐢ㄦ埛娑堟伅
- * @param msgList CAN娑堟伅閾捐〃
- * @param pUserRxMsg CAN鐢ㄦ埛娑堟伅鎸囬拡
+ * @brief 将 CAN 消息链表项中的数据拷贝到 CAN 用户消息
+ * @param msgList CAN消息链表
+ * @param pUserRxMsg CAN用户消息指针
  */
 static inline void can_container_copy_to_usermsg(CanMsgList_t msg_list, CanUserMsg_t p_user_rx_msg)
 {
-    msg_list->userMsg.userBuf = p_user_rx_msg->userBuf; // 闃叉妗嗘灦灞傜殑userBuf瑕嗙洊鍘熸湁鐨勭敤鎴峰唴瀛樻寚閽?
+    msg_list->userMsg.userBuf = p_user_rx_msg->userBuf; // 防止框架层的userBuf覆盖原有的用户内存指针
     *p_user_rx_msg = msg_list->userMsg;
-    // 鎷疯礉鏁版嵁鍒扮敤鎴风紦鍐插尯
+    // 拷贝数据到用户缓冲区
     memcpy((void *)p_user_rx_msg->userBuf, (void *)msg_list->container, msg_list->userMsg.dsc.dataLen);
-    msg_list->userMsg.userBuf = msg_list->container; // 鎭㈠妗嗘灦灞傜殑userBuf鎸囬拡
+    msg_list->userMsg.userBuf = msg_list->container; // 恢复框架层的userBuf指针
 }
 
 /**
- * @brief 浠嶤AN FIFO涓幏鍙栦竴涓┖闂查摼琛ㄩ」
+ * @brief 从 CAN FIFO 中获取一个空闲链表项
  * @param Fifo CAN FIFO
- * @return 閿欒
- * @retval 1. CAN_ERR_NONE          鎴愬姛
- * @retval 2. CAN_ERR_SOFT_FIFO_OVERFLOW 鎺ユ敹FIFO婧㈠嚭
+ * @return 错误
+ * @retval 1. CAN_ERR_NONE          成功
+ * @retval 2. CAN_ERR_SOFT_FIFO_OVERFLOW 接收FIFO溢出
  *
- * @note 鍦ㄨ鍐欐ā寮忎笅锛岃繑鍥濩AN_ERR_SOFT_FIFO_OVERFLOW鏃禡sgList灏嗘寚鍚戣鍙栧嚭鐨勯摼琛ㄩ」
- *       鍚﹀垯MsgList灏嗘寚鍚慛ULL
- * @note 璇ュ嚱鏁伴潪绾跨▼瀹夊叏锛岄渶瑕佽皟鐢ㄨ€呰嚜琛屼繚鎶ゆ暟鎹畨鍏ㄣ€?
+ * @note 在覆写模式下，返回CAN_ERR_SOFT_FIFO_OVERFLOW时MsgList将指向被取出的链表项
+ *       否则MsgList将指向NULL
+ * @note 该函数非线程安全，需要调用者自行保护数据安全
  */
 static CanErrorCode_e can_get_free_msg_list(CanMsgFifo_t fifo, CanMsgList_t *msg_list)
 {
     CanErrorCode_e ret = CAN_ERR_NONE;
 
-    // 濡傛灉绌洪棽閾捐〃闈炵┖锛屽垯鍙栧嚭涓€涓摼琛ㄩ」
+    // 如果空闲链表非空，则取出一个链表项
     if (!list_empty(&fifo->freeList))
     {
         *msg_list = list_first_entry(&fifo->freeList, CanMsgList_s, fifoListNode);
-        list_del(&(*msg_list)->fifoListNode); // 灏嗚鑺傜偣浠庣┖闂查摼琛ㄤ腑鍒犻櫎
+        list_del(&(*msg_list)->fifoListNode); // 将该节点从空闲链表中删除
         fifo->freeCount--;
     }
-    // 濡傛灉绌洪棽閾捐〃绌猴紝鍒欎唬琛ㄩ摼琛ㄥ凡婊?
-    // 鑻ュ紑鍚鐩栨ā寮忥紝鍒欎粠宸茬敤閾捐〃鍙栧嚭鏈€鏃ф秷鎭紝瀹炵幇鈥滆鐩栨棫娑堟伅鈥濄€?
-    // 鑻ユ湭寮€鍚鐩栨ā寮忥紝鍒欒繑鍥濬IFO婧㈠嚭閿欒
+    // 如果空闲链表为空，则代表链表已满
+    // 若开启覆盖模式，则从已用链表取出最旧消息，实现“覆盖旧消息”
+    // 若未开启覆盖模式，则返回FIFO溢出错误
     else if (!list_empty(&fifo->usedList) && fifo->isOverwrite)
     {
         ret = CAN_ERR_SOFT_FIFO_OVERFLOW;
         *msg_list = list_first_entry(&fifo->usedList, CanMsgList_s, fifoListNode);
-        list_del(&(*msg_list)->fifoListNode); // 灏嗚鑺傜偣浠庡凡鐢ㄩ摼琛ㄤ腑鍒犻櫎
+        list_del(&(*msg_list)->fifoListNode); // 将该节点从已用链表中删除
     }
-    else if (!fifo->isOverwrite) // 鑻ユ湭寮€鍚鐩栨ā寮忥紝鍒欒繑鍥濬IFO婧㈠嚭閿欒
+    else if (!fifo->isOverwrite) // 若未开启覆盖模式，则返回FIFO溢出错误
     {
         *msg_list = NULL;
         ret = CAN_ERR_SOFT_FIFO_OVERFLOW;
     }
-    // 鐞嗚涓婄┖闂查摼琛ㄤ笌宸茬敤閾捐〃鐨勮妭鐐规€绘暟搴旀亽瀹氫笖涓烘鏁存暟銆?
-    // 鍑虹幇涓よ〃鐨嗙┖鐨勬儏鍐碉紝鍙兘鏄紦瀛樺尯鏈垵濮嬪寲
+    // 理论上空闲链表与已用链表的节点总数应恒定且为正整数
+    // 出现两表皆空的情况，只能是缓存区未初始化
     else
     {
         while (1)
@@ -506,38 +506,38 @@ static CanErrorCode_e can_get_free_msg_list(CanMsgFifo_t fifo, CanMsgList_t *msg
 }
 
 /**
- * @brief 灏咰AN娑堟伅閾捐〃椤规坊鍔犲洖CAN鎺ユ敹FIFO鐨勭┖闂查摼琛ㄤ腑
- * @param RxFifo CAN鎺ユ敹FIFO
- * @param MsgList CAN娑堟伅閾捐〃
+ * @brief 将CAN消息链表项添加回CAN接收FIFO的空闲链表中
+ * @param RxFifo CAN接收FIFO
+ * @param MsgList CAN消息链表
  *
- * @note 璇ュ嚱鏁伴潪绾跨▼瀹夊叏锛岄渶瑕佽皟鐢ㄨ€呰嚜琛屼繚鎶ゆ暟鎹畨鍏ㄣ€?
+ * @note 该函数非线程安全，需要调用者自行保护数据安全
  */
 static inline void can_add_free_msg_list(CanMsgFifo_t fifo, CanMsgList_t msg_list)
 {
-    list_add_tail(&msg_list->fifoListNode, &fifo->freeList); // 灏嗚鑺傜偣娣诲姞鍒扮┖闂查摼琛ㄤ腑
+    list_add_tail(&msg_list->fifoListNode, &fifo->freeList); // 将该节点添加到空闲链表中
     fifo->freeCount++;
 }
 
 /**
- * @brief 灏咰AN娑堟伅閾捐〃椤规坊鍔犲洖CAN鍙戦€丗IFO鐨勫凡鐢ㄩ摼琛ㄤ腑
+ * @brief 将CAN消息链表项添加回CAN发送FIFO的已用链表中
  * @param Fifo CANFIFO
- * @param MsgList CAN娑堟伅閾捐〃
+ * @param MsgList CAN消息链表
  *
- * @note 璇ュ嚱鏁伴潪绾跨▼瀹夊叏锛岄渶瑕佽皟鐢ㄨ€呰嚜琛屼繚鎶ゆ暟鎹畨鍏ㄣ€?
+ * @note 该函数非线程安全，需要调用者自行保护数据安全
  */
 static inline void can_add_used_msg_list(CanMsgFifo_t fifo, CanMsgList_t msg_list)
 {
-    list_add_tail(&msg_list->fifoListNode, &fifo->usedList); // 灏嗚鑺傜偣娣诲姞鍒板凡鐢ㄩ摼琛ㄤ腑
+    list_add_tail(&msg_list->fifoListNode, &fifo->usedList); // 将该节点添加到已用链表中
 }
 
 /**
- * @brief 浠嶤AN鎺ユ敹FIFO涓幏鍙栦竴涓┖闂查摼琛ㄩ」
+ * @brief 从CAN接收FIFO中获取一个空闲链表项
  *
- * @param RxHandler CAN鎺ユ敹鍙ユ焺
- * @param MsgList CAN娑堟伅閾捐〃椤规寚閽?
- * @return CanErrorCode_e 閿欒
- * @retval 1. CAN_ERR_NONE          鎴愬姛
- * @retval 2. CAN_ERR_SOFT_FIFO_OVERFLOW 鎺ユ敹FIFO婧㈠嚭
+ * @param RxHandler CAN 接收句柄
+ * @param MsgList CAN 消息链表项指针
+ * @return CanErrorCode_e 错误
+ * @retval 1. CAN_ERR_NONE          成功
+ * @retval 2. CAN_ERR_SOFT_FIFO_OVERFLOW 接收FIFO溢出
  */
 static CanErrorCode_e canrx_get_free_msg_list(CanRxHandler_t rx_handler, CanMsgList_t *pp_msg_list)
 {
@@ -545,16 +545,16 @@ static CanErrorCode_e canrx_get_free_msg_list(CanRxHandler_t rx_handler, CanMsgL
     CanErrorCode_e ret = CAN_ERR_NONE;
     int_level = can_irq_lock();
     ret = can_get_free_msg_list(&rx_handler->rxFifo, pp_msg_list);
-    if (*pp_msg_list == NULL) // 鑻pMsgList鎸囧悜NULL锛岃鏄庡彂鐢熶簡鏌愮閿欒锛岀洿鎺ヨ繑鍥炵粨鏋?
+    if (*pp_msg_list == NULL) // 若ppMsgList指向NULL，说明发生了某种错误，直接返回结果
     {
         can_irq_unlock(int_level);
         return ret;
     }
-    // 濡傛灉璇ラ摼琛ㄩ」鏈夊尮閰嶇殑婊ゆ尝鍣紝鍒欏皢鍏朵粠婊ゆ尝鍣ㄧ殑鍖归厤閾捐〃涓垹闄?
+    // 如果该链表项有匹配的滤波器，则将其从滤波器的匹配链表中删除
     if ((*pp_msg_list)->owner != NULL)
     {
         list_del(&(*pp_msg_list)->matchedListNode);
-        // 濡傛灉鏄疐IFO婧㈠嚭锛岃鏄庡彇寰楃殑鏄繕鏉ヤ笉鍙婅鍙栫殑鏁版嵁锛屾墍浠ュ叾鍘熸湰鍖归厤婊ゆ尝鍣ㄧ殑娑堟伅鏁伴噺闇€瑕佸噺涓€
+        // 如果是FIFO溢出，说明取得的是还来不及读取的数据，所以其原本匹配滤波器的消息数量需要减一
         if (ret == CAN_ERR_SOFT_FIFO_OVERFLOW)
             ((CanFilter_t)(*pp_msg_list)->owner)->msgCount--;
         (*pp_msg_list)->owner = NULL;
@@ -564,12 +564,12 @@ static CanErrorCode_e canrx_get_free_msg_list(CanRxHandler_t rx_handler, CanMsgL
 }
 
 /**
- * @brief 浠嶤AN鍙戦€丗IFO涓幏鍙栦竴涓┖闂查摼琛ㄩ」
- * @param TxHandler CAN鍙戦€佸彞鏌?
- * @param MsgList CAN娑堟伅閾捐〃椤规寚閽?
- * @return CanErrorCode_e 閿欒
- * @retval 1. CAN_ERR_NONE          鎴愬姛
- * @retval 2. CAN_ERR_SOFT_FIFO_OVERFLOW 鍙戦€丗IFO婧㈠嚭
+ * @brief 从CAN发送FIFO中获取一个空闲链表项
+ * @param TxHandler CAN 发送句柄
+ * @param MsgList CAN 消息链表项指针
+ * @return CanErrorCode_e 错误
+ * @retval 1. CAN_ERR_NONE          成功
+ * @retval 2. CAN_ERR_SOFT_FIFO_OVERFLOW 发送FIFO溢出
  *
  */
 static CanErrorCode_e cantx_get_free_msg_list(CanTxHandler_t tx_handler, CanMsgList_t *pp_msg_list)
@@ -578,25 +578,25 @@ static CanErrorCode_e cantx_get_free_msg_list(CanTxHandler_t tx_handler, CanMsgL
     CanErrorCode_e ret = CAN_ERR_NONE;
     int_level = can_irq_lock();
     ret = can_get_free_msg_list(&tx_handler->txFifo, pp_msg_list);
-    if (*pp_msg_list == NULL) // 鑻pMsgList鎸囧悜NULL锛岃鏄庡彂鐢熶簡鏌愮閿欒锛岀洿鎺ヨ繑鍥炵粨鏋?
+    if (*pp_msg_list == NULL) // 若ppMsgList指向NULL，说明发生了某种错误，直接返回结果
     {
         can_irq_unlock(int_level);
         return ret;
     }
     while ((*pp_msg_list)->owner != NULL && !tx_handler->txFifo.isOverwrite)
     {
-    }; // TODO: 闈炶鍐欐ā寮忎笅涓嶅簲鍑虹幇鈥滃彇鍒版鍦ㄥ彂閫佹姤鏂団€濈殑鎯呭喌
-    // 濡傛灉璇ラ摼琛ㄩ」鏄鍦ㄥ彂閫佺殑鎶ユ枃(瑕嗗啓妯″紡涓嬩細瑙﹀彂)锛屽垯灏嗗叾浠庡彂閫侀偖绠辩殑鍖归厤閾捐〃涓垹闄?
-    // TODO: 杩欎釜閫昏緫鍙兘瀵艰嚧姝ｅ湪鍙戦€佹垨绛夊緟閲嶄紶鐨勬姤鏂囪閿欒鍦颁粠鍖归厤閾捐〃涓垹闄?
+    }; // TODO: 非覆写模式下不应出现“取到正在发送报文”的情况
+    // 如果该链表项是正在发送的报文(覆写模式下会触发)，则将其从发送邮箱的匹配链表中删
+    // TODO: 这个逻辑可能导致正在发送或等待重传的报文被错误地从匹配链表中删
     if ((*pp_msg_list)->owner != NULL)
     {
         list_del(&(*pp_msg_list)->matchedListNode);
-        // 濡傛灉鏄疐IFO婧㈠嚭锛岃鏄庡彇寰楃殑鏄繕鏉ヤ笉鍙婂彂閫佺殑鏁版嵁锛屾墍浠ュ叾鍘熸湰鍖归厤鍙戦€侀偖绠辩殑娑堟伅闇€瑕佷腑鏂彂閫?
+        // 如果是FIFO溢出，说明取得的是还来不及发送的数据，所以其原本匹配发送邮箱的消息需要中断发送
         if (ret == CAN_ERR_SOFT_FIFO_OVERFLOW)
             ((CanMailbox_t)(*pp_msg_list)->owner)->isBusy = 0;
         (*pp_msg_list)->owner = NULL;
     }
-    // TODO: 鏈潵鎷撳睍TxHandler鏁版嵁缁撴瀯鏃讹紝姝ゅ鍙兘闇€瑕佸仛棰濆鎿嶄綔
+    // TODO: 未来拓展TxHandler数据结构时，此处可能需要做额外操作
     can_irq_unlock(int_level);
     return ret;
 }
@@ -605,7 +605,7 @@ static inline void canrx_add_free_msg_list(CanRxHandler_t rx_handler, CanMsgList
 {
     uint32_t int_level;
     int_level = can_irq_lock();
-    can_add_free_msg_list(&rx_handler->rxFifo, msg_list); // 灏嗚鑺傜偣娣诲姞鍒扮┖闂查摼琛ㄤ腑
+    can_add_free_msg_list(&rx_handler->rxFifo, msg_list); // 将该节点添加到空闲链表中
     can_irq_unlock(int_level);
 }
 
@@ -616,31 +616,31 @@ static inline void cantx_add_free_msg_list(CanTxHandler_t tx_handler, CanMailbox
 
     int_level = can_irq_lock();
     msg_list = mailbox->pMsgList;
-    list_del(&msg_list->fifoListNode); // 浠庡凡鐢ㄩ摼琛ㄤ腑鍒犻櫎
+    list_del(&msg_list->fifoListNode); // 从已用链表中删除
     list_del(&msg_list->matchedListNode);
     mailbox->isBusy = 0;
     mailbox->pMsgList = NULL;
     msg_list->owner = NULL;
     list_add_tail(&mailbox->list, &tx_handler->mailboxList);
-    can_add_free_msg_list(&tx_handler->txFifo, msg_list); // 灏嗚鑺傜偣娣诲姞鍒扮┖闂查摼琛ㄤ腑
+    can_add_free_msg_list(&tx_handler->txFifo, msg_list); // 将该节点添加到空闲链表中
     can_irq_unlock(int_level);
 }
 
 /**
- * @brief 灏嗗～鍏呭ソ鏁版嵁鐨凜AN娑堟伅閾捐〃锛堝凡鐢ㄩ」锛夋坊鍔犲洖CAN鎺ユ敹FIFO鍜屾护娉㈠櫒鍖归厤閾捐〃
- * @param RxHandler CAN鎺ユ敹鍙ユ焺
- * @param Filter 鎺ユ敹杩囨护鍣?
- * @param msgList CAN娑堟伅閾捐〃
- * @note Filter 鍚堟硶鎬х敱璋冪敤鑰呬繚璇侊紝鏈嚱鏁颁笉鍋氭鏌ャ€?
+ * @brief 将填充好数据的CAN消息链表（已用项）添加回CAN接收FIFO和滤波器匹配链表
+ * @param RxHandler CAN 接收句柄
+ * @param Filter 接收过滤器
+ * @param msgList CAN消息链表
+ * @note Filter 合法性由调用者保证，本函数不做检查
  */
 static inline void canrx_add_used_msg_list(CanRxHandler_t rx_handler, CanFilter_t filter, CanMsgList_t msg_list)
 {
     uint32_t int_level;
     int_level = can_irq_lock();
-    list_add_tail(&msg_list->matchedListNode, &filter->msgMatchedList); // 灏嗚鑺傜偣娣诲姞鍒版护娉㈠櫒鍖归厤閾捐〃
-    msg_list->owner = filter;                                           // 璁板綍璇ユ秷鎭摼琛ㄩ」鎵€灞炴护娉㈠櫒
-    filter->msgCount++;                                                 // 澧炲姞婊ゆ尝鍣ㄥ尮閰嶆秷鎭暟閲?
-    can_add_used_msg_list(&rx_handler->rxFifo, msg_list);               // 灏嗚鑺傜偣娣诲姞鍒板凡鐢ㄩ摼琛ㄤ腑
+    list_add_tail(&msg_list->matchedListNode, &filter->msgMatchedList); // 将该节点添加到滤波器匹配链表
+    msg_list->owner = filter;                                           // 记录该消息链表项所属滤波器
+    filter->msgCount++;                                                 // 增加滤波器匹配消息数
+    can_add_used_msg_list(&rx_handler->rxFifo, msg_list);               // 将该节点添加到已用链表中
     can_irq_unlock(int_level);
 }
 
@@ -648,36 +648,36 @@ static inline void cantx_add_used_msg_list(CanTxHandler_t tx_handler, CanMsgList
 {
     uint32_t int_level;
     int_level = can_irq_lock();
-    can_add_used_msg_list(&tx_handler->txFifo, p_msg_list); // 灏嗚鑺傜偣娣诲姞鍒板凡鐢ㄩ摼琛ㄤ腑
+    can_add_used_msg_list(&tx_handler->txFifo, p_msg_list); // 将该节点添加到已用链表中
     can_irq_unlock(int_level);
 }
 
 /**
- * @brief 浠嶤AN鎺ユ敹FIFO涓幏鍙栦竴涓狢AN娑堟伅閾捐〃椤癸紝鍚屾椂灏嗗叾浠庡凡鐢ㄩ摼琛ㄥ拰婊ゆ尝鍣ㄥ尮閰嶉摼琛ㄤ腑鍒犻櫎
- * @param RxHandler CAN鎺ユ敹鍙ユ焺
- * @param Filter 鎺ユ敹婊ゆ尝鍣?
- * @return CAN娑堟伅閾捐〃椤规寚閽?
- * @note Filter 鍚堟硶鎬х敱璋冪敤鑰呬繚璇侊紝鏈嚱鏁颁笉鍋氭鏌ャ€?
+ * @brief 从CAN接收FIFO中获取一个CAN消息链表项，同时将其从已用链表和滤波器匹配链表中删除
+ * @param RxHandler CAN 接收句柄
+ * @param Filter 接收滤波
+ * @return CAN 消息链表项指针
+ * @note Filter 合法性由调用者保证，本函数不做检查
  */
 static CanMsgList_t canrx_get_used_msg_list(CanRxHandler_t rx_handler, CanFilter_t filter)
 {
     uint32_t int_level;
     CanMsgList_t msg_list;
     int_level = can_irq_lock();
-    // 濡傛灉鎸囧畾浜嗘护娉㈠櫒锛屼笖璇ユ护娉㈠櫒鏈夊尮閰嶇殑娑堟伅閾捐〃椤癸紝鍒欏彇鍑虹涓€涓尮閰嶉」
+    // 如果指定了滤波器，且该滤波器有匹配的消息链表项，则取出第一个匹配项
     if (filter != NULL)
     {
         msg_list = list_first_entry(&filter->msgMatchedList, CanMsgList_s, matchedListNode);
         filter->msgCount--;
         msg_list->owner = NULL;
     }
-    // 濡傛灉娌℃湁鎸囧畾婊ゆ尝鍣紝鍒欎粠宸茬敤閾捐〃涓彇鍑轰竴涓摼琛ㄩ」
+    // 如果没有指定滤波器，则从已用链表中取出一个链表项
     else
     {
         msg_list = list_first_entry(&rx_handler->rxFifo.usedList, CanMsgList_s, fifoListNode);
     }
-    list_del(&msg_list->fifoListNode);    // 灏嗚鑺傜偣浠庡凡鐢ㄩ摼琛ㄤ腑鍒犻櫎
-    list_del(&msg_list->matchedListNode); // 灏嗚鑺傜偣浠庢护娉㈠櫒鍖归厤閾捐〃涓垹闄?
+    list_del(&msg_list->fifoListNode);    // 将该节点从已用链表中删除
+    list_del(&msg_list->matchedListNode); // 将该节点从滤波器匹配链表中删除
     can_irq_unlock(int_level);
     return msg_list;
 }
@@ -688,15 +688,15 @@ static inline CanMsgList_t cantx_get_used_msg_list(CanTxHandler_t tx_handler)
     CanMsgList_t msg_list;
     int_level = can_irq_lock();
     msg_list = list_first_entry(&tx_handler->txFifo.usedList, CanMsgList_s, fifoListNode);
-    list_del(&msg_list->fifoListNode); // 灏嗚鑺傜偣浠庡凡鐢ㄩ摼琛ㄤ腑鍒犻櫎
+    list_del(&msg_list->fifoListNode); // 将该节点从已用链表中删除
     can_irq_unlock(int_level);
     return msg_list;
 }
 
 /*
- * @brief 娣诲姞鎺ユ敹娑堟伅鍒癈AN鎺ユ敹FIFO鍜屾护娉㈠櫒鍖归厤閾捐〃
- * @param Can CAN鍙ユ焺
- * @param userRxMsg CAN鐢ㄦ埛鎺ユ敹娑堟伅鎸囬拡
+ * @brief 添加接收消息到CAN接收FIFO和滤波器匹配链表
+ * @param Can CAN 句柄
+ * @param userRxMsg CAN用户接收消息指针
  */
 static void canrx_msg_put(HalCanHandler_t can, CanMsgList_t hw_rx_msg_list)
 {
@@ -708,7 +708,7 @@ static void canrx_msg_put(HalCanHandler_t can, CanMsgList_t hw_rx_msg_list)
     {
     }; // TODO: assert
     hw_rx_msg = &hw_rx_msg_list->userMsg;
-    // 鍙傛暟妫€鏌ヤ笌鍒濆鍖?
+    // 参数检查与初始化
     // TODO: ASSERT "User message is NULL"
     while (!hw_rx_msg->userBuf)
     {
@@ -723,7 +723,7 @@ static void canrx_msg_put(HalCanHandler_t can, CanMsgList_t hw_rx_msg_list)
     rx_handler = &can->rxHandler;
     filter = &rx_handler->filterTable[filter_handle];
 
-    // 灏嗘秷鎭摼琛ㄦ坊鍔犲洖宸茬敤閾捐〃鍜屾护娉㈠櫒鍖归厤閾捐〃
+    // 将消息链表添加回已用链表和滤波器匹配链表
     canrx_add_used_msg_list(rx_handler, filter, hw_rx_msg_list);
 
     if (filter != NULL && filter->request.rxCallback != NULL)
@@ -732,8 +732,8 @@ static void canrx_msg_put(HalCanHandler_t can, CanMsgList_t hw_rx_msg_list)
     }
     else
     {
-        // 鐢变簬褰撳墠CAN鎬荤嚎蹇呴』瑕佽缃竴涓护娉㈠櫒锛岃€岃缃护娉㈠櫒蹇呴』瑕佽缃畆x_callback锛屾墍浠ュぇ姒傜巼涓嶄細璺冲埌杩欓噷
-        // 鑰屼笖鏆傛椂涔熸兂涓嶅埌device妯″瀷鐨剅ead_cb鍦–AN涓湁浠€涔堜环鍊硷紝鎵€浠ユ殏鏃朵笉澶勭悊
+        // 由于当前CAN总线必须要设置一个滤波器，而设置滤波器必须要设置rx_callback，所以大概率不会跳到这里
+        // 而且暂时也想不到device模型的read_cb在CAN中有什么价值，所以暂时不处理
         while (1)
         {
         }; // TODO: ASSERT "CAN filter bank %d RX callback is NULL"
@@ -743,11 +743,11 @@ static void canrx_msg_put(HalCanHandler_t can, CanMsgList_t hw_rx_msg_list)
 }
 
 /**
- * @brief 浠嶤AN鎺ユ敹FIFO涓幏鍙栦竴涓狢AN娑堟伅锛岄潪闃诲
- * @param rxHandler CAN鎺ユ敹澶勭悊鍣?
- * @param pUserRxMsg CAN鐢ㄦ埛鎺ユ敹娑堟伅鎸囬拡
- * @retval  1. CAN_ERR_NONE           鎴愬姛
- * @retval  2. CAN_ERR_FIFO_EMPTY     婊ゆ尝鍣ㄦ棤鍙娑堟伅鎴栨帴鏀?FIFO 涓虹┖
+ * @brief 从CAN接收FIFO中获取一个CAN消息，非阻塞
+ * @param rxHandler CAN接收处理
+ * @param pUserRxMsg CAN用户接收消息指针
+ * @retval  1. CAN_ERR_NONE           成功
+ * @retval  2. CAN_ERR_FIFO_EMPTY     滤波器无可读消息或接FIFO 为空
  */
 static CanErrorCode_e canrx_msg_get_noblock(CanRxHandler_t rx_handler, CanUserMsg_t p_user_rx_msg)
 {
@@ -761,7 +761,7 @@ static CanErrorCode_e canrx_msg_get_noblock(CanRxHandler_t rx_handler, CanUserMs
 
     int_level = can_irq_lock();
     filter = &rx_handler->filterTable[filter_handle];
-    if (filter->msgCount == 0) // 闈為樆濉烇紝鐩存帴閫€鍑?
+    if (filter->msgCount == 0) // 非阻塞，直接退出
     {
         // TODO: ASSERT "Filter bank %d is empty"
         can_irq_unlock(int_level);
@@ -774,24 +774,24 @@ static CanErrorCode_e canrx_msg_get_noblock(CanRxHandler_t rx_handler, CanUserMs
         return CAN_ERR_FIFO_EMPTY;
     }
     can_irq_unlock(int_level);
-    // 寮€濮嬭幏鍙栨姤鏂?
-    // 浠巖xFifo涓彇鍑轰竴涓凡鐢ㄩ摼琛ㄩ」
+    // 开始获取报文
+    // 从rxFifo中取出一个已用链表项
     msg_list = canrx_get_used_msg_list(rx_handler, filter);
-    // 浠庤繖閲屼箣鍚庯紝MsgList宸茬粡浠巖xFifo鍜孎ilter涓鍙栧嚭
-    // 姝ゆ椂闄や簡褰撳墠鎿嶄綔涔嬪锛屽凡缁忔病鏈変换浣曚唬鐮佽兘璁块棶杩欎釜閾捐〃椤癸紝鎵€浠ラ拡瀵筂sgList鐨勬搷浣滄棤闇€鑰冭檻绔炴€?
+    // 从这里之后，MsgList已经从rxFifo和Filter中被取出
+    // 此时除了当前操作之外，已经没有任何代码能访问这个链表项，所以针对MsgList的操作无需考虑竞争
 
-    // 灏嗗鍣ㄤ腑鐨勬姤鏂囨嫹璐濆埌鐢ㄦ埛鎺ユ敹娑堟伅鎸囬拡
+    // 将容器中的报文拷贝到用户接收消息指针
     can_container_copy_to_usermsg(msg_list, p_user_rx_msg);
-    // 灏嗚娑堟伅閾捐〃椤规坊鍔犲洖绌洪棽閾捐〃
+    // 将该消息链表项添加回空闲链表
     can_add_free_msg_list(&rx_handler->rxFifo, msg_list);
     return CAN_ERR_NONE;
 }
 
 /**
- * @brief CAN 鍙戦€佽皟搴﹀櫒
- * @param Can CAN鍙ユ焺
- * @note 鏍稿績閫昏緫锛氫粠寰呭彂 FIFO 鍙栨暟鎹?-> 鍐欏叆绌洪棽纭欢閭 -> 瑙﹀彂鍙戦€併€?
- * @note 璇ュ嚱鏁板彲鍦ㄧ敤鎴风嚎绋嬭Е鍙戯紝涔熷彲鍦?ISR 涓皟鐢ㄣ€?
+ * @brief CAN 发送调度器
+ * @param Can CAN 句柄
+ * @note 核心逻辑：从待发 FIFO 取数-> 写入空闲硬件邮箱 -> 触发发送
+ * @note 该函数可在用户线程触发，也可在 ISR 中调用
  */
 static void can_tx_scheduler(HalCanHandler_t can)
 {
@@ -800,19 +800,19 @@ static void can_tx_scheduler(HalCanHandler_t can)
     CanMsgList_t p_msg_list;
     uint32_t int_level;
 
-    // 杩涘叆涓寸晫鍖猴紝淇濇姢 FIFO 涓?mailbox 鐘舵€?
+    // 进入临界区，保护 FIFO 和 mailbox 状态
     int_level = can_irq_lock();
 
     if (list_empty(&tx_handler->txFifo.usedList))
     {
-        // 娌℃湁鏁版嵁瑕佸彂浜嗭紝閫€鍑哄惊鐜?
+        // 没有数据要发了，退出循环
         can_irq_unlock(int_level);
         return;
     }
-    // TODO: 瀹屽杽mailbox鏈哄埗锛屼娇鎴戜滑鑳藉涓诲姩璋冨害mailbox
-    // TODO: 褰撻偖绠辨暟閲忓澶氭椂锛屼腑鏂腑寰幆娆℃暟鍙兘杩囧锛?
-    // 褰撳墠 CAN 璐熻浇涓庣‖浠堕偖绠辫妯″彲鎺э紝鏆備笉鍋氳繘涓€姝ユ媶鍒嗚皟搴︺€?
-    // 鍚勫CAN IP閮戒笉浼氭湁澶鐨勯偖绠憋紝鎵€浠ユ殏鏃朵笉闇€瑕佽€冭檻銆傚嵆渚挎湭鏉ヨ鏀癸紝鐢变簬鏋舵瀯璁捐寰楀綋锛屾敼鍔ㄤ篃浼氳闄愬埗鍦ㄨ繖涓嚱鏁颁腑
+    // TODO: 完善mailbox机制，使我们能够主动调度mailbox
+    // TODO: 当邮箱数量增多时，中断中循环次数可能过多
+    // 当前 CAN 负载与硬件邮箱规模可控，暂不做进一步拆分调度
+    // 各家CAN IP都不会有太多的邮箱，所以暂时不需要考虑。即便未来要改，由于架构设计得当，改动也会被限制在这个函数中
     while (!list_empty(&tx_handler->mailboxList))
     {
         p_msg_list = list_first_entry(&tx_handler->txFifo.usedList, CanMsgList_s, fifoListNode);
@@ -825,25 +825,25 @@ static void can_tx_scheduler(HalCanHandler_t can)
         OmRet_e ret = can->hwInterface->sendMsgMailbox(can, &hw_msg);
         if (ret == OM_OK)
         {
-            // 鍙戦€佹垚鍔?
+            // 发送成功
             while (IS_CAN_MAILBOX_INVALID(can, hw_msg.hwTxMailbox))
             {
             }; // TODO: assert
             mailbox = &tx_handler->pMailboxes[hw_msg.hwTxMailbox];
-            // 浠庣瓑寰呴槦鍒楋紙usedList锛変腑绉婚櫎娑堟伅
+            // 从等待队列（usedList）中移除消息
             list_del(&p_msg_list->fifoListNode);
-            // 浠庡彲鐢ㄩ偖绠变腑绉婚櫎閭
+            // 从可用邮箱中移除邮箱
             list_del(&mailbox->list);
-            // 鏍囪閭
+            // 标记邮箱为空闲
             mailbox->isBusy = 1;
             mailbox->pMsgList = p_msg_list;
             p_msg_list->owner = mailbox;
         }
         else
         {
-            // TODO: 杩涘叆杩欓噷閫氬父璇存槑杩涘叆 BUS_OFF 鐘舵€佹垨鍏朵粬鏈煡鍘熷洜
-            // 杩欓噷绠€鍗曞鐞嗭紝鐩存帴閫€鍑哄惊鐜?
-            // TODO: LOG "CAN status: %d锛屽彂閫佸け璐ワ紝bank: %d锛宮sgID: 0x%08x"
+            // TODO: 进入这里通常说明进入 BUS_OFF 状态或其他未知原因
+            // 这里简单处理，直接退出循环
+            // TODO: LOG "CAN status: %d，发送失败，bank: %d，msgID: 0x%08x"
             if (ret == OM_ERR_OVERFLOW)
                 can->statusManager.errCounter.txMailboxFullCnt++;
             break;
@@ -855,12 +855,12 @@ static void can_tx_scheduler(HalCanHandler_t can)
 }
 
 /**
- * @brief 鍚慍AN鍙戦€丗IFO涓坊鍔犱竴涓狢AN娑堟伅锛岄潪闃诲
+ * @brief 向CAN发送FIFO中添加一个CAN消息，非阻塞
  *
- * @param Can CAN鍙ユ焺
- * @param pUserTxMsgBuf CAN鐢ㄦ埛鍙戦€佹秷鎭暟缁勬寚閽?
- * @param msgNum 娑堟伅鏁伴噺
- * @return size_t 瀹為檯鍙戦€佺殑娑堟伅鏁伴噺
+ * @param Can CAN 句柄
+ * @param pUserTxMsgBuf CAN 用户发送消息数组指针
+ * @param msgNum 消息数量
+ * @return size_t 实际发送的消息数量
  */
 static size_t cantx_msg_put_nonblock(HalCanHandler_t can, CanUserMsg_t p_user_tx_msg_buf, size_t msg_num)
 {
@@ -869,31 +869,31 @@ static size_t cantx_msg_put_nonblock(HalCanHandler_t can, CanUserMsg_t p_user_tx
     CanMsgList_t p_msg_list = NULL;
     for (msg_counter = 0; msg_counter < msg_num; msg_counter++)
     {
-        // 鑾峰彇涓€涓┖闂叉秷鎭摼琛ㄩ」锛岀敤浜庡瓨鍌ㄤ俊鎭?
+        // 获取一个空闲消息链表项，用于存储信息
         if (cantx_get_free_msg_list(&can->txHandler, &p_msg_list) == CAN_ERR_SOFT_FIFO_OVERFLOW)
         {
             if (!can->txHandler.txFifo.isOverwrite)
             {
                 int_level = can_irq_lock();
                 can->statusManager.errCounter.txSoftOverFlowCnt += (msg_num - msg_counter);
-                can->statusManager.errCounter.txFailCnt += (msg_num - msg_counter); // 琚鐩栫殑娑堟伅瀹氫箟涓哄彂閫佸け璐ョ殑娑堟伅
+                can->statusManager.errCounter.txFailCnt += (msg_num - msg_counter); // 被覆盖的消息定义为发送失败的消息
                 can_irq_unlock(int_level);
-                break; // 璺冲嚭寰幆锛岀粨鏉熷啓鍏?
+                break; // 跳出循环，结束写入
             }
-            else // 瑕嗗啓
+            else // 覆写
             {
                 int_level = can_irq_lock();
-                can->statusManager.errCounter.txFailCnt++; // 鏈鍙戦€佺殑娑堟伅瀹氫箟涓哄彂閫佸け璐ョ殑娑堟伅
+                can->statusManager.errCounter.txFailCnt++; // 未被发送的消息定义为发送失败的消息
                 can->statusManager.errCounter.txSoftOverFlowCnt++;
                 can_irq_unlock(int_level);
             }
         }
-        // 浠庤繖閲屼箣鍚庯紝pMsgList宸茬粡浠嶧ifo涓鍙栧嚭
-        // 姝ゆ椂闄や簡褰撳墠鎿嶄綔涔嬪锛屽凡缁忔病鏈変换浣曚唬鐮佽兘璁块棶杩欎釜閾捐〃椤癸紝鎵€浠ラ拡瀵筽MsgList鐨勬搷浣滄棤闇€鑰冭檻绔炴€?
+        // 从这里之后，pMsgList已经从Fifo中被取出
+        // 此时除了当前操作之外，已经没有任何代码能访问这个链表项，所以针对pMsgList的操作无需考虑竞争
 
-        // 濉厖鐢ㄦ埛娑堟伅鎸囬拡
+        // 填充用户消息指针
         p_msg_list->userMsg = p_user_tx_msg_buf[msg_counter];
-        // 濉厖CAN娑堟伅瀹瑰櫒
+        // 填充CAN消息容器
         memcpy((void *)p_msg_list->container, (void *)p_user_tx_msg_buf[msg_counter].userBuf, p_user_tx_msg_buf[msg_counter].dsc.dataLen);
         p_msg_list->userMsg.userBuf = p_msg_list->container;
 
@@ -901,22 +901,22 @@ static size_t cantx_msg_put_nonblock(HalCanHandler_t can, CanUserMsg_t p_user_tx
         can_add_used_msg_list(&can->txHandler.txFifo, p_msg_list);
         can_irq_unlock(int_level);
     }
-    // 鍦ㄤ腑鏂笂涓嬫枃涓笉闇€瑕佷富鍔ㄨ皟搴?
+    // 在中断上下文中不需要主动调度
     if (!osal_is_in_isr())
         can_tx_scheduler(can);
     return msg_counter;
 }
 
 /**
- * @brief CAN杞欢閲嶄紶鏈哄埗
+ * @brief CAN软件重传机制
  *
- * @param Can CAN璁惧鎸囬拡
- * @param mailbox 閭鎸囬拡
+ * @param Can CAN设备指针
+ * @param mailbox 邮箱指针
  */
 static void cantx_soft_retransmit(HalCanHandler_t can, uint32_t mailbox_bank)
 {
-    // 鐩稿叧閭涓庢秷鎭妭鐐逛細鍏堜粠鍏变韩閾捐〃鎽橀櫎锛屽啀鎵ц閲嶄紶娴佺▼锛?
-    // 鍥犳璇ユ祦绋嬪唴瀵硅繖涓ょ被瀵硅薄鐨勮闂笉涓庡閮ㄥ苟鍙戝啿绐侊紙浠呴檺璇ラ偖绠变笌璇ユ秷鎭妭鐐癸級銆?
+    // 相关邮箱与消息节点会先从共享链表摘除，再执行重传流程
+    // 因此该流程内对这两类对象的访问不与外部并发冲突（仅限该邮箱与该消息节点）
     CanMailbox_t mailbox = &can->txHandler.pMailboxes[mailbox_bank];
     CanMsgList_t p_msg_list = mailbox->pMsgList;
     while (!p_msg_list)
@@ -925,7 +925,7 @@ static void cantx_soft_retransmit(HalCanHandler_t can, uint32_t mailbox_bank)
     p_msg_list->owner = NULL;
     uint32_t int_level;
     int_level = can_irq_lock();
-    list_add(&p_msg_list->fifoListNode, &can->txHandler.txFifo.usedList); // 澶存彃锛岀‘淇濆厛鍙戦€佺殑娑堟伅浼樺厛閲嶅彂
+    list_add(&p_msg_list->fifoListNode, &can->txHandler.txFifo.usedList); // 头插，确保先发送的消息优先重发
     can_irq_unlock(int_level);
     mailbox->isBusy = 0;
     mailbox->pMsgList = NULL;
@@ -934,11 +934,11 @@ static void cantx_soft_retransmit(HalCanHandler_t can, uint32_t mailbox_bank)
 }
 
 /*
- * @brief 鍒濆鍖朇AN璁惧
- * @param Dev CAN璁惧鎸囬拡
- * @retval  1. OM_ERROR_PARAM 鍙傛暟閿欒
- *          2. OM_ERROR_HW 纭欢閿欒
- *          3. OM_ERROR_NONE 鎴愬姛
+ * @brief 初始化CAN设备
+ * @param Dev CAN设备指针
+ * @retval  1. OM_ERROR_PARAM 参数错误
+ *          2. OM_ERROR_HW 硬件错误
+ *          3. OM_ERROR_NONE 成功
  */
 static OmRet_e can_init(Device_t dev)
 {
@@ -963,12 +963,12 @@ static OmRet_e can_open(Device_t dev, uint32_t oparam)
         return OM_ERROR_PARAM;
     HalCanHandler_t can = (HalCanHandler_t)dev;
 
-    // 鍏堝垵濮嬪寲杩囨护鍣ㄨ祫婧愮鐞嗗櫒锛屽啀鍒濆鍖?RX/TX 瀛愭ā鍧椼€?
-    // 杩欐牱鍚庣画妯″潡鍙互鐩存帴浣跨敤绋冲畾鐨?slot <-> hwBank 鏄犲皠銆?
+    // 先初始化过滤器资源管理器，再初始化 RX/TX 子模块
+    // 这样后续模块可以直接使用稳定slot <-> hwBank 映射
     ret = can_filter_resmgr_init(can);
     if (ret != OM_OK)
         return ret;
-    // filterNum 鐢?capability 椹卞姩锛屼笉鍐嶄緷璧栭潤鎬侀厤缃€笺€?
+    // filterNum capability 驱动，不再依赖静态配置值
     can->cfg.filterNum = can->filterResMgr.slotCount;
 
     iotype = oparam & DEVICE_O_RXTYPE_MASK;
@@ -976,7 +976,7 @@ static OmRet_e can_open(Device_t dev, uint32_t oparam)
     ret = can_rxhandler_init(can, iotype, can->filterResMgr.slotCount, can->cfg.rxMsgListBufSize);
     if (ret != OM_OK)
     {
-        // 鍥炴粴 filter_resmgr锛岄伩鍏?open 澶辫触鍚庢畫鐣欒祫婧愬崰鐢ㄣ€?
+        // 回滚 filter_resmgr，避免 open 失败后残留资源占用
         can_filter_resmgr_deinit(can);
         return ret;
     }
@@ -987,7 +987,7 @@ static OmRet_e can_open(Device_t dev, uint32_t oparam)
     {
         // TODO: LOG ERR
         can_rxhandler_deinit(&can->rxHandler);
-        // TX 鍒濆鍖栧け璐ュ悓鏍烽渶瑕侀噴鏀?filter_resmgr銆?
+        // TX 初始化失败同样需要释放 filter_resmgr
         can_filter_resmgr_deinit(can);
         return ret;
     }
@@ -997,7 +997,7 @@ static OmRet_e can_open(Device_t dev, uint32_t oparam)
         // TODO: LOG ERR
         can_rxhandler_deinit(&can->rxHandler);
         can_txhandler_deinit(&can->txHandler);
-        // 鐘舵€佺鐞嗗櫒澶辫触鏃讹紝淇濇寔 open 杩囩▼鍏ㄩ噺鍥炴粴銆?
+        // 状态管理器失败时，保持 open 过程全量回滚
         can_filter_resmgr_deinit(can);
         return ret;
     }
@@ -1008,19 +1008,19 @@ static size_t can_write(Device_t dev, void *pos, void *data, size_t len)
 {
     size_t msg_num = 0;
     HalCanHandler_t can = (HalCanHandler_t)dev;
-    // 鐩墠鍙敮鎸侀潪闃诲鍙戦€佺瓥鐣?
+    // 目前只支持非阻塞发送策略
     msg_num = cantx_msg_put_nonblock(can, (CanUserMsg_t)data, len);
     return msg_num;
 }
 
 /**
- * @brief 浠嶤AN鎺ユ敹FIFO涓鍙栧涓狢AN娑堟伅
+ * @brief 从 CAN 接收 FIFO 中读取多个 CAN 消息
  *
- * @param Dev CAN璁惧鎸囬拡
- * @param pos CAN 涓嶉渶瑕佽鍙傛暟锛屼繚鎸丯ULL鍗冲彲
- * @param buf 鎺ユ敹娑堟伅缂撳啿鍖烘寚閽?
- * @param len 鎺ユ敹娑堟伅缂撳啿鍖洪暱搴?
- * @return size_t 瀹為檯璇诲彇鐨勬秷鎭暟閲?
+ * @param Dev CAN设备指针
+ * @param pos CAN 不需要该参数，保持NULL即可
+ * @param buf 接收消息缓冲区指针
+ * @param len 接收消息缓冲区长度
+ * @return size_t 实际读取的消息数
  */
 static size_t can_read(Device_t dev, void *pos, void *buf, size_t len)
 {
@@ -1055,12 +1055,12 @@ static size_t can_read(Device_t dev, void *pos, void *buf, size_t len)
 }
 
 /**
- * @brief 鎺у埗CAN璁惧
- * @param Dev CAN璁惧鎸囬拡
- * @param cmd 鍛戒护 @ref CAN_CMD_DEF
- * @param args 鍙傛暟鎸囬拡
- * @retval  1. OM_ERROR_PARAM 鍙傛暟閿欒
- *          2. OM_ERROR_NONE 鎴愬姛
+ * @brief 控制 CAN 设备
+ * @param Dev CAN设备指针
+ * @param cmd 命令 @ref CAN_CMD_DEF
+ * @param args 参数指针
+ * @retval  1. OM_ERROR_PARAM 参数错误
+ *          2. OM_ERROR_NONE 成功
  */
 static OmRet_e can_ctrl(Device_t dev, size_t cmd, void *args)
 {
@@ -1078,7 +1078,7 @@ static OmRet_e can_ctrl(Device_t dev, size_t cmd, void *args)
         ret = can->hwInterface->control(can, CAN_CMD_CLR_IOTYPE, args);
         break;
 
-    // 瀛︿範鑰呴渶娉ㄦ剰杩欓噷鐨勭▼搴忚璁★紝妫€鏌ュ弬鏁板悎娉曟€э紝骞朵笖鎿嶄綔澶辫触鍚庝篃涓嶄細浜х敓鍓綔鐢紙鍗冲鏋滈厤缃け璐ワ紝CAN璁惧鐨勭姸鎬佹垨鏁版嵁涓嶄細鏀瑰彉锛夛紝杩欏湪鏋舵瀯璁捐涓槸蹇呰鐨?
+    // 学习者需注意这里的程序设计，检查参数合法性，并且操作失败后也不会产生副作用（即如果配置失败，CAN设备的状态或数据不会改变），这在架构设计中是必要
     case CAN_CMD_CFG:
         if (!args)
         {
@@ -1090,7 +1090,7 @@ static OmRet_e can_ctrl(Device_t dev, size_t cmd, void *args)
             can->cfg = *(CanCfg_t)args;
         break;
 
-    // 瀛︿範鑰呴渶娉ㄦ剰杩欓噷鐨勭▼搴忚璁★紝妫€鏌ュ弬鏁板悎娉曟€э紝骞朵笖鎿嶄綔澶辫触鍚庝篃涓嶄細浜х敓鍓綔鐢紙鍗冲鏋滈厤缃け璐ワ紝CAN璁惧鐨勭姸鎬佹垨鏁版嵁涓嶄細鏀瑰彉锛夛紝杩欏湪鏋舵瀯璁捐涓槸蹇呰鐨?
+    // 学习者需注意这里的程序设计，检查参数合法性，并且操作失败后也不会产生副作用（即如果配置失败，CAN设备的状态或数据不会改变），这在架构设计中是必要
     case CAN_CMD_FILTER_ALLOC: {
         CanFilterAllocArg_t alloc_arg = (CanFilterAllocArg_t)args;
         if (alloc_arg == NULL || alloc_arg->request.rxCallback == NULL)
@@ -1101,7 +1101,7 @@ static OmRet_e can_ctrl(Device_t dev, size_t cmd, void *args)
 
         uint16_t slot = 0;
         int16_t hw_bank = -1;
-        // 鍏堝湪 filter_resmgr 涓崰鐢?slot/bank锛屽啀涓嬪彂纭欢閰嶇疆銆?
+        // 先在 filter_resmgr 中占slot/bank，再下发硬件配置
         ret = can_reserve_slot(can, &slot, &hw_bank);
         if (ret != OM_OK)
             break;
@@ -1116,13 +1116,13 @@ static OmRet_e can_ctrl(Device_t dev, size_t cmd, void *args)
         ret = can->hwInterface->control(can, CAN_CMD_FILTER_ALLOC, &hw_cfg);
         if (ret != OM_OK)
         {
-            // 纭欢閰嶇疆澶辫触蹇呴』鍥炴粴璧勬簮绠＄悊鍣紝閬垮厤鈥滈€昏緫宸插崰鐢?纭欢鏈敓鏁堚€濅笉涓€鑷淬€?
+            // 硬件配置失败必须回滚资源管理器，避免“逻辑已占硬件未生效”不一致
             can_release_slot(can, slot);
             break;
         }
 
         CanFilter_t filter = &can->rxHandler.filterTable[slot];
-        // 纭欢閰嶇疆鎴愬姛鍚庡啀鍙戝竷妗嗘灦鎬?filter 淇℃伅銆?
+        // 硬件配置成功后再发布框架filter 信息
         filter->request = alloc_arg->request;
         filter->isActived = 1;
         filter->msgCount = 0;
@@ -1168,7 +1168,7 @@ static OmRet_e can_ctrl(Device_t dev, size_t cmd, void *args)
         if (ret != OM_OK)
             break;
 
-        // 鍏堟竻绌烘鏋舵€?filter锛屽啀閲婃斁 slot/bank 鍗犵敤浣嶃€?
+        // 先清空框架filter，再释放 slot/bank 占用位
         memset(filter, 0, sizeof(CanFilter_s));
         INIT_LIST_HEAD(&filter->msgMatchedList);
         can_release_slot(can, handle);
@@ -1204,16 +1204,16 @@ static OmRet_e can_close(Device_t dev)
     can_rxhandler_deinit(&can->rxHandler);
     can_txhandler_deinit(&can->txHandler);
     can_status_manager_deinit(can);
-    // close 闃舵蹇呴』鍥炴敹 filter_resmgr锛岄伩鍏嶄笅娆?open 鐪嬪埌闄堟棫鏄犲皠銆?
+    // close 阶段必须回收 filter_resmgr，避免下open 看到陈旧映射
     can_filter_resmgr_deinit(can);
     return OM_OK;
 }
 
 /*
- * @brief CAN閿欒涓柇澶勭悊鍑芥暟
- * @param Can CAN璁惧鎸囬拡
- * @param errorEvent 閿欒浜嬩欢
- * @note 璇ュ嚱鏁颁富瑕佹洿鏂?CAN 璁惧鐘舵€侊紱鏇寸粏绮掑害鐨勬仮澶嶇瓥鐣ョ敱鐘舵€佺鐞嗙嚎绋嬪鐞嗐€?
+ * @brief CAN错误中断处理函数
+ * @param Can CAN设备指针
+ * @param errorEvent 错误事件
+ * @note 该函数主要更新 CAN 设备状态；更细粒度的恢复策略由状态管理线程处理
  */
 void can_error_isr(HalCanHandler_t can, uint32_t err_event, size_t param)
 {
@@ -1236,7 +1236,7 @@ void can_error_isr(HalCanHandler_t can, uint32_t err_event, size_t param)
         cantx_soft_retransmit(can, param);
     }
     break;
-    case CAN_ERR_EVENT_BUS_STATUS: // TODO: 澶勭悊鎬荤嚎閿欒
+    case CAN_ERR_EVENT_BUS_STATUS: // TODO: 处理总线错误
     {
         size_t can_tx_err_cnt = can->statusManager.errCounter.txErrCnt;
         size_t can_rx_err_cnt = can->statusManager.errCounter.rxErrCnt;
@@ -1256,7 +1256,7 @@ void hal_can_isr(HalCanHandler_t can, CanIsrEvent_e event, size_t param)
 {
     switch (event)
     {
-    case CAN_ISR_EVENT_INT_RX_DONE: // 鎺ユ敹瀹屾垚涓柇锛宲aram鏄帴鏀舵秷鎭殑FIFO绱㈠紩
+    case CAN_ISR_EVENT_INT_RX_DONE: // 接收完成中断，param是接收消息的FIFO索引
     {
         OmRet_e ret;
         CanMsgList_t msg_list = NULL;
@@ -1265,10 +1265,10 @@ void hal_can_isr(HalCanHandler_t can, CanIsrEvent_e event, size_t param)
         hw_msg.data = hw_data;
         if (canrx_get_free_msg_list(&can->rxHandler, &msg_list) == CAN_ERR_SOFT_FIFO_OVERFLOW)
         {
-            can->statusManager.errCounter.rxSoftOverFlowCnt++; // 鎺ユ敹杞欢FIFO婧㈠嚭璁℃暟鍣ㄥ鍔?
-            if (!can->rxHandler.rxFifo.isOverwrite)            // 闈炶鍐欑瓥鐣ョ洿鎺ラ€€鍑?
+            can->statusManager.errCounter.rxSoftOverFlowCnt++; // 接收软件 FIFO 溢出计数器增加
+            if (!can->rxHandler.rxFifo.isOverwrite)            // 非覆写策略直接退出
             {
-                can->hwInterface->recvMsg(can, NULL, param); // 涓㈠純褰撳墠甯э紙娓呬腑鏂級
+                can->hwInterface->recvMsg(can, NULL, param); // 丢弃当前帧（清中断）
                 break;
             }
         }
@@ -1286,24 +1286,24 @@ void hal_can_isr(HalCanHandler_t can, CanIsrEvent_e event, size_t param)
             msg_list->userMsg.filterHandle = (CanFilterHandle_t)slot;
             memcpy(msg_list->container, hw_msg.data, hw_msg.dsc.dataLen);
             canrx_msg_put(can, msg_list);
-            can->statusManager.errCounter.rxMsgCount++; // 鎺ユ敹娑堟伅璁℃暟鍣ㄥ鍔?
+            can->statusManager.errCounter.rxMsgCount++; // 接收消息计数器增加
         }
         else
         {
-            can->statusManager.errCounter.rxFailCnt++; // 鎺ユ敹閿欒璁℃暟鍣ㄥ鍔?
+            can->statusManager.errCounter.rxFailCnt++; // 接收错误计数器增加
         }
     }
     break;
-    case CAN_ISR_EVENT_INT_TX_DONE: // 鍙戦€佸畬鎴愪腑鏂紝param 鏄偖绠辩紪鍙?
+    case CAN_ISR_EVENT_INT_TX_DONE: // 发送完成中断，param 是邮箱编号
         while (IS_CAN_MAILBOX_INVALID(can, (int32_t)param))
         {
         }; // TODO: assert
         CanMailbox_t mailbox = &can->txHandler.pMailboxes[param];
 
-        // 璧勬簮鍥炴敹
+        // 资源回收
         uint32_t int_level = can_irq_lock();
         cantx_add_free_msg_list(&can->txHandler, mailbox);
-        can->statusManager.errCounter.txMsgCount++; // 鍙戦€佹秷鎭鏁板櫒澧炲姞
+        can->statusManager.errCounter.txMsgCount++; // 发送消息计数器增加
         device_write_cb(&can->parent, param);
         can_tx_scheduler(can);
         can_irq_unlock(int_level);
@@ -1323,15 +1323,15 @@ static DevInterface_s can_dev_interface = {
 };
 
 /**
- * @brief CAN璁惧娉ㄥ唽锛堝吋瀹圭粡鍏?CAN 鍜?CANFD锛?
- * @param can CAN璁惧鍙ユ焺
- * @param name 璁惧鍚嶇О
- * @param handle 纭欢鍙ユ焺
- * @param regparams 娉ㄥ唽鍙傛暟 @ref CAN_REG_DEF
- * @return OmRet_e 娉ㄥ唽缁撴灉
- * @retval OM_OK 鎴愬姛
- * @retval OM_ERROR_PARAM 鍙傛暟閿欒
- * @retval OM_ERR_CONFLICT 璁惧鍚嶇О鍐茬獊
+ * @brief CAN 设备注册（兼容经典 CAN / CAN FD）
+ * @param can CAN 设备句柄
+ * @param name 设备名称
+ * @param handle 硬件句柄
+ * @param regparams 注册参数 @ref CAN_REG_DEF
+ * @return OmRet_e 注册结果
+ * @retval OM_OK 成功
+ * @retval OM_ERROR_PARAM 参数错误
+ * @retval OM_ERR_CONFLICT 设备名称冲突
  */
 OmRet_e hal_can_register(HalCanHandler_t can, char *name, void *handle, uint32_t regparams)
 {

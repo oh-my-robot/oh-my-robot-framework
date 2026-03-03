@@ -1,4 +1,4 @@
-﻿#include "drivers/peripheral/serial/pal_serial_dev.h"
+#include "drivers/peripheral/serial/pal_serial_dev.h"
 #include "osal/osal_core.h"
 /*************************** PRIVATE MACRO ********************************************************/
 #define SERIAL_IS_O_BLCK_TX(dev) (device_get_oparams(dev) & SERIAL_O_BLCK_TX)
@@ -89,7 +89,7 @@ static void serial_abort_blocking_waiters(HalSerial_t serial, SerialWaitWakeReas
         device_clr_status(&serial->parent, DEV_STATUS_BUSY_RX);
     }
 }
-/* 鏃燜IFO鎯呭喌涓嬬殑 TX 鍑芥暟*/
+/* 无 FIFO 情况下的 TX 函数*/
 static size_t serial_tx_poll(Device_t dev, void *data, size_t len)
 {
     size_t length;
@@ -103,11 +103,11 @@ static size_t serial_tx_poll(Device_t dev, void *data, size_t len)
     device_set_status(dev, DEV_STATUS_BUSY_TX);
     for (length = 0; length < len; length++)
     {
-        if (serial->interface->putByte(serial, tx_data[length]) != OM_OK) // 鍥哄畾璇箟/鍔熻兘
+        if (serial->interface->putByte(serial, tx_data[length]) != OM_OK) // 固定语义/功能
             break;
     }
     // if(length < len)
-    // TODO: LOG 鍙戦€佽秴鏃讹紝鎵撳嵃瀹為檯鍙戦€佸瓧鑺?
+    // TODO: LOG 发送超时，打印实际发送字
     device_clr_status(dev, DEV_STATUS_BUSY_TX);
     return length;
 }
@@ -130,19 +130,19 @@ static size_t serial_rx_poll(Device_t dev, uint8_t *buf, size_t len)
             break;
     }
     // if(length < len)
-    // TODO: LOG 鎺ユ敹瓒呮椂锛屾墦鍗板疄闄呮帴鏀跺瓧鑺?
+    // TODO: LOG 接收超时，打印实际接收字
     device_clr_status(dev, DEV_STATUS_BUSY_RX);
     return length;
 }
 
 /**
- * @brief 涓插彛闃诲鍙戦€?鍐呴儴妗嗘灦瀹炵幇
+ * @brief 串口阻塞发送内部实现
  *
- * @param dev 涓插彛璁惧
- * @param data 搴旂敤灞傛暟鎹寘鎸囬拡
- * @param len  搴旂敤灞傛暟鎹寘闀垮害
- * @return size_t 瀹為檯鍙戦€侀暱搴?
- * @note   璋冪敤鑰呴渶鑷纭繚data鐨勫唴瀛樺畨鍏ㄥ拰鏁版嵁瀹屾暣鎬?
+ * @param dev 串口设备
+ * @param data 应用层数据包指针
+ * @param len  应用层数据包长度
+ * @return size_t 实际发送长度
+ * @note   调用者需自行确保 data 的内存安全和数据完整
  */
 static size_t serial_tx_block(Device_t dev, void *data, size_t len)
 {
@@ -152,14 +152,14 @@ static size_t serial_tx_block(Device_t dev, void *data, size_t len)
     size_t tx_start_len;
     size_t txlen;
     size_t linear_space_len;
-    void *tx_linear_buf = 0; // 涓插彛绾挎€х紦瀛樺尯
-    size_t sended = 0;       // 宸茬粡鍙戦€佺殑闀垮害
+    void *tx_linear_buf = 0; // 串口线性缓存区
+    size_t sended = 0;       // 已经发送的长度
 
     serial = (HalSerial_t)dev;
     tx_fifo = serial_get_txfifo(serial);
 
-    // 鐞嗚涓婂浜庝覆鍙ｏ紝瀵逛簬闃诲鍙戦€佹潵璇翠笉搴旇鍑虹幇BUSY_TX鐨勬儏鍐?
-    // 鍥犱负鍚屼竴涓覆鍙ｏ紝鍚屼竴鏃堕棿浠呭厑璁歌涓€涓嚎绋嬫墦寮€
+    // 理论上对于串口，对于阻塞发送来说不应该出现BUSY_TX 的情况
+    // 因为同一个串口，同一时间仅允许被一个线程打开
     device_set_status(dev, DEV_STATUS_BUSY_TX);
     do
     {
@@ -206,7 +206,7 @@ static size_t serial_tx_block(Device_t dev, void *data, size_t len)
     return sended;
 }
 
-/* 涓插彛闈為樆濉炲彂閫?*/
+/* 串口非阻塞发送*/
 static size_t serial_tx_nonblock(Device_t dev, void *data, size_t len)
 {
     HalSerial_t serial;
@@ -221,7 +221,7 @@ static size_t serial_tx_nonblock(Device_t dev, void *data, size_t len)
     sended = ringbuf_in(&tx_fifo->rb, data, len);
 
     device_set_status(dev, DEV_STATUS_BUSY_TX);
-    /* 鍙戦€佹暟鎹?*/
+    /* 发送数据*/
     if (tx_fifo->status == SERIAL_FIFO_IDLE && sended)
     {
         tx_len = ringbuf_get_item_linear_space(&tx_fifo->rb, &tx_ptr);
@@ -239,7 +239,7 @@ static size_t serial_tx_nonblock(Device_t dev, void *data, size_t len)
             }
         }
     }
-    // 闈為樆濉炵殑serial_busy_tx鐘舵€佸湪涓柇涓竻闄?
+    // 非阻塞的serial_busy_tx状态在中断中清理
     return sended;
 }
 
@@ -248,9 +248,9 @@ static size_t serial_rx_block(Device_t dev, void *buf, size_t len)
     HalSerial_t serial;
     SerialFifo_t rx_fifo;
     OmRet_e wait_ret;
-    size_t rd_remain;      // 鍓╀綑鏈鍙栫殑闀垮害
-    size_t rd_len;         // 鏈疆璇诲彇鐨勯暱搴︼紝鐪熷疄鍙嶅簲纭欢瀹為檯鎺ユ敹瀛楄妭鏁帮紝涔熷氨鏄€冭檻rxfifo鍙兘婧㈠嚭鐨勬儏鍐?
-    size_t rd_from_rb = 0; // 搴旂敤灞傞€氳繃read鎺ュ彛鑾峰緱鐨勬€婚暱搴︼紝涔熷氨鏄笉鍖呮嫭鎺ユ敹杩囩▼涓璻xfifo鍙兘婧㈠嚭鐨勬儏鍐?
+    size_t rd_remain;      // 剩余未读取的长度
+    size_t rd_len;         // 本轮读取的长度，真实反应硬件实际接收字节数，也就是考虑rxfifo可能溢出的情况
+    size_t rd_from_rb = 0; // 应用层通过read接口获得的总长度，也就是不包括接收过程中rxfifo可能溢出的情况
 
     serial = (HalSerial_t)dev;
     rx_fifo = serial_get_rxfifo(serial);
@@ -258,7 +258,7 @@ static size_t serial_rx_block(Device_t dev, void *buf, size_t len)
     rd_len = ringbuf_len(&rx_fifo->rb);
 
     /* rd_len < len */
-    rd_remain = len - rd_len; // 鍑忓幓宸茬粡鏈夌殑鏁版嵁闀垮害鎵嶆槸鍓╀綑闇€瑕佽鍙栫殑闀垮害
+    rd_remain = len - rd_len; // 减去已经有的数据长度才是剩余需要读取的长度
     rd_from_rb += ringbuf_out(&rx_fifo->rb, buf, rd_len);
     do
     {
@@ -271,11 +271,11 @@ static size_t serial_rx_block(Device_t dev, void *buf, size_t len)
         osal_irq_lock_task();
         rx_fifo->loadSize = (rd_remain > ringbuf_avail(&rx_fifo->rb)) ? ringbuf_avail(&rx_fifo->rb) : rd_remain;
         rd_len = rx_fifo->loadSize;
-        rx_fifo->status = SERIAL_FIFO_BUSY; // FIFO寮€濮嬬瓑寰呮暟鎹?
+        rx_fifo->status = SERIAL_FIFO_BUSY; // FIFO 开始等待数据
         rx_fifo->waitReason = SERIAL_WAIT_WAKE_NONE;
         osal_irq_unlock_task();
-        wait_ret = serial_wait_completion_abortable(dev, rx_fifo, SERIAL_BLOCK_RX_WAIT_TIMEOUT_MS); // 绛夊緟鏁版嵁鍒版潵
-        rx_fifo->status = SERIAL_FIFO_IDLE;                                                         // FIFO缁撴潫鏁版嵁绛夊緟
+        wait_ret = serial_wait_completion_abortable(dev, rx_fifo, SERIAL_BLOCK_RX_WAIT_TIMEOUT_MS); // 等待数据到来
+        rx_fifo->status = SERIAL_FIFO_IDLE;                                                         // FIFO结束数据等待
         if (wait_ret != OM_OK)
         {
             if (wait_ret == OM_ERROR_TIMEOUT)
@@ -290,21 +290,21 @@ static size_t serial_rx_block(Device_t dev, void *buf, size_t len)
             device_err_cb(dev, ERR_SERIAL_RX_TIMEOUT, rd_remain);
             break;
         }
-        // rd_total浠呰€冭檻閫氳繃API璋冪敤鑾峰緱鐨勬暟鎹紝杩欐槸涓轰簡璁╁簲鐢ㄥ眰鐭ラ亾閫氳繃API瀹為檯璇诲彇鐨勫瓧鑺傛暟
+        // rd_total仅考虑通过API调用获得的数据，这是为了让应用层知道通过API实际读取的字节数
         rd_from_rb += ringbuf_out(&rx_fifo->rb, buf + rd_from_rb, rd_len);
 
-        if (rx_fifo->loadSize < 0) // loadSize < 0 璇存槑鍑虹幇浜咶IFO婧㈠嚭閿欒
+        if (rx_fifo->loadSize < 0) // loadSize < 0 说明出现了FIFO溢出错误
         {
             osal_irq_lock_task();
-            // 璐熻礋寰楁锛屽疄闄呬笂鏄畻涓婁簡婧㈠嚭鐨勬暟鎹暱搴?妗嗘灦灞備笉鍏冲績搴旂敤灞傛槸鍚﹀鐞嗘孩鍑猴紝鍙槸璇氬疄鍦拌褰曠‖浠跺疄闄呮帴鏀惰繃鐨勫瓧鑺傛暟)
+            // 负负得正，实际上是算上了溢出的数据长度；框架层不关心应用层是否处理溢出，只是诚实地记录硬件实际接收过的字节数)
             rd_len -= rx_fifo->loadSize;
-            // 鑷充簬婧㈠嚭鐨勬暟鎹€庝箞鍔烇紵閭ｆ槸API浣跨敤鑰呰鑰冭檻鐨勪簨鎯咃紝瑕佷笉鎶妑b寮€澶т竴鐐癸紝瑕佷笉灏卞湪閿欒鍥炶皟涓仛鐗规畩澶勭悊
+            // 至于溢出的数据怎么办？那是API使用者要考虑的事情，要不把rb开大一点，要不就在错误回调中做特殊处理
             rx_fifo->loadSize = 0;
             osal_irq_unlock_task();
         }
         /*
-            loadSize鍖呭惈rxfifo婧㈠嚭鐨勪俊鎭紝娌℃硶纭畾绌剁珶婧㈠嚭浜嗗灏戯紝鍥犳rd_len鍙兘浼氬ぇ浜巖d_remain
-            褰搑d_len>=rd_remain鏃讹紝rd_remain鐩存帴褰掗浂鍗冲彲锛?
+            loadSize包含rxfifo溢出的信息，没法确定究竟溢出了多少，因此rd_len可能会大于rd_remain
+            当 rd_len>=rd_remain 时，rd_remain 直接归零即可
         */
         rd_remain = (rd_remain > rd_len) ? (rd_remain - rd_len) : 0;
     } while (rd_remain);
@@ -345,7 +345,7 @@ static OmRet_e serial_set_cfg(HalSerial_t serial, SerialCfg_t cfg)
     return ret;
 }
 
-// TODO: 寰呭疄鐜?
+// TODO: 待实现
 static OmRet_e serial_flush(HalSerial_t serial, uint32_t fifo_selector)
 {
     switch (fifo_selector)
@@ -372,19 +372,19 @@ static OmRet_e serial_tx_enable(Device_t dev)
 
     serial = (HalSerial_t)dev;
     tx_fifo = serial_get_txfifo(serial);
-    // 鏃犵紦瀛?
+    // 无缓冲
     if (serial->cfg.txBufSize == 0)
     {
-        // 涓插彛鏃犵紦瀛樺彧鑳戒娇鐢╬oll鏂瑰紡
+        // 串口无缓冲存只能使用poll方式
         return OM_OK;
     }
 
-    /* 搴曞眰鏈～鍏?FIFO */
+    /* 底层未填FIFO */
     if (!tx_fifo)
     {
-        /*  褰撳墠妗嗘灦涓嬶紝闄や簡poll涔嬪鎵€鏈夊彂閫佹柟寮忛兘浼氶厤缃畆b锛屾棤璁洪樆濉為潪闃诲銆?
-            鍚庣画鑻ユ槸鍙戠幇涓嶅悎閫傜殑璇濆彲浠ュ啀缁嗗垎锛岀洰鍓嶆殏涓嶆敮鎸併€?
-            浣嗘槸鏃犺濡備綍锛屽缓璁潪闃诲鍙戦€侀兘浣跨敤rb銆?
+        /*  当前框架下，除了poll之外所有发送方式都会配置rb，无论阻塞非阻塞
+            后续若是发现不合适的话可以再细分，目前暂不支持。
+            但是无论如何，建议非阻塞发送都使用 rb。
         */
         if (serial->cfg.txBufSize < SERIAL_MIN_TX_BUFSZ) // TODO: log
             serial->cfg.txBufSize = SERIAL_MIN_TX_BUFSZ;
@@ -429,7 +429,7 @@ static OmRet_e serial_rx_enable(Device_t dev)
 
     if (serial->cfg.rxBufSize == 0)
     {
-        // 鏃犵紦瀛橈紝涓插彛鍙兘杞璇诲彇
+        // 无缓冲存，串口只能轮询读取
         return OM_OK;
     }
 
@@ -480,10 +480,10 @@ static OmRet_e serial_open(Device_t dev, uint32_t otype)
     if (!serial || !serial->interface || !serial->interface->control)
         return OM_ERROR_PARAM;
 
-    /* 涓插彛鍐欐柟寮?*/
+    /* 串口写方*/
     dev->priv.oparams |= (otype & SERIAL_O_BLCK_TX) ? SERIAL_O_BLCK_TX : (otype & SERIAL_O_NBLCK_TX) ? SERIAL_O_NBLCK_TX
                                                                                                      : 0U;
-    /* 涓插彛璇绘柟寮?*/
+    /* 串口读方*/
     dev->priv.oparams |= (otype & SERIAL_O_BLCK_RX) ? SERIAL_O_BLCK_RX : (otype & SERIAL_O_NBLCK_RX) ? SERIAL_O_NBLCK_RX
                                                                                                      : 0U;
 
@@ -526,8 +526,8 @@ static OmRet_e serial_ctrl(Device_t dev, size_t cmd, void *arg)
 
     case SERIAL_CMD_SUSPEND:
         /*
-         * 鍏堟爣璁版寕璧凤紝鍐嶄笅鍙戝簳灞傚仠姝紝鏈€鍚庡敜閱掗樆濉炵瓑寰呰€咃紝
-         * 淇濊瘉闃诲璺緞涓嶄細姘镐箙绛夊緟銆?
+         * 先标记挂起，再下发底层停止，最后唤醒阻塞等待者，
+         * 保证阻塞路径不会永久等待
          */
         device_set_status(&serial->parent, DEV_STATUS_SUSPEND);
         (void)serial->interface->control(serial, SERIAL_CMD_SUSPEND, arg);
@@ -581,20 +581,20 @@ static size_t serial_write(Device_t dev, void *pos, void *data, size_t len)
         return 0;
     }
 
-    // 鑻ヤ箣鍓嶇殑鏁版嵁娌℃湁鍙戦€佸畬锛岀洿鎺ユ斁鍏IFO绛夊緟鍙戦€?
+    // 若之前的数据没有发送完，直接放入FIFO等待发
     if (device_check_status(dev, DEV_STATUS_BUSY_TX))
     {
         ret_len = ringbuf_in(&txfifo->rb, data, len);
     }
     else
     {
-        if ((oparams & SERIAL_O_NBLCK_TX) || osal_is_in_isr()) // 鍦ㄤ腑鏂腑鍙兘浣跨敤闈為樆濉炲彂閫?
+        if ((oparams & SERIAL_O_NBLCK_TX) || osal_is_in_isr()) // 在中断中只能使用非阻塞发?
             ret_len = serial_tx_nonblock(dev, data, len);
         else if (oparams & SERIAL_O_BLCK_TX)
             ret_len = serial_tx_block(dev, data, len);
     }
-    // 鑻ユ槸鍙戦€佹暟鎹皬浜庢€婚暱搴︼紝鍒欒涓篢XFIFO婧㈠嚭锛岃Е鍙戝洖璋冨嚱鏁?
-    // 浠庢満鍒朵笂鏉ヨ锛岄樆濉炲彂閫佷笉浼氬嚭鐜癟XFIFO婧㈠嚭鐨勬儏鍐碉紝闈為樆濉炲彂閫佸垯鍙兘鐢变簬FIFO涓嶅鑰岀洿鎺ラ€€鍑哄彂閫?
+    // 若是发送数据据小于总长度，则认为TXFIFO溢出，触发回调函数
+    // 从机制上来说，阻塞发送不会出现TXFIFO溢出的情况，非阻塞发送则可能由于FIFO不够而直接退出发送
     if (ret_len < len)
         device_err_cb(dev, ERR_SERIAL_TXFIFO_OVERFLOW, len - ret_len);
     return ret_len;
@@ -616,7 +616,7 @@ static size_t serial_read(Device_t dev, void *pos, void *buf, size_t len)
 
     if (ringbuf_len(&rx_fifo->rb) >= len)
         recv_len = ringbuf_out(&rx_fifo->rb, buf, len);
-    else if (SERIAL_IS_O_NBLCK_RX(dev) || osal_is_in_isr()) // 鍦ㄤ腑鏂腑鍙兘浣跨敤闈為樆濉炴帴鏀?
+    else if (SERIAL_IS_O_NBLCK_RX(dev) || osal_is_in_isr()) // 在中断中只能使用非阻塞接?
         recv_len = serial_rx_nonblock(dev, buf, len);
     else if (SERIAL_IS_O_BLCK_RX(dev))
         recv_len = serial_rx_block(dev, buf, len);
@@ -627,8 +627,8 @@ static size_t serial_read(Device_t dev, void *pos, void *buf, size_t len)
 static DevInterface_s serial_interface = {
     .init = serial_init,
     .open = serial_open,
-    .close = OM_NULL,       // 寰呭畬鎴?
-    .control = serial_ctrl, // 寰呭畬鍠?
+    .close = OM_NULL,       // 待完善
+    .control = serial_ctrl, // 待完善
     .read = serial_read,
     .write = serial_write,
 };
@@ -644,7 +644,7 @@ OmRet_e serial_register(HalSerial_t serial, char *name, void *handle, uint32_t r
     return device_register(&serial->parent, name, regparams | DEVICE_REG_STANDALONG | DEVICE_REG_RDWR);
 }
 
-// 涓插彛涓柇鏈嶅姟鍑芥暟锛屼紭鍖栨柟鍚戯細閲囩敤绫讳技Linux鐨勬柟娉曪紝灏嗕腑鏂垎涓轰笂涓嬮儴鐨勫紓姝ュ鐞嗭紝涓婇儴涓虹‖涓柇锛屽揩杩涘揩鍑猴紝璐熻矗璁板綍鐘舵€侊紱涓嬮儴涓哄伐浣滈槦鍒楋紝璐熻矗澶勭悊鏁版嵁鍜屼笟鍔￠€昏緫
+// 串口中断服务函数，优化方向：采用类似Linux的方法，将中断分为上下部的异步处理，上部为硬中断，快进快出，负责记录状态；下部为工作队列，负责处理数据和业务逻辑
 OmRet_e serial_hw_isr(HalSerial_t serial, SerialEvent_e event, void *arg, size_t arg_size)
 {
     if (!serial || !serial->interface ||
@@ -655,36 +655,36 @@ OmRet_e serial_hw_isr(HalSerial_t serial, SerialEvent_e event, void *arg, size_t
 
     switch (event)
     {
-    /* arg = 鎺ユ敹buffer锛宎rg_size = 鏈鎺ユ敹鏁版嵁鐨勫ぇ灏?*/
-    case SERIAL_EVENT_INT_RXDONE: /* 涓柇鎺ユ敹瀹屾垚 */
-    case SERIAL_EVENT_DMA_RXDONE: /* DMA鎺ユ敹瀹屾垚 */
+    /* arg = 接收buffer，arg_size = 本次接收数据的大小*/
+    case SERIAL_EVENT_INT_RXDONE: /* 中断接收完成 */
+    case SERIAL_EVENT_DMA_RXDONE: /* DMA接收完成 */
     {
         SerialFifo_t rx_fifo;
-        size_t rx_len;   // 鏈鎺ユ敹瀹為檯鍐欏叆rb鐨勬暟鎹暱搴?
-        size_t data_len; // rb鏁版嵁鎬婚暱搴?
+        size_t rx_len;   // 本次接收实际写入 rb 的数据长度
+        size_t data_len; // rb 数据总长度
         if (!arg || arg_size == 0)
             return OM_ERROR_PARAM;
         rx_fifo = serial_get_rxfifo(serial);
         if (!rx_fifo || !rx_fifo->rb.buf)
             return OM_ERROR_PARAM;
 
-        /* 1. 鐘舵€佹鏌ヤ笌鏇存柊 */
-        if (rx_fifo->status == SERIAL_FIFO_BUSY) // 鍙湁鍦‵ifo澶勪簬绛夊緟鐘舵€佹墠澶勬洿鏂發oadSize
+        /* 1. 状态检查与更新 */
+        if (rx_fifo->status == SERIAL_FIFO_BUSY) // 只有在Fifo处于等待状态才处更新loadSize
             rx_fifo->loadSize -= arg_size;
         rx_len = ringbuf_in(&rx_fifo->rb, arg, arg_size);
 
-        // 閫氱煡搴旂敤灞俁XFIFO婧㈠嚭锛屽弬鏁版槸rb锛屽ぇ灏忔槸婧㈠嚭鐨勯噺锛屼簤鍙栧湪err_cb涓鐞嗕竴閮ㄥ垎rb涓殑鏁版嵁锛岃婧㈠嚭鐨勯噺鑳藉缁х画鍐欏叆FIFO
+        // 通知应用层RXFIFO溢出，参数是rb，大小是溢出的量，争取在err_cb中处理一部分rb中的数据，让溢出的量能够继续写入FIFO
         if (!rx_len || rx_len < arg_size)
         {
             device_err_cb(&serial->parent, ERR_SERIAL_RXFIFO_OVERFLOW, arg_size - rx_len);
-            // 鍋囪搴旂敤灞傚凡缁忓鐞嗕簡FIFO閿欒锛岄偅涔堣繖閲屽皾璇曞啀鍐欏叆涓€娆?
+            // 假设应用层已经处理了FIFO错误，那么这里尝试再写入一次
             (void)ringbuf_in(&rx_fifo->rb, (const unsigned char *)arg + rx_len, arg_size - rx_len);
-            // 濡傛灉搴旂敤灞傛病鏈夊仛浠讳綍浜嬫儏锛岃繖閲屼篃涓嶇敤鍐嶉€氱煡涓€娆★紝娌℃湁鎰忎箟锛宔rr_cb宸茬粡瀹屾垚瀹冮€氱煡搴旂敤灞傜殑浣垮懡浜?
+            // 如果应用层没有做任何事情，这里也不用再通知一次，没有意义，err_cb已经完成它通知应用层的使命
         }
         data_len = ringbuf_len(&rx_fifo->rb);
         if (SERIAL_IS_O_BLCK_RX(&serial->parent) && rx_fifo->loadSize <= 0)
         {
-            /* 闃诲璇诲彲鑳藉湪鍚屼竴杞?ISR 涓噸澶嶈Е鍙?done锛孊USY 瑙嗕负鍙帴鍙椼€?*/
+            /* 阻塞读可能在同一 ISR 中重复触发 done，BUSY 视为可接受*/
             serial_fifo_set_wait_reason(rx_fifo, SERIAL_WAIT_WAKE_DONE);
             OmRet_e cpt_ret = completion_done(&rx_fifo->cpt);
             (void)cpt_ret;
@@ -693,9 +693,9 @@ OmRet_e serial_hw_isr(HalSerial_t serial, SerialEvent_e event, void *arg, size_t
     }
     break;
 
-    /* arg = NULL, arg_size = 瀹為檯鍙戦€侀暱搴︼紝鐢卞簳灞傞┍鍔ㄤ紶鍏?*/
-    case SERIAL_EVENT_INT_TXDONE: /* 涓柇鍙戦€佸畬鎴?*/
-    case SERIAL_EVENT_DMA_TXDONE: /* 鍙戦€佸畬鎴?*/
+    /* arg = NULL, arg_size = 实际发送长度，由底层驱动传*/
+    case SERIAL_EVENT_INT_TXDONE: /* 中断发送完*/
+    case SERIAL_EVENT_DMA_TXDONE: /* 发送完*/
     {
         SerialFifo_t tx_fifo;
         size_t liner_size;
@@ -705,21 +705,21 @@ OmRet_e serial_hw_isr(HalSerial_t serial, SerialEvent_e event, void *arg, size_t
         tx_fifo = serial_get_txfifo(serial);
         if (!tx_fifo || !tx_fifo->rb.buf)
             return OM_ERROR_PARAM;
-        /* 1. 鐘舵€佹洿鏂?*/
-        ringbuf_update_out(&tx_fifo->rb, arg_size); // 鏇存柊FIFO璇绘寚閽?
-        tx_fifo->loadSize -= arg_size;              // 鏇存柊FIFO鍔犺浇鏁版嵁澶у皬
-        if (tx_fifo->loadSize == 0)                 // loadSize涓?锛屽垯璇存槑涓€杞暟鎹凡缁忎紶杈撳畬姣?
+        /* 1. 状态更新*/
+        ringbuf_update_out(&tx_fifo->rb, arg_size); // 更新 FIFO 读指针
+        tx_fifo->loadSize -= arg_size;              // 更新FIFO加载数据大小
+        if (tx_fifo->loadSize == 0)                 // loadSize 为 0，则说明一轮数据已经传输完成
             tx_fifo->status = SERIAL_FIFO_IDLE;
 
-        /*  2. 鍥炶皟
-            杩欓噷灏嗗洖璋冩斁鍦╰ransmit涔嬪墠锛屾槸鑰冭檻鍒板洖璋冧腑鍙兘浼氳皟鐢╳rite鎺ュ彛寰€rb涓鏁版嵁锛屼釜浜鸿涓哄湪鎿嶄綔涔嬪悗鍐嶈繘琛宼ransmit浼氭洿鐏垫椿鍜屽畨鍏?
+        /*  2. 回调
+            这里将回调放在transmit之前，是考虑到回调中可能会调用write接口往rb中塞数据，个人认为在操作之后再进行transmit会更灵活和安全
         */
         device_write_cb(&serial->parent, ringbuf_avail(&tx_fifo->rb));
 
-        /* 3. 澶勭悊鍙戦€佷换鍔?*/
+        /* 3. 处理发送任务*/
         if (tx_fifo->status != SERIAL_FIFO_IDLE)
         {
-            liner_size = ringbuf_get_item_linear_space(&tx_fifo->rb, &tx_buf); // 鑾峰彇FIFO鐨刬tem绾挎€х┖闂?
+            liner_size = ringbuf_get_item_linear_space(&tx_fifo->rb, &tx_buf); // 获取 FIFO 的 item 线性空间
             tx_fifo->loadSize = liner_size;
             if (liner_size > 0U)
             {
@@ -742,7 +742,7 @@ OmRet_e serial_hw_isr(HalSerial_t serial, SerialEvent_e event, void *arg, size_t
         {
             if (SERIAL_IS_O_BLCK_TX(&serial->parent))
             {
-                /* 闃诲鍙戦€佸畬鎴愰€氱煡锛岄噸澶嶈Е鍙戣繑鍥?BUSY 涓嶅奖鍝嶆湰杞涔夈€?*/
+                /* 阻塞发送完成通知，重复触发返BUSY 不影响本轮语义*/
                 serial_fifo_set_wait_reason(tx_fifo, SERIAL_WAIT_WAKE_DONE);
                 OmRet_e cpt_ret = completion_done(&tx_fifo->cpt);
                 (void)cpt_ret;
@@ -752,7 +752,7 @@ OmRet_e serial_hw_isr(HalSerial_t serial, SerialEvent_e event, void *arg, size_t
     }
     break;
 
-    case SERIAL_EVENT_ERR_OCCUR: /* 涓插彛閿欒鍥炶皟锛屽緟瀹屽杽 */
+    case SERIAL_EVENT_ERR_OCCUR: /* 串口错误回调，待完善 */
         serial_abort_blocking_waiters(serial, SERIAL_WAIT_WAKE_ERROR);
         device_err_cb(&serial->parent, (uint32_t)arg, 0);
         break;

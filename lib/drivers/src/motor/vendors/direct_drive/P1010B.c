@@ -1,7 +1,7 @@
-﻿/**
+/**
  * @file P1010B.c
- * @brief P1010B 鐩撮┍鐢垫満 CAN 棣栫増椹卞姩瀹炵幇
- * @note 棣栫増鍙疄鐜?CAN 杩愯璺緞锛屼笉瀹炵幇 RS485銆?
+ * @brief P1010B 直驱电机 CAN 首版驱动实现
+ * @note 首版只实现 CAN 运行路径，不实现 RS485
  */
 
 #include "drivers/motor/vendors/direct_drive/P1010B.h"
@@ -10,40 +10,40 @@
 #include <string.h>
 
 /* -------------------------------------------------------------------------- */
-/* 绉佹湁甯搁噺涓庝綅鍩熸槧灏?                                                        */
+/* 私有常量与位域映射*/
 /* -------------------------------------------------------------------------- */
 
-/** 姣忎釜 0x32/0x33 鍒嗙粍甯у寘鍚?4 涓數鏈烘Ы浣?*/
+/** 每个 0x32/0x33 分组帧包含 4 个电机槽位*/
 #define P1010B_GROUP_SLOT_COUNT (4U)
-/** reply_base_id 鎺╃爜锛堥珮 4 浣嶏級 */
+/** reply_base_id 掩码（高 4 位） */
 #define P1010B_REPLY_ID_MASK (0xF0U)
-/** motor_id 鎺╃爜锛堜綆 4 浣嶏級 */
+/** motor_id 掩码（低 4 位） */
 #define P1010B_REPLY_ID_LOW_MASK (0x0FU)
-/** 鍗忚搴旂瓟鍩哄湴鍧€鏈€灏?nibble锛?x50锛?*/
+/** 协议应答基地址最小 nibble（0x50）*/
 #define P1010B_REPLY_BASE_MIN_NIBBLE (0x5U)
-/** 鍗忚搴旂瓟鍩哄湴鍧€鏈€澶?nibble锛?xB0锛?*/
+/** 协议应答基地址最大 nibble（0xB0）*/
 #define P1010B_REPLY_BASE_MAX_NIBBLE (0xBU)
-/** reply_base_id 绾挎€у垎鍙戣〃澶у皬 */
+/** reply_base_id 线性分发表项大小 */
 #define P1010B_REPLY_DISPATCH_ENTRY_COUNT (P1010B_REPLY_BASE_MAX_NIBBLE - P1010B_REPLY_BASE_MIN_NIBBLE + 1U)
-/** 榛樿鍚屾浜嬪姟瓒呮椂锛坢s锛?*/
+/** 默认同步事务超时（ms）*/
 #define P1010B_DEFAULT_SYNC_TIMEOUT_MS (20U)
-/** 闈炴硶妯″紡鐩爣 scale 鍊?*/
+/** 非法模式目标 scale */
 #define P1010B_TARGET_SCALE_INVALID (0.0f)
-/** 寮€鐜?鐢垫祦/浣嶇疆妯″紡鐩爣 scale */
+/** 开电流/位置模式目标 scale */
 #define P1010B_TARGET_SCALE_X100 (100.0f)
-/** 閫熷害妯″紡鐩爣 scale */
+/** 速度模式目标 scale */
 #define P1010B_TARGET_SCALE_X10 (10.0f)
-/** fault signature: calibrated 浣嶇Щ */
+/** fault signature: calibrated 位偏移 */
 #define P1010B_FAULT_SIGNATURE_CALIBRATED_SHIFT (0U)
-/** fault signature: faultCode 璧峰浣?*/
+/** fault signature: faultCode 起始位*/
 #define P1010B_FAULT_SIGNATURE_FAULT_SHIFT (1U)
-/** fault signature: faultCode 鏈夋晥鎺╃爜 */
+/** fault signature: faultCode 有效掩码 */
 #define P1010B_FAULT_SIGNATURE_FAULT_MASK (0x0FU)
-/** fault signature: alarmCode 璧峰浣?*/
+/** fault signature: alarmCode 起始位*/
 #define P1010B_FAULT_SIGNATURE_ALARM_SHIFT (5U)
-/** fault signature: alarmCode 鏈夋晥鎺╃爜 */
+/** fault signature: alarmCode 有效掩码 */
 #define P1010B_FAULT_SIGNATURE_ALARM_MASK (0x7FU)
-/** reply_base_id -> 鍒嗗彂琛ㄧ储寮?*/
+/** reply_base_id -> 分发表索引*/
 #define P1010B_REPLY_DISPATCH_INDEX(_replyBaseId) \
     ((uint8_t)((((uint8_t)(_replyBaseId)) >> 4U) - P1010B_REPLY_BASE_MIN_NIBBLE))
 
@@ -51,11 +51,11 @@ static const P1010BCommandDescriptor_s *p1010b_internal_find_command_descriptor(
 static const P1010BRxDispatchDescriptor_s *p1010b_internal_find_rx_dispatch_descriptor(uint8_t reply_base_id);
 
 /* -------------------------------------------------------------------------- */
-/* 鍩虹宸ュ叿鍑芥暟                                                                */
+/* 基础工具函数                                                                */
 /* -------------------------------------------------------------------------- */
 
 /**
- * @brief 鏍￠獙鐢垫満 ID 鏄惁鍦ㄥ崗璁敮鎸佽寖鍥村唴
+ * @brief 校验电机 ID 是否在协议支持范围内
  */
 static inline bool p1010b_internal_is_valid_motor_id(uint8_t motor_id)
 {
@@ -63,7 +63,7 @@ static inline bool p1010b_internal_is_valid_motor_id(uint8_t motor_id)
 }
 
 /**
- * @brief 鎸夊ぇ绔鍙?16 浣嶆湁绗﹀彿鏁?
+ * @brief 按大端读取 16 位有符号数
  */
 static inline int16_t p1010b_internal_read_be_i16(const uint8_t *buffer)
 {
@@ -71,7 +71,7 @@ static inline int16_t p1010b_internal_read_be_i16(const uint8_t *buffer)
 }
 
 /**
- * @brief 鎸夊ぇ绔鍙?32 浣嶆湁绗﹀彿鏁?
+ * @brief 按大端读取 32 位有符号数
  */
 static inline int32_t p1010b_internal_read_be_i32(const uint8_t *buffer)
 {
@@ -80,7 +80,7 @@ static inline int32_t p1010b_internal_read_be_i32(const uint8_t *buffer)
 }
 
 /**
- * @brief int32 -> int16 楗卞拰鎴柇
+ * @brief int32 -> int16 饱和截断
  */
 static inline int16_t p1010b_internal_clamp_i16(int32_t value)
 {
@@ -96,11 +96,11 @@ static inline int16_t p1010b_internal_clamp_i16(int32_t value)
 }
 
 /**
- * @brief 鎸夊綋鍓嶆ā寮忔妸鐗╃悊閲忕洰鏍囧€兼崲绠椾负鍗忚鍘熷閲?
+ * @brief 按当前模式把物理量目标值换算为协议原始值
  * @details
- * - 寮€鐜?鐢垫祦/浣嶇疆锛?100
- * - 閫熷害锛?10
- * - 浣跨敤鍥涜垗浜斿叆鍚庡啀鍋?int16 楗卞拰銆?
+ * - 开环/电流/位置模式：x100
+ * - 速度模式：x10
+ * - 使用四舍五入后再做 int16 饱和
  */
 static inline int16_t p1010b_internal_scale_target(float scale, float target_value)
 {
@@ -117,8 +117,8 @@ static inline int16_t p1010b_internal_scale_target(float scale, float target_val
 }
 
 /**
- * @brief 灏嗙數鏈?ID 鏄犲皠鍒?0x32/0x33 鍒嗙粍
- * @return 0 琛ㄧず 1~4锛? 琛ㄧず 5~8
+ * @brief 将电机 ID 映射到 0x32/0x33 分组
+ * @return 0 表示 1~4 组；1 表示 5~8 组
  */
 static inline uint8_t p1010b_internal_get_group_index(uint8_t motor_id)
 {
@@ -126,7 +126,7 @@ static inline uint8_t p1010b_internal_get_group_index(uint8_t motor_id)
 }
 
 /**
- * @brief 璁＄畻鐢垫満 ID 鍦ㄥ垎缁勫抚涓殑妲戒綅绱㈠紩锛?~3锛?
+ * @brief 计算电机 ID 在分组帧中的槽位索引（0~3）
  */
 static inline uint8_t p1010b_internal_get_slot_index(uint8_t motor_id)
 {
@@ -134,8 +134,8 @@ static inline uint8_t p1010b_internal_get_slot_index(uint8_t motor_id)
 }
 
 /**
- * @brief 鍙傛暟鐧藉悕鍗曞垽瀹?
- * @note 浠呯櫧鍚嶅崟鍙傛暟鍏佽鍐欏叆锛岄槻姝㈤珮椋庨櫓鍙傛暟琚鍐欍€?
+ * @brief 参数白名单判定
+ * @note 仅白名单参数允许写入，防止高风险参数被误写
  */
 static inline bool p1010b_internal_is_parameter_whitelisted(uint8_t parameter_id)
 {
@@ -154,9 +154,9 @@ static inline bool p1010b_internal_is_parameter_whitelisted(uint8_t parameter_id
 }
 
 /**
- * @brief 鎵撳寘鍒嗙粍鎺у埗甯ц浇鑽?
+ * @brief 打包分组控制帧载荷
  * @details
- * 姣忎釜鐢垫満鍗?2 瀛楄妭锛岄『搴忓搴旂粍鍐呮Ы浣?0~3銆?
+ * 每个电机 2 字节，顺序对应组内槽位 0~3
  */
 static void p1010b_internal_pack_group_payload(const P1010BBus_s *bus, uint8_t group_index, uint8_t payload[P1010B_CAN_DLC])
 {
@@ -169,11 +169,11 @@ static void p1010b_internal_pack_group_payload(const P1010BBus_s *bus, uint8_t g
 }
 
 /**
- * @brief 鍙戦€?1 甯ф爣鍑?CAN 鏁版嵁甯?
- * @param bus 鎬荤嚎涓婁笅鏂?
- * @param can_id 鏍囧噯甯?ID
- * @param payload 8 瀛楄妭杞借嵎
- * @return `OM_OK` 鍙戦€佹垚鍔燂紱澶辫触杩斿洖閿欒鐮?
+ * @brief 发送 1 帧标准 CAN 数据
+ * @param bus 总线上下文
+ * @param can_id 标准 ID
+ * @param payload 8 字节载荷
+ * @return `OM_OK` 发送成功功；失败返回错误
  */
 static OmRet_e p1010b_internal_send_can_frame(P1010BBus_s *bus, uint16_t can_id, const uint8_t payload[P1010B_CAN_DLC])
 {
@@ -190,7 +190,7 @@ static OmRet_e p1010b_internal_send_can_frame(P1010BBus_s *bus, uint16_t can_id,
 }
 
 /**
- * @brief 璁＄畻鐩爣缂╂斁绯绘暟锛岃皟鐢ㄦ柟璐熻矗鍥炲啓鍒扮紦瀛?
+ * @brief 计算目标缩放系数，调用方负责回写到缓存
  */
 static float p1010b_internal_update_target_scale_cache(P1010BMode_e mode)
 {
@@ -208,7 +208,7 @@ static float p1010b_internal_update_target_scale_cache(P1010BMode_e mode)
 }
 
 /**
- * @brief 鏇存柊鍦ㄧ嚎鐘舵€佸苟瑙﹀彂杈规部鍥炶皟
+ * @brief 更新在线状态并触发边沿回调
  */
 static inline void p1010b_internal_mark_online(P1010BDriver_s *driver, bool online)
 {
@@ -228,7 +228,7 @@ static inline void p1010b_internal_mark_online(P1010BDriver_s *driver, bool onli
 }
 
 /**
- * @brief 瑙ｆ瀽鍚屾浜嬪姟绛夊緟瓒呮椂
+ * @brief 解析同步事务等待超时
  */
 static inline uint32_t p1010b_internal_resolve_sync_timeout_ms(const P1010BDriver_s *driver, uint32_t timeout_ms)
 {
@@ -244,7 +244,7 @@ static inline uint32_t p1010b_internal_resolve_sync_timeout_ms(const P1010BDrive
 }
 
 /**
- * @brief 鍦ㄩ攣淇濇姢涓嬫竻绌哄悓姝ヤ簨鍔＄姸鎬?
+ * @brief 在锁保护下清空同步事务状态
  */
 static inline void p1010b_internal_clear_sync_transaction_locked(P1010BDriver_s *driver)
 {
@@ -260,7 +260,7 @@ static inline void p1010b_internal_clear_sync_transaction_locked(P1010BDriver_s 
 }
 
 /**
- * @brief 鍒濆鍖栧搷搴斿璞?
+ * @brief 初始化响应对象
  */
 static inline void p1010b_internal_init_response(P1010BResponse_s *response, P1010BCommand_e command, OmRet_e result)
 {
@@ -275,7 +275,7 @@ static inline void p1010b_internal_init_response(P1010BResponse_s *response, P10
 }
 
 /**
- * @brief 鍙栨秷褰撳墠鍚屾浜嬪姟锛堢嚎绋嬩笂涓嬫枃锛?
+ * @brief 取消当前同步事务（线程上下文）
  */
 static void p1010b_internal_cancel_sync_transaction(P1010BDriver_s *driver)
 {
@@ -287,7 +287,7 @@ static void p1010b_internal_cancel_sync_transaction(P1010BDriver_s *driver)
 }
 
 /**
- * @brief 鍚姩鍚屾浜嬪姟骞剁櫥璁板尮閰嶆潯浠?
+ * @brief 启动同步事务并登记匹配条件
  */
 static OmRet_e p1010b_internal_begin_sync_transaction(P1010BDriver_s *driver, P1010BCommand_e command, const P1010BEncodedRequest_s *encoded)
 {
@@ -296,7 +296,7 @@ static OmRet_e p1010b_internal_begin_sync_transaction(P1010BDriver_s *driver, P1
         return OM_ERROR_PARAM;
     }
 
-    /* 娓呯┖鍙兘閬楃暀鐨勫畬鎴愰噺淇″彿锛岀‘淇濇湰娆?wait 鍙搴斿綋鍓嶄簨鍔°€?*/
+    /* 清空可能遗留的完成量信号，确保本次 wait 只对应当前事务*/
     while (completion_wait(&driver->sync.completion, 0U) == OM_OK)
     {
     }
@@ -320,7 +320,7 @@ static OmRet_e p1010b_internal_begin_sync_transaction(P1010BDriver_s *driver, P1
 }
 
 /**
- * @brief 绛夊緟鍚屾浜嬪姟瀹屾垚
+ * @brief 等待同步事务完成
  */
 static OmRet_e p1010b_internal_wait_sync_transaction(P1010BDriver_s *driver, uint32_t timeout_ms, P1010BResponse_s *response)
 {
@@ -331,7 +331,7 @@ static OmRet_e p1010b_internal_wait_sync_transaction(P1010BDriver_s *driver, uin
     {
         p1010b_internal_cancel_sync_transaction(driver);
         if (ret == OM_ERROR_TIMEOUT)
-            /* 瓒呮椂鍚庢秷璐瑰彲鑳借繜鍒扮殑 done 淇″彿锛岄伩鍏嶆薄鏌撲笅涓€娆″悓姝ヤ簨鍔°€?*/
+            /* 超时后消费可能迟到的 done 信号，避免污染下一次同步事务*/
             while (completion_wait(&driver->sync.completion, 0U) == OM_OK)
             {
             }
@@ -347,7 +347,7 @@ static OmRet_e p1010b_internal_wait_sync_transaction(P1010BDriver_s *driver, uin
 }
 
 /**
- * @brief 鍙戦€佸悓姝ヤ簨鍔¤姹傦紙鏀寔閲嶈瘯锛?
+ * @brief 发送同步事务请求（支持重试）
  */
 static OmRet_e p1010b_internal_send_sync_transaction(P1010BDriver_s *driver, const P1010BRequest_s *request, const P1010BEncodedRequest_s *encoded, P1010BResponse_s *response)
 {
@@ -377,7 +377,7 @@ static OmRet_e p1010b_internal_send_sync_transaction(P1010BDriver_s *driver, con
 }
 
 /**
- * @brief 閫氳繃鎻忚堪绗﹀垽瀹氬悓姝ュ簲绛旀槸鍚﹀尮閰?
+ * @brief 通过描述符判定同步应答是否匹配
  */
 static bool p1010b_internal_is_sync_reply_matched_by_descriptor(const P1010BCommandDescriptor_s *descriptor,
                                                                 const P1010BDriver_s *driver, const P1010BRawFrame_s *frame)
@@ -407,7 +407,7 @@ static bool p1010b_internal_is_sync_reply_matched_by_descriptor(const P1010BComm
 }
 
 /**
- * @brief 鐢辨弿杩扮鍦?ISR 鍐呰В鐮佸悓姝ュ簲绛?
+ * @brief 由描述符在 ISR 内解码同步应答
  */
 static void p1010b_internal_decode_sync_reply_by_descriptor_in_isr(const P1010BCommandDescriptor_s *descriptor, P1010BDriver_s *driver, const P1010BRawFrame_s *frame, P1010BIsrCallbackContext_s *callback_context)
 {
@@ -426,7 +426,7 @@ static void p1010b_internal_decode_sync_reply_by_descriptor_in_isr(const P1010BC
 }
 
 /**
- * @brief 鍦?ISR 涓皾璇曞尮閰嶅苟瀹屾垚鍚屾浜嬪姟
+ * @brief ISR 中尝试匹配并完成同步事务
  */
 static void p1010b_internal_try_complete_sync_transaction(P1010BBus_s *bus, P1010BDriver_s *driver, const P1010BRawFrame_s *frame)
 {
@@ -454,7 +454,7 @@ static void p1010b_internal_try_complete_sync_transaction(P1010BBus_s *bus, P101
         p1010b_internal_decode_sync_reply_by_descriptor_in_isr(descriptor, driver, frame, &callback_context);
         driver->sync.result = OM_OK;
         driver->sync.timestampMs = frame->timestampMs;
-        /* 鍏堟竻 pending锛屽啀 done锛岄伩鍏嶇嚎绋嬩晶鍞ら啋鍚庤鍒版湭鏀舵暃鐘舵€併€?*/
+        /* 先清 pending，再 done，避免线程侧唤醒后读到未收敛状态*/
         p1010b_internal_clear_sync_transaction_locked(driver);
         (void)completion_done(&driver->sync.completion);
     }
@@ -466,15 +466,15 @@ static void p1010b_internal_try_complete_sync_transaction(P1010BBus_s *bus, P101
 
     if (callback_context.triggerParamReadCallback && driver->callbacks.onParamRead)
     {
-        /* 鍥炶皟鏀惧湪瑙ｉ攣鍚庢墽琛岋紝缂╃煭 ISR 涓寸晫鍖恒€?*/
+        /* 回调放在解锁后执行，缩短 ISR 临界区*/
         driver->callbacks.onParamRead(driver, callback_context.callbackParameterId, callback_context.callbackParameterValue, OM_OK,
                                       frame->timestampMs);
     }
 }
 
 /**
- * @brief 瑙ｆ瀽缁欏畾鍙嶉甯э紙0x50 + id锛?
- * @note 杈撳嚭涓鸿涔夊寲閲忥紝涓嶅悜涓婂眰鏆撮湶鍘熷瀛楄妭銆?
+ * @brief 解析给定反馈帧（0x50 + id）
+ * @note 输出为语义化量，不向上层暴露原始字节
  */
 static void p1010b_internal_update_feedback(P1010BDriver_s *driver, const P1010BRawFrame_s *frame)
 {
@@ -491,13 +491,13 @@ static void p1010b_internal_update_feedback(P1010BDriver_s *driver, const P1010B
 }
 
 /**
- * @brief 灏嗘湁鏁堟晠闅滃瓧娈垫墦鍖呬负 32 浣嶇鍚?
+ * @brief 将有效故障字段打包为 32 位签名
  * @details
- * 浠呮墦鍖呰鏍间功瀹氫箟鐨勬湁鏁堝瓧娈碉細
+ * 仅打包规格书定义的有效字段：
  * - bit0: calibrated
  * - bit1..4: faultCode
  * - bit5..11: alarmCode
- * `statusBits` 涓轰繚鐣欎綅锛屼笉鍙備笌鍥炶皟瑙﹀彂鍒ゅ畾銆?
+ * `statusBits` 为保留位，不参与回调触发判定
  */
 static inline uint32_t p1010b_internal_pack_fault_signature(const P1010BFaultState_s *fault_state)
 {
@@ -515,9 +515,9 @@ static inline uint32_t p1010b_internal_pack_fault_signature(const P1010BFaultSta
 }
 
 /**
- * @brief 瑙ｆ瀽鐘舵€佸簲绛斿抚锛?xA0 + id锛?
+ * @brief 解析状态应答帧（0xA0 + id）
  * @details
- * 棣栫増淇濈暀鈥滄晠闅?鎶ヨ/鐘舵€佷綅鈥濊涔夛紱鏁呴殰鐮侀潪 0 鏃惰繘鍏ラ棴閿佹€併€?
+ * 首版保留“故障/报警/状态位”语义；故障码非 0 时进入闭锁态
  */
 static void p1010b_internal_update_fault_state(P1010BDriver_s *driver, const P1010BRawFrame_s *frame)
 {
@@ -526,8 +526,8 @@ static void p1010b_internal_update_fault_state(P1010BDriver_s *driver, const P10
     uint32_t new_fault_signature;
 
     /*
-     * 鎸夈€奝1010B_111 鐢垫満瑙勬牸涔?V1.2銆嬫槧灏?0xA0+id 搴旂瓟瀛楁锛?
-     * DATA[2]=CMD锛孌ATA[3]=鏍″噯鐘舵€侊紝DATA[4]=鏁呴殰鐮侊紝DATA[5]=鎶ヨ鐮侊紝DATA[6..7]=淇濈暀銆?
+     * 按《P1010B_111 电机规格V1.2》映射 0xA0+id 应答字段
+     * DATA[2]=CMD，DATA[3]=校准状态，DATA[4]=故障码，DATA[5]=报警码，DATA[6..7]=保留
      */
     driver->telemetry.faultState.calibrated = ((frame->payload[3] & 0x01U) != 0U);
     driver->telemetry.faultState.faultCode = (uint16_t)frame->payload[4];
@@ -549,7 +549,7 @@ static void p1010b_internal_update_fault_state(P1010BDriver_s *driver, const P10
 }
 
 /**
- * @brief 璁板綍鏈€杩戞帴鏀舵椂闂村苟鏇存柊鍦ㄧ嚎鎬?
+ * @brief 记录最近接收时间并更新在线状态
  */
 static void p1010b_internal_mark_rx_seen(P1010BDriver_s *driver, uint32_t timestamp_ms)
 {
@@ -562,8 +562,8 @@ static void p1010b_internal_mark_rx_seen(P1010BDriver_s *driver, uint32_t timest
 }
 
 /**
- * @brief 鎶?reply_base_id 鏄犲皠鍒板垎鍙戣〃绱㈠紩
- * @return 闈炶礋绱㈠紩鏈夋晥锛?1 琛ㄧず涓嶅湪鏄犲皠鑼冨洿
+ * @brief reply_base_id 映射到分发表索引
+ * @return 非负索引有效；-1 表示不在映射范围
  */
 static int32_t p1010b_internal_reply_base_to_dispatch_index(uint8_t reply_base_id)
 {
@@ -584,9 +584,9 @@ static int32_t p1010b_internal_reply_base_to_dispatch_index(uint8_t reply_base_i
 }
 
 /**
- * @brief 鎺ユ敹鍒嗗彂琛?
+ * @brief 接收分发
  * @details
- * 鎸?reply_base_id 绾挎€ф槧灏勫埌鍓綔鐢ㄥ鐞嗕笌鍚屾浜嬪姟瀹屾垚绛栫暐锛岄伩鍏?ISR 鍐呭垎鏀壂鎻忋€?
+ * reply_base_id 线性映射到副作用处理与同步事务完成策略，避免 ISR 内分支扫描
  */
 static const P1010BRxDispatchDescriptor_s g_p1010b_rx_dispatch_table[P1010B_REPLY_DISPATCH_ENTRY_COUNT] = {
     [P1010B_REPLY_DISPATCH_INDEX(P1010B_CAN_ACK_DRIVE_BASE)] = {
@@ -627,8 +627,8 @@ static const P1010BRxDispatchDescriptor_s g_p1010b_rx_dispatch_table[P1010B_REPL
 };
 
 /**
- * @brief 鎸?reply_base_id 鏌ユ壘鎺ユ敹鍒嗗彂琛ㄩ」
- * @return 鏈夋晥鍒嗗彂琛ㄩ」鎸囬拡锛涙湭鍛戒腑杩斿洖 `NULL`
+ * @brief reply_base_id 查找接收分发表项
+ * @return 有效分发表项指针；未命中返回 `NULL`
  */
 static const P1010BRxDispatchDescriptor_s *p1010b_internal_find_rx_dispatch_descriptor(uint8_t reply_base_id)
 {
@@ -650,10 +650,10 @@ static const P1010BRxDispatchDescriptor_s *p1010b_internal_find_rx_dispatch_desc
 }
 
 /**
- * @brief CAN 杩囨护鍣ㄥ洖璋冿紙ISR 涓婁笅鏂囷級
+ * @brief CAN 过滤器回调（ISR 上下文）
  * @details
- * - ISR 璇诲嚭杩囨护鍣ㄦ秷鎭悗鐩存帴瀹屾垚鍗忚瑙ｆ瀽涓庣數鏈哄疄渚嬭矾鐢憋紱
- * - 鍙嶉/鏁呴殰/璇诲弬搴旂瓟鍧囧湪 ISR 鍐呮洿鏂扮姸鎬佸苟瑙﹀彂鍥炶皟銆?
+ * - ISR 读出过滤器消息后直接完成协议解析与电机实例路由；
+ * - 反馈/故障/读参应答均在 ISR 内更新状态并触发回调
  */
 static void p1010b_internal_rx_callback(Device_t device, void *param, CanFilterHandle_t filter_handle, size_t message_count)
 {
@@ -720,10 +720,10 @@ static void p1010b_internal_rx_callback(Device_t device, void *param, CanFilterH
 }
 
 /**
- * @brief 鍒濆鍖?P1010B 鎬荤嚎涓婁笅鏂?
+ * @brief 初始化 P1010B 总线上下文
  * @details
- * - 鍒嗛厤涓€涓繃婊ゅ櫒鐢ㄤ簬鏀跺寘锛?
- * - 棣栫増閲囩敤鎬荤嚎绾у叏鍖归厤锛岀敱 ISR 鎸?`motor_id` 鍋氫簩娆¤矾鐢便€?
+ * - 分配一个过滤器用于收包
+ * - 首版采用总线级全匹配，由 ISR `motor_id` 做二次路由
  */
 OmRet_e p1010b_bus_init(P1010BBus_s *bus, Device_t can_device)
 {
@@ -740,8 +740,8 @@ OmRet_e p1010b_bus_init(P1010BBus_s *bus, Device_t can_device)
 
     memset(&filter_alloc_arg, 0, sizeof(filter_alloc_arg));
     /*
-     * 棣栫増閲囩敤鎬荤嚎绾х粺涓€鏀跺寘锛岄┍鍔ㄤ晶鎸?low nibble 璺敱鍒板叿浣撶數鏈哄疄渚嬨€?
-     * 鍥犳浣跨敤鍏ㄥ尮閰嶈繃婊ゅ櫒锛岄伩鍏嶅崟鐢垫満杩囨护瀵艰嚧鍚屾€荤嚎澶氱數鏈哄疄渚嬩笉鍙銆?
+     * 首版采用总线级统一收包，驱动侧low nibble 路由到具体电机实例
+     * 因此使用全匹配过滤器，避免单电机过滤导致同总线多电机实例不可见
      */
     filter_alloc_arg.request =
         CAN_FILTER_REQUEST_INIT(CAN_FILTER_MODE_MASK, CAN_FILTER_ID_STD, 0U, 0U, p1010b_internal_rx_callback, bus);
@@ -757,7 +757,7 @@ OmRet_e p1010b_bus_init(P1010BBus_s *bus, Device_t can_device)
 }
 
 /**
- * @brief 閲婃斁鎬荤嚎涓婁笅鏂囪祫婧?
+ * @brief 释放总线上下文资源
  */
 OmRet_e p1010b_bus_deinit(P1010BBus_s *bus)
 {
@@ -785,8 +785,8 @@ OmRet_e p1010b_bus_deinit(P1010BBus_s *bus)
 }
 
 /**
- * @brief 娉ㄥ唽鐢垫満椹卞姩瀹炰緥鍒版€荤嚎
- * @note 鍚屼竴 `motor_id` 鍙厑璁哥粦瀹氫竴涓疄渚嬨€?
+ * @brief 注册电机驱动实例到总线
+ * @note 同一 `motor_id` 只允许绑定一个实例
  */
 OmRet_e p1010b_register(P1010BBus_s *bus, P1010BDriver_s *driver, const P1010BConfig_s *config)
 {
@@ -830,7 +830,7 @@ OmRet_e p1010b_register(P1010BBus_s *bus, P1010BDriver_s *driver, const P1010BCo
 }
 
 /**
- * @brief 璁剧疆浜嬩欢鍥炶皟鍑芥暟
+ * @brief 设置事件回调函数
  */
 void p1010b_set_callbacks(P1010BDriver_s *driver, P1010BFeedbackCallback_t feedback_cb, P1010BFaultCallback_t fault_cb,
                           P1010BOnlineCallback_t online_cb, P1010BParamReadCallback_t param_read_cb)
@@ -846,7 +846,7 @@ void p1010b_set_callbacks(P1010BDriver_s *driver, P1010BFeedbackCallback_t feedb
 }
 
 /**
- * @brief 鍒ゆ柇杩愯妯″紡鏄惁鍚堟硶
+ * @brief 判断运行模式是否合法
  */
 static bool p1010b_internal_is_mode_supported(P1010BMode_e mode)
 {
@@ -863,9 +863,9 @@ static bool p1010b_internal_is_mode_supported(P1010BMode_e mode)
 }
 
 /**
- * @brief 鏍￠獙璇锋眰 flags 鏄惁涓哄悎娉曚簩閫変竴妯″紡
- * @param flags 璇锋眰鏍囧織
- * @return `true` 鍚堟硶锛沗false` 闈炴硶
+ * @brief 校验请求 flags 是否为合法二选一模式
+ * @param flags 请求标志
+ * @return `true` 合法；`false` 非法
  */
 static bool p1010b_internal_is_request_flags_valid(uint8_t flags)
 {
@@ -873,9 +873,9 @@ static bool p1010b_internal_is_request_flags_valid(uint8_t flags)
 }
 
 /**
- * @brief 瑙ｆ瀽璇锋眰瀹為檯鎵ц妯″紡锛圫YNC/ASYNC锛?
+ * @brief 解析请求实际执行模式（SYNC/ASYNC）
  * @details
- * 褰?`request->flags == NONE` 鏃讹紝鍥為€€浣跨敤鍛戒护鎻忚堪绗﹂粯璁?flags銆?
+ * `request->flags == NONE` 时，回退使用命令描述符默认 flags
  */
 static OmRet_e p1010b_internal_resolve_request_flags(const P1010BCommandDescriptor_s *descriptor, const P1010BRequest_s *request, uint8_t *resolved_flags)
 {
@@ -896,9 +896,9 @@ static OmRet_e p1010b_internal_resolve_request_flags(const P1010BCommandDescript
 }
 
 /**
- * @brief 鎺у埗缁欏畾鍛戒护瀹堝崼
+ * @brief 控制给定命令守卫
  * @details
- * 浠呭湪 `ENABLED` 涓旀棤鏁呴殰闂攣鏃跺厑璁哥粰瀹氥€?
+ * 仅在 `ENABLED` 且无故障闭锁时允许给定
  */
 static OmRet_e p1010b_internal_guard_target(P1010BDriver_s *driver, const P1010BRequest_s *request)
 {
@@ -921,9 +921,9 @@ static OmRet_e p1010b_internal_guard_target(P1010BDriver_s *driver, const P1010B
 }
 
 /**
- * @brief 涓诲姩涓婃姤閰嶇疆鍛戒护瀹堝崼
+ * @brief 主动上报配置命令守卫
  * @details
- * 浠呭厑璁稿湪 `DISABLED` 閰嶇疆鎬佷笅涓嬪彂锛屽苟瑕佹眰鍛ㄦ湡闈為浂銆?
+ * 仅允许在 `DISABLED` 配置态下下发，并要求周期非零
  */
 static OmRet_e p1010b_internal_guard_set_active_report(P1010BDriver_s *driver, const P1010BRequest_s *request)
 {
@@ -940,9 +940,9 @@ static OmRet_e p1010b_internal_guard_set_active_report(P1010BDriver_s *driver, c
 }
 
 /**
- * @brief 鍙傛暟鍐欏懡浠ゅ畧鍗?
+ * @brief 参数写命令守卫
  * @details
- * 棣栫増闄愬埗涓?Disabled 鎬佷笖鍙傛暟鍦ㄧ櫧鍚嶅崟涓€?
+ * 首版限制 Disabled 态且参数在白名单中
  */
 static OmRet_e p1010b_internal_guard_write_parameter(P1010BDriver_s *driver, const P1010BRequest_s *request)
 {
@@ -960,8 +960,8 @@ static OmRet_e p1010b_internal_guard_write_parameter(P1010BDriver_s *driver, con
 }
 
 /**
- * @brief 鍙傛暟璇诲懡浠ゅ畧鍗?
- * @note 鍙傛暟 ID 涓?0 瑙嗕负鏃犳晥璇锋眰銆?
+ * @brief 参数读命令守卫
+ * @note 参数 ID 0 视为无效请求
  */
 static OmRet_e p1010b_internal_guard_read_parameter(P1010BDriver_s *driver, const P1010BRequest_s *request)
 {
@@ -974,10 +974,10 @@ static OmRet_e p1010b_internal_guard_read_parameter(P1010BDriver_s *driver, cons
 }
 
 /**
- * @brief 鐘舵€佹帶鍒跺懡浠ゅ畧鍗?
+ * @brief 状态控制命令守卫
  * @details
- * - 浠呮帴鍙?ENABLE/DISABLE锛?
- * - 鏁呴殰闂攣涓嬬姝?ENABLE銆?
+ * - 仅接受 ENABLE/DISABLE
+ * - 故障闭锁下禁止 ENABLE
  */
 static OmRet_e p1010b_internal_guard_state_control(P1010BDriver_s *driver, const P1010BRequest_s *request)
 {
@@ -998,8 +998,8 @@ static OmRet_e p1010b_internal_guard_state_control(P1010BDriver_s *driver, const
 }
 
 /**
- * @brief 鍙傛暟淇濆瓨鍛戒护瀹堝崼
- * @note 浠呭厑璁?Disabled 鎬佹墽琛屻€?
+ * @brief 参数保存命令守卫
+ * @note 仅允许 Disabled 态执行
  */
 static OmRet_e p1010b_internal_guard_save_parameters(P1010BDriver_s *driver, const P1010BRequest_s *request)
 {
@@ -1013,8 +1013,8 @@ static OmRet_e p1010b_internal_guard_save_parameters(P1010BDriver_s *driver, con
 }
 
 /**
- * @brief 妯″紡璁剧疆鍛戒护瀹堝崼
- * @note 浠呮敮鎸佸彈鎺фā寮忛泦鍚堬紝涓斾粎鍏佽 Disabled 鎬侀厤缃€?
+ * @brief 模式设置命令守卫
+ * @note 仅支持受控模式集合，且仅允许 Disabled 态配置
  */
 static OmRet_e p1010b_internal_guard_set_mode(P1010BDriver_s *driver, const P1010BRequest_s *request)
 {
@@ -1031,8 +1031,8 @@ static OmRet_e p1010b_internal_guard_set_mode(P1010BDriver_s *driver, const P101
 }
 
 /**
- * @brief 鎵撳寘鍙傛暟鍐欒浇鑽凤紙0x36锛?
- * @details 32 浣嶅弬鏁板€兼寜鍗忚瀹氫箟浠ヤ綆瀛楄妭鍦ㄥ墠鏂瑰紡缂栫爜鍒?payload[2..5]銆?
+ * @brief 打包参数写载荷（0x36）
+ * @details 32 位参数值按协议定义以低字节在前方式编码payload[2..5]
  */
 static void p1010b_internal_encode_parameter_write_payload(uint8_t motor_id, uint8_t parameter_id, int32_t parameter_value,
                                                            uint8_t payload[P1010B_CAN_DLC])
@@ -1046,9 +1046,9 @@ static void p1010b_internal_encode_parameter_write_payload(uint8_t motor_id, uin
 }
 
 /**
- * @brief 缂栫爜鍘熷缁欏畾甯э紙0x32/0x33锛?
+ * @brief 编码原始给定帧（0x32/0x33）
  * @details
- * 鍏堝啓鍏?group 缂撳瓨锛屽啀閲嶆柊鎵撳寘鏁村抚锛屼繚璇佸悓缁勫鐢垫満缁欏畾涓€鑷淬€?
+ * 先写 group 缓存，再重新打包整帧，保证同组多电机给定一致
  */
 static OmRet_e p1010b_internal_encode_target_raw_value(P1010BDriver_s *driver, int16_t raw_target, P1010BEncodedRequest_s *encoded)
 {
@@ -1064,7 +1064,7 @@ static OmRet_e p1010b_internal_encode_target_raw_value(P1010BDriver_s *driver, i
 }
 
 /**
- * @brief 缂栫爜璇箟缁欏畾鍛戒护锛堣嚜鍔?scale锛?
+ * @brief 编码语义给定命令（自动 scale）
  */
 static OmRet_e p1010b_internal_encode_set_target(P1010BDriver_s *driver, const P1010BRequest_s *request,
                                                  P1010BEncodedRequest_s *encoded)
@@ -1076,7 +1076,7 @@ static OmRet_e p1010b_internal_encode_set_target(P1010BDriver_s *driver, const P
 }
 
 /**
- * @brief 缂栫爜杞欢澶嶄綅鍛戒护锛?x40锛?
+ * @brief 编码软件复位命令（0x40）
  */
 static OmRet_e p1010b_internal_encode_software_reset(P1010BDriver_s *driver, const P1010BRequest_s *request,
                                                      P1010BEncodedRequest_s *encoded)
@@ -1088,7 +1088,7 @@ static OmRet_e p1010b_internal_encode_software_reset(P1010BDriver_s *driver, con
 }
 
 /**
- * @brief 缂栫爜涓诲姩涓婃姤閰嶇疆鍛戒护锛?x34锛?
+ * @brief 编码主动上报配置命令（0x34）
  */
 static OmRet_e p1010b_internal_encode_set_active_report(P1010BDriver_s *driver, const P1010BRequest_s *request,
                                                         P1010BEncodedRequest_s *encoded)
@@ -1107,7 +1107,7 @@ static OmRet_e p1010b_internal_encode_set_active_report(P1010BDriver_s *driver, 
 }
 
 /**
- * @brief 缂栫爜涓诲姩鏌ヨ鍛戒护锛?x35锛?
+ * @brief 编码主动查询命令（0x35）
  */
 static OmRet_e p1010b_internal_encode_active_query(P1010BDriver_s *driver, const P1010BRequest_s *request,
                                                    P1010BEncodedRequest_s *encoded)
@@ -1121,7 +1121,7 @@ static OmRet_e p1010b_internal_encode_active_query(P1010BDriver_s *driver, const
 }
 
 /**
- * @brief 缂栫爜鍙傛暟鍐欏懡浠わ紙0x36锛?
+ * @brief 编码参数写命令（0x36）
  */
 static OmRet_e p1010b_internal_encode_write_parameter(P1010BDriver_s *driver, const P1010BRequest_s *request,
                                                       P1010BEncodedRequest_s *encoded)
@@ -1132,7 +1132,7 @@ static OmRet_e p1010b_internal_encode_write_parameter(P1010BDriver_s *driver, co
 }
 
 /**
- * @brief 缂栫爜鍙傛暟璇诲懡浠わ紙0x37锛?
+ * @brief 编码参数读命令（0x37）
  */
 static OmRet_e p1010b_internal_encode_read_parameter(P1010BDriver_s *driver, const P1010BRequest_s *request,
                                                      P1010BEncodedRequest_s *encoded)
@@ -1144,8 +1144,8 @@ static OmRet_e p1010b_internal_encode_read_parameter(P1010BDriver_s *driver, con
 }
 
 /**
- * @brief 缂栫爜鐘舵€佹帶鍒跺懡浠わ紙0x38锛?
- * @details 鐘舵€佸懡浠ゅ啓鍏ヤ笌 motor_id 瀵瑰簲鐨勭粍妲戒綅銆?
+ * @brief 编码状态控制命令（0x38）
+ * @details 状态命令写入与 motor_id 对应的组槽位
  */
 static OmRet_e p1010b_internal_encode_state_control(P1010BDriver_s *driver, const P1010BRequest_s *request,
                                                     P1010BEncodedRequest_s *encoded)
@@ -1159,12 +1159,12 @@ static OmRet_e p1010b_internal_encode_state_control(P1010BDriver_s *driver, cons
 }
 
 /**
- * @brief 缂栫爜鍙傛暟淇濆瓨鍛戒护锛?x39锛?
+ * @brief 编码参数保存命令（0x39）
  * @details
- * `saveParameters` 閲囩敤鈥滃懡浠?+ 鏁版嵁鈥濆弻灞傛ā鍨嬶細
- * - payload[0]锛氫繚瀛樺懡浠わ紱
- * - payload[1]锛氬綋鍓嶆暟鎹綅锛堢粷瀵归浂浣嶏級锛?
- * - payload[2..7]锛氫繚鐣欎綅锛堥鐣欐湭鏉ユ墿灞曪級銆?
+ * `saveParameters` 采用“命令 + 数据”双层模型：
+ * - payload[0]：保存命令；
+ * - payload[1]：当前数据位（绝对零位）
+ * - payload[2..7]：保留位（预留未来扩展）
  */
 static OmRet_e p1010b_internal_encode_save_parameters(P1010BDriver_s *driver, const P1010BRequest_s *request,
                                                       P1010BEncodedRequest_s *encoded)
@@ -1183,8 +1183,8 @@ static OmRet_e p1010b_internal_encode_save_parameters(P1010BDriver_s *driver, co
 }
 
 /**
- * @brief 缂栫爜妯″紡璁剧疆鍛戒护
- * @details 閫昏緫鍛戒护 `SET_MODE` 鏄犲皠涓哄啓鍙傛暟 `P1010B_PARAM_WORK_MODE`銆?
+ * @brief 编码模式设置命令
+ * @details 逻辑命令 `SET_MODE` 映射为写参数 `P1010B_PARAM_WORK_MODE`
  */
 static OmRet_e p1010b_internal_encode_set_mode(P1010BDriver_s *driver, const P1010BRequest_s *request, P1010BEncodedRequest_s *encoded)
 {
@@ -1194,18 +1194,18 @@ static OmRet_e p1010b_internal_encode_set_mode(P1010BDriver_s *driver, const P10
 }
 
 /**
- * @brief 鍐欏弬搴旂瓟鍖归厤鏉′欢
- * @details 浠呯敤浜?`0x80` 搴旂瓟璺緞锛屾寜 parameter_id 绮剧‘鍖归厤銆?
+ * @brief 写参应答匹配条件
+ * @details 仅使用 `0x80` 应答路径，按 parameter_id 精确匹配
  */
 static bool p1010b_internal_ack_match_parameter(const P1010BDriver_s *driver, const P1010BRawFrame_s *frame)
 {
-    /* 浠呯敤浜?0x80 鍐欏弬搴旂瓟璺緞锛?x90 璇诲弬搴旂瓟涓嶆惡甯?parameter_id銆?*/
+    /* 仅使用 0x80 写参应答路径；0x90 读参应答不携带 parameter_id*/
     return (frame->payload[1] == driver->sync.expectedParameterId);
 }
 
 /**
- * @brief 鐘舵€佹帶鍒跺簲绛斿尮閰嶆潯浠?
- * @details 鎸夊簲绛斿唴鍥炴樉鐨勭姸鎬佸懡浠ゅ瓧鍖归厤銆?
+ * @brief 状态控制应答匹配条件
+ * @details 按应答内回显的状态命令字匹配
  */
 static bool p1010b_internal_ack_match_state_control(const P1010BDriver_s *driver, const P1010BRawFrame_s *frame)
 {
@@ -1213,7 +1213,7 @@ static bool p1010b_internal_ack_match_state_control(const P1010BDriver_s *driver
 }
 
 /**
- * @brief 瑙ｇ爜涓诲姩鏌ヨ搴旂瓟锛?x70锛?
+ * @brief 解码主动查询应答（0x70）
  */
 static void p1010b_internal_decode_ack_active_query(P1010BDriver_s *driver, const P1010BRawFrame_s *frame, P1010BResponse_s *response,
                                                     P1010BIsrCallbackContext_s *callback_context)
@@ -1225,9 +1225,9 @@ static void p1010b_internal_decode_ack_active_query(P1010BDriver_s *driver, cons
 }
 
 /**
- * @brief 瑙ｇ爜鍙傛暟璇诲彇搴旂瓟锛?x90锛?
+ * @brief 解码参数读取应答（0x90）
  * @details
- * 璇诲弬搴旂瓟涓嶆惡甯?parameter_id锛屼娇鐢ㄥ悓姝ヤ簨鍔′笂涓嬫枃鍥炲～ parameter_id銆?
+ * 读参应答不携带 parameter_id，使用同步事务上下文回填 parameter_id
  */
 static void p1010b_internal_decode_ack_read_parameter(P1010BDriver_s *driver, const P1010BRawFrame_s *frame, P1010BResponse_s *response,
                                                       P1010BIsrCallbackContext_s *callback_context)
@@ -1243,7 +1243,7 @@ static void p1010b_internal_decode_ack_read_parameter(P1010BDriver_s *driver, co
 }
 
 /**
- * @brief 瑙ｇ爜鐘舵€佹帶鍒跺簲绛旓紙0xA0锛?
+ * @brief 解码状态控制应答（0xA0）
  */
 static void p1010b_internal_decode_ack_state_control(P1010BDriver_s *driver, const P1010BRawFrame_s *frame, P1010BResponse_s *response,
                                                      P1010BIsrCallbackContext_s *callback_context)
@@ -1254,7 +1254,7 @@ static void p1010b_internal_decode_ack_state_control(P1010BDriver_s *driver, con
 }
 
 /**
- * @brief 閫氱敤鍚庡鐞嗭細鎴愬姛鍚庢竻闄ゆ嫆缁濆師鍥?
+ * @brief 通用后处理：成功后清除拒绝原因
  */
 static void p1010b_internal_post_commit_clear_reject_on_success(P1010BDriver_s *driver, const P1010BRequest_s *request, OmRet_e result,
                                                                 const P1010BResponse_s *response)
@@ -1266,8 +1266,8 @@ static void p1010b_internal_post_commit_clear_reject_on_success(P1010BDriver_s *
 }
 
 /**
- * @brief 涓诲姩涓婃姤閰嶇疆鍚庡鐞?
- * @details 鍚屾浜嬪姟鎴愬姛鍚庡埛鏂?driver 渚х敓鏁堥厤缃紦瀛樸€?
+ * @brief 主动上报配置后处理
+ * @details 同步事务成功后刷新 driver 侧生效配置缓存
  */
 static void p1010b_internal_post_commit_set_active_report(P1010BDriver_s *driver, const P1010BRequest_s *request, OmRet_e result,
                                                           const P1010BResponse_s *response)
@@ -1280,8 +1280,8 @@ static void p1010b_internal_post_commit_set_active_report(P1010BDriver_s *driver
 }
 
 /**
- * @brief 妯″紡璁剧疆鍚庡鐞?
- * @details 鎴愬姛鍚庢洿鏂?`currentMode` 涓?`targetScale` 缂撳瓨銆?
+ * @brief 模式设置后处理
+ * @details 成功后更新 `currentMode` 与 `targetScale` 缓存
  */
 static void p1010b_internal_post_commit_set_mode(P1010BDriver_s *driver, const P1010BRequest_s *request, OmRet_e result,
                                                  const P1010BResponse_s *response)
@@ -1295,10 +1295,10 @@ static void p1010b_internal_post_commit_set_mode(P1010BDriver_s *driver, const P
 }
 
 /**
- * @brief 鐘舵€佹帶鍒跺悗澶勭悊
+ * @brief 状态控制后处理
  * @details
- * - ENABLE 鎴愬姛鍚庤嫢浠嶆湁 faultCode锛屽垯缁存寔鏁呴殰闂攣锛?
- * - DISABLE 鎴愬姛鍚庝緷鎹?faultCode 鍐冲畾 Disabled 鎴?FaultLocked銆?
+ * - ENABLE 成功后若仍有 faultCode，则维持故障闭锁
+ * - DISABLE 成功后依 faultCode 决定 Disabled 或 FaultLocked
  */
 static void p1010b_internal_post_commit_state_control(P1010BDriver_s *driver, const P1010BRequest_s *request, OmRet_e result,
                                                       const P1010BResponse_s *response)
@@ -1328,8 +1328,8 @@ static void p1010b_internal_post_commit_state_control(P1010BDriver_s *driver, co
 }
 
 /**
- * @brief 杞欢澶嶄綅鍚庡鐞?
- * @details 鎴愬姛鍚庡洖鍒?Disabled锛屽苟娓呴櫎鍦ㄧ嚎鏍囪绛夊緟鍚庣画鎶ユ枃閲嶅缓鍦ㄧ嚎鎬併€?
+ * @brief 软件复位后处理
+ * @details 成功后回到 Disabled，并清除在线标记，等待后续报文重建在线态
  */
 static void p1010b_internal_post_commit_software_reset(P1010BDriver_s *driver, const P1010BRequest_s *request, OmRet_e result,
                                                        const P1010BResponse_s *response)
@@ -1344,9 +1344,9 @@ static void p1010b_internal_post_commit_software_reset(P1010BDriver_s *driver, c
 }
 
 /**
- * @brief 鍛戒护鎻忚堪绗﹁〃
+ * @brief 命令描述符表
  * @details
- * 浠?`P1010BCommand_e` 浣滀负绾挎€х储寮曪紝缁熶竴缁存姢瀹堝崼/缂栫爜/鍖归厤/瑙ｇ爜/鍚庡鐞嗙瓥鐣ャ€?
+ * `P1010BCommand_e` 作为线性索引，统一维护守卫/编码/匹配/解码/后处理策略
  */
 static const P1010BCommandDescriptor_s g_p1010b_command_descriptors[P1010B_COMMAND_SOFTWARE_RESET + 1U] = {
     [P1010B_COMMAND_SET_ACTIVE_REPORT] = {
@@ -1394,8 +1394,8 @@ static const P1010BCommandDescriptor_s g_p1010b_command_descriptors[P1010B_COMMA
         .stateGuardFn = p1010b_internal_guard_read_parameter,
         .encodeFn = p1010b_internal_encode_read_parameter,
         /*
-         * 瑙勬牸涔?0x90 搴旂瓟 payload[1..4] 涓哄弬鏁板€奸珮鍒颁綆瀛楄妭锛?
-         * 涓嶆惡甯?parameter_id锛屽洜姝よ鍙傚尮閰嶄粎渚濊禆 pendingCommand + ackBaseId銆?
+         * 规格 0x90 应答 payload[1..4] 为参数值高到低字节
+         * 不携parameter_id，因此读参匹配仅依赖 pendingCommand + ackBaseId
          */
         .ackMatchFn = NULL,
         .decodeAckFn = p1010b_internal_decode_ack_read_parameter,
@@ -1464,8 +1464,8 @@ static const P1010BCommandDescriptor_s g_p1010b_command_descriptors[P1010B_COMMA
 };
 
 /**
- * @brief 鎸夊懡浠ゅ瓧鏌ユ壘鎻忚堪绗?
- * @return 鏈夋晥鎻忚堪绗︽寚閽堬紱鍛戒护闈炴硶鎴栨弿杩扮鏈厤缃繑鍥?`NULL`
+ * @brief 按命令字查找描述符
+ * @return 有效描述符指针；命令非法或描述符未配置时返回 `NULL`
  */
 static const P1010BCommandDescriptor_s *p1010b_internal_find_command_descriptor(P1010BCommand_e command)
 {
@@ -1481,10 +1481,10 @@ static const P1010BCommandDescriptor_s *p1010b_internal_find_command_descriptor(
 }
 
 /**
- * @brief 缁熶竴璇锋眰鎵ц鍏ュ彛
+ * @brief 统一请求执行入口
  * @details
- * 鎵ц閾捐矾锛氬弬鏁版鏌?-> flags 瑙ｆ瀽 -> 鐘舵€佸畧鍗?-> 缂栫爜 -> 鍙戦€?->
- * 锛堝悓姝ヨ矾寰勶級绛夊緟搴旂瓟 -> 鍚庡鐞嗐€?
+ * 执行链路：参数校验 -> flags 解析 -> 状态守卫 -> 编码 -> 发送 ->
+ * （同步路径）等待应答 -> 后处理
  */
 static OmRet_e p1010b_internal_execute_request(P1010BDriver_s *driver, const P1010BRequest_s *request, P1010BResponse_s *response, P1010BWaitMode_e wait_mode)
 {
@@ -1535,7 +1535,7 @@ static OmRet_e p1010b_internal_execute_request(P1010BDriver_s *driver, const P10
     if (ret != OM_OK)
         goto execute_finish;
 
-    /* 寮傛璺緞锛氫粎鍙戦€佷笉绛夊緟銆?*/
+    /* 异步路径：仅发送，不等待*/
     if (request_flags == (uint8_t)P1010B_REQUEST_FLAG_ASYNC)
     {
         ret = p1010b_internal_send_can_frame(driver->bus, encoded.requestCanId, encoded.payload);
@@ -1544,7 +1544,7 @@ static OmRet_e p1010b_internal_execute_request(P1010BDriver_s *driver, const P10
         goto execute_finish;
     }
 
-    /* 鍚屾璺緞锛氬彲閫夎繘鍏?CONFIGURING 鐬€侊紝绛夊緟 ISR 瀹屾垚浜嬪姟銆?*/
+    /* 同步路径：可选进入 CONFIGURING 瞬态，等待 ISR 完成事务*/
     if (descriptor->useConfiguringState)
     {
         previous_state = driver->runtime.state;
@@ -1557,7 +1557,7 @@ static OmRet_e p1010b_internal_execute_request(P1010BDriver_s *driver, const P10
         driver->runtime.state = previous_state;
 
 execute_finish:
-    /* 缁熶竴鍐欏洖缁撴灉锛岄伩鍏嶄笉鍚岃繑鍥炲垎鏀紡濉?response銆?*/
+    /* 统一写回结果，避免不同返回分支漏写 response*/
     if (response)
         response->result = ret;
     if (descriptor && descriptor->postCommitFn)
@@ -1566,7 +1566,7 @@ execute_finish:
 }
 
 /**
- * @brief 寮傛鎻愪氦璇锋眰锛堝彂閫佸嵆杩斿洖锛?
+ * @brief 异步提交请求（发送即返回
  */
 OmRet_e p1010b_submit(P1010BDriver_s *driver, const P1010BRequest_s *request)
 {
@@ -1574,7 +1574,7 @@ OmRet_e p1010b_submit(P1010BDriver_s *driver, const P1010BRequest_s *request)
 }
 
 /**
- * @brief 鍚屾鎻愪氦璇锋眰锛堢瓑寰呭簲绛旓級
+ * @brief 同步提交请求（等待应答）
  */
 OmRet_e p1010b_request_sync(P1010BDriver_s *driver, const P1010BRequest_s *request, P1010BResponse_s *response)
 {
@@ -1584,7 +1584,7 @@ OmRet_e p1010b_request_sync(P1010BDriver_s *driver, const P1010BRequest_s *reque
 }
 
 /**
- * @brief 琛屼负 API锛氭墽琛屽悓姝ヨ姹傦紙鍏佽 response 涓虹┖锛?
+ * @brief 行为 API：执行同步请求（允许 response 为空
  */
 static OmRet_e p1010b_internal_execute_sync_behavior(P1010BDriver_s *driver, P1010BRequest_s request, uint32_t timeout_ms,
                                                      P1010BResponse_s *response)
@@ -1600,7 +1600,7 @@ static OmRet_e p1010b_internal_execute_sync_behavior(P1010BDriver_s *driver, P10
 }
 
 /**
- * @brief 琛屼负 API锛氭墽琛屽紓姝ヨ姹?
+ * @brief 行为 API：执行异步请求
  */
 static OmRet_e p1010b_internal_execute_async_behavior(P1010BDriver_s *driver, P1010BRequest_s request)
 {
@@ -1608,7 +1608,7 @@ static OmRet_e p1010b_internal_execute_async_behavior(P1010BDriver_s *driver, P1
 }
 
 /**
- * @brief 澶辫兘鐢垫満锛堟瀯閫?鎵ц涓€浣擄紝鍚屾锛?
+ * @brief 失能电机（构造+执行一体，同步）
  */
 OmRet_e p1010b_disable(P1010BDriver_s *driver, uint32_t timeout_ms, P1010BResponse_s *response)
 {
@@ -1616,7 +1616,7 @@ OmRet_e p1010b_disable(P1010BDriver_s *driver, uint32_t timeout_ms, P1010BRespon
 }
 
 /**
- * @brief 浣胯兘鐢垫満锛堟瀯閫?鎵ц涓€浣擄紝鍚屾锛?
+ * @brief 使能电机（构造+执行一体，同步）
  */
 OmRet_e p1010b_enable(P1010BDriver_s *driver, uint32_t timeout_ms, P1010BResponse_s *response)
 {
@@ -1624,7 +1624,7 @@ OmRet_e p1010b_enable(P1010BDriver_s *driver, uint32_t timeout_ms, P1010BRespons
 }
 
 /**
- * @brief 璁剧疆宸ヤ綔妯″紡锛堟瀯閫?鎵ц涓€浣擄紝鍚屾锛?
+ * @brief 设置工作模式（构造+执行一体，同步）
  */
 OmRet_e p1010b_set_mode(P1010BDriver_s *driver, P1010BMode_e mode, uint32_t timeout_ms, P1010BResponse_s *response)
 {
@@ -1632,7 +1632,7 @@ OmRet_e p1010b_set_mode(P1010BDriver_s *driver, P1010BMode_e mode, uint32_t time
 }
 
 /**
- * @brief 璁剧疆涓诲姩涓婃姤閰嶇疆锛堟瀯閫?鎵ц涓€浣擄紝鍚屾锛?
+ * @brief 设置主动上报配置（构造+执行一体，同步）
  */
 OmRet_e p1010b_set_active_report(P1010BDriver_s *driver, const P1010BActiveReportConfig_s *config, uint32_t timeout_ms, P1010BResponse_s *response)
 {
@@ -1640,7 +1640,7 @@ OmRet_e p1010b_set_active_report(P1010BDriver_s *driver, const P1010BActiveRepor
 }
 
 /**
- * @brief 涓诲姩鏌ヨ鎸囧畾 4 妲芥暟鎹紙鏋勯€?鎵ц涓€浣擄紝鍚屾锛?
+ * @brief 主动查询指定 4 槽数据（构造+执行一体，同步）
  */
 OmRet_e p1010b_active_query_slots(P1010BDriver_s *driver, P1010BReportDataType_e slot0, P1010BReportDataType_e slot1,
                                   P1010BReportDataType_e slot2, P1010BReportDataType_e slot3, uint32_t timeout_ms,
@@ -1651,7 +1651,7 @@ OmRet_e p1010b_active_query_slots(P1010BDriver_s *driver, P1010BReportDataType_e
 }
 
 /**
- * @brief 鍐欏弬鏁帮紙鏋勯€?鎵ц涓€浣擄紝鍚屾锛?
+ * @brief 写参数（构造+执行一体，同步）
  */
 OmRet_e p1010b_write_parameter(P1010BDriver_s *driver, uint8_t parameter_id, int32_t parameter_value, uint32_t timeout_ms,
                                P1010BResponse_s *response)
@@ -1661,7 +1661,7 @@ OmRet_e p1010b_write_parameter(P1010BDriver_s *driver, uint8_t parameter_id, int
 }
 
 /**
- * @brief 璇诲弬鏁帮紙鏋勯€?鎵ц涓€浣擄紝鍚屾锛?
+ * @brief 读参数（构造+执行一体，同步）
  */
 OmRet_e p1010b_read_parameter(P1010BDriver_s *driver, uint8_t parameter_id, uint32_t timeout_ms, P1010BResponse_s *response)
 {
@@ -1669,8 +1669,8 @@ OmRet_e p1010b_read_parameter(P1010BDriver_s *driver, uint8_t parameter_id, uint
 }
 
 /**
- * @brief 淇濆瓨鍙傛暟锛堟瀯閫?鎵ц涓€浣擄紝鍚屾锛?
- * @note 鏍规嵁瑙勬牸涔︼紝褰撳墠淇濆瓨鏁版嵁涓粎缁濆闆朵綅鍙€夈€?
+ * @brief 保存参数（构造+执行一体，同步）
+ * @note 根据规格书，当前保存数据中仅绝对零位可选
  */
 OmRet_e p1010b_save_parameters(P1010BDriver_s *driver, bool set_absolute_zero, uint32_t timeout_ms, P1010BResponse_s *response)
 {
@@ -1678,7 +1678,7 @@ OmRet_e p1010b_save_parameters(P1010BDriver_s *driver, bool set_absolute_zero, u
 }
 
 /**
- * @brief 涓嬪彂鐩爣鍊硷紙鏋勯€?鎵ц涓€浣擄紝寮傛锛?
+ * @brief 下发目标值（构造+执行一体，异步）
  */
 OmRet_e p1010b_set_target(P1010BDriver_s *driver, float target_value)
 {
@@ -1686,7 +1686,7 @@ OmRet_e p1010b_set_target(P1010BDriver_s *driver, float target_value)
 }
 
 /**
- * @brief 杞欢澶嶄綅锛堟瀯閫?鎵ц涓€浣擄紝寮傛锛?
+ * @brief 软件复位（构造+执行一体，异步）
  */
 OmRet_e p1010b_software_reset(P1010BDriver_s *driver)
 {
@@ -1694,7 +1694,7 @@ OmRet_e p1010b_software_reset(P1010BDriver_s *driver)
 }
 
 /**
- * @brief 鑾峰彇鍙嶉蹇収
+ * @brief 获取反馈快照
  */
 const P1010BFeedback_s *p1010b_get_feedback(const P1010BDriver_s *driver)
 {
@@ -1702,7 +1702,7 @@ const P1010BFeedback_s *p1010b_get_feedback(const P1010BDriver_s *driver)
 }
 
 /**
- * @brief 鑾峰彇鏁呴殰蹇収
+ * @brief 获取故障快照
  */
 const P1010BFaultState_s *p1010b_get_fault_state(const P1010BDriver_s *driver)
 {
@@ -1710,7 +1710,7 @@ const P1010BFaultState_s *p1010b_get_fault_state(const P1010BDriver_s *driver)
 }
 
 /**
- * @brief 鑾峰彇褰撳墠鐘舵€佹満鐘舵€?
+ * @brief 获取当前状态机状态
  */
 P1010BState_e p1010b_get_state(const P1010BDriver_s *driver)
 {
@@ -1720,7 +1720,7 @@ P1010BState_e p1010b_get_state(const P1010BDriver_s *driver)
 }
 
 /**
- * @brief 鑾峰彇鏈€杩戜竴娆℃嫆缁濆師鍥?
+ * @brief 获取最近一次拒绝原因
  */
 P1010BRejectReason_e p1010b_get_last_reject_reason(const P1010BDriver_s *driver)
 {
@@ -1730,7 +1730,7 @@ P1010BRejectReason_e p1010b_get_last_reject_reason(const P1010BDriver_s *driver)
 }
 
 /**
- * @brief 鏌ヨ鍦ㄧ嚎鐘舵€?
+ * @brief 查询在线状态
  */
 bool p1010b_is_online(const P1010BDriver_s *driver)
 {
@@ -1740,7 +1740,7 @@ bool p1010b_is_online(const P1010BDriver_s *driver)
 }
 
 /**
- * @brief 鑾峰彇绾跨▼瑙ｆ瀽鏍煎紡涓㈠純璁℃暟锛堥潪鏍囧噯甯ф垨 DLC!=8锛?
+ * @brief 获取线程解析格式丢弃计数（非标准帧或 DLC!=8）
  */
 uint32_t p1010b_get_rx_drop_count(const P1010BBus_s *bus)
 {
