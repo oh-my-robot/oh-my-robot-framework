@@ -1,0 +1,78 @@
+name: 📝 文档需求与更新 (Docs Request)
+description: 报告文档错误、缺失，或请求添加新的文档、注释和示例代码。
+title: "[Docs]: "
+labels: ["documentation"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你为完善框架文档做出的贡献！良好的文档是团队高效协作的基石。请尽可能详细地描述你需要补充或修改的文档内容。
+
+  - type: dropdown
+    id: doc_type
+    attributes:
+      label: 文档类型
+      description: 这是一个关于什么的文档需求？
+      options:
+        - 📚 API 接口说明 (Doxygen 注释等)
+        - 🏗️ 架构设计与原理分析 (如 OSAL 机制、同步/异步模型)
+        - 🚀 教程类文档 (如快速入门与移植指南或新板卡 BSP 适配)
+        - 📝 核心代码逻辑注释
+        - 📖 README / 整体项目介绍
+        - ❓ 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: 关联的框架模块
+      description: 该文档属于框架的哪一个层级或模块？
+      options:
+        - label: BSP层 (BSP)
+        - label: 驱动层 (Driver)
+        - label: 系统层 (OSAL, Sync, Async, Middleware, Service)
+        - label: 逻辑层 (通用数据结构, 通用算法库等)
+        - label: 应用层 (Sample 演示，应用层)
+        - label: 构建与脚本层 (构建系统、脚本、环境变量等)
+        - label: 文档与说明层 (文档、注释等)
+        - label: 其他层 (未归类)
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_status
+    attributes:
+      label: 当前文档的状态或存在的问题
+      description: 哪里写得不够清楚？或者哪里完全缺失了文档？如果发现了错误，请提供当前的内容。
+      placeholder: |
+        例如：目前 OSAL 层关于互斥锁的接口 `osal_mutex_lock()` 缺少超时机制的说明，且没有给出 C 语言的调用示例。
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_doc
+    attributes:
+      label: 期望的文档内容
+      description: 你希望看到什么样的说明？如果可能，请描述你期望达到的阅读效果。
+      placeholder: |
+        例如：希望在头文件注释中明确说明阻塞调用的行为，并补充一段在任务中获取锁的代码示例。
+    validations:
+      required: true
+
+  - type: input
+    id: related_issue_pr
+    attributes:
+      label: 关联的 Issue 或 Pull Request（选填）
+      description: 如果这个文档需求是因为某个新功能或 Bug 修复产生的，请在此处关联（例如：#42）。
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已经搜索过现有的 Issue 和 Wiki/Docs，确认这是一个未被提出的新文档需求。
+          required: true
