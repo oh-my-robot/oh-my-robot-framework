@@ -7,7 +7,6 @@
 #include "drivers/peripheral/can/pal_can_dev.h"
 
 /* Framework Includes */
-#include "awlib.h"
 #include "core/algorithm/controller/pid.h"
 #include "core/om_cpu.h"
 #include "osal/osal.h"
@@ -38,9 +37,9 @@
 typedef struct
 {
     /* 鐢ㄦ埛閰嶇疆椤?*/
-    DJIMotorType_e type;     // 鐢垫満鍨嬪彿
+    DJIMotorType type;     // 鐢垫満鍨嬪彿
     uint8_t id;              // 鐢垫満 ID
-    DJIMotorCtrlMode_e mode; // 鎺у埗妯″紡
+    DJIMotorCtrlMode mode; // 鎺у埗妯″紡
 
     /* 浣嶇疆鐜?PID 鍙傛暟 */
     struct
@@ -57,11 +56,11 @@ typedef struct
     } spd_pid_cfg;
 
     /* --- 杩愯鏃跺璞?(绯荤粺鑷姩缁存姢) --- */
-    DJIMotorDrv_s handle;
-    PidController_s pid_pos;
-    PidController_s pid_spd;
+    DJIMotorDrv handle;
+    PidController pid_pos;
+    PidController pid_spd;
     float target_deg;
-} MotorTestNode_s;
+} MotorTestNode;
 
 #define MOTOR_TEST_NODE_INIT(_type, _id, _mode, _pos_pid_cfg, _spd_pid_cfg)                                                                \
     {                                                                                                                                      \
@@ -76,7 +75,7 @@ typedef struct
  * @brief 寰呮祴鐢垫満鍒楄〃 (閰嶇疆琛?
  * @note  鍦ㄦ澶勬坊鍔犱换鎰忔暟閲忕殑鐢垫満
  */
-static MotorTestNode_s g_motor_configs[] = {
+static MotorTestNode g_motor_configs[] = {
     /* [Case 1] GM6020 ID:1 (鐢靛帇妯″紡) */
     {
         .type = DJI_MOTOR_TYPE_GM6020,
@@ -103,16 +102,16 @@ static MotorTestNode_s g_motor_configs[] = {
     // },
 };
 
-#define TEST_MOTOR_CNT (sizeof(g_motor_configs) / sizeof(MotorTestNode_s))
+#define TEST_MOTOR_CNT (sizeof(g_motor_configs) / sizeof(MotorTestNode))
 
 /* --- 2. 鍏ㄥ眬瀵硅薄 --- */
 
-static DJIMotorBus_s g_can1_bus;
-static Device_t g_can1_device_handle;
+static DJIMotorBus g_can1_bus;
+static Device* g_can1_device_handle;
 
 /* 浠诲姟鍙ユ焺 */
-OsalThread_t g_control_task_handler;
-OsalThread_t g_logic_task_handler;
+OsalThread* g_control_task_handler;
+OsalThread* g_logic_task_handler;
 
 /* --- 3. 杈呭姪鍑芥暟 --- */
 
@@ -125,7 +124,7 @@ static uint32_t get_time_ms(void)
     return (uint32_t)osal_time_now_monotonic();
 }
 
-static void sleep_until_ms(OsalTimeMs_t* last_ms, uint32_t period_ms)
+static void sleep_until_ms(OsalTimeMs* last_ms, uint32_t period_ms)
 {
     if (!last_ms)
         return;
@@ -142,7 +141,7 @@ static float get_time_s(void)
 /**
  * @brief 鍒濆鍖栧崟涓數鏈虹殑 PID 鍜岄┍鍔?
  */
-static void motor_node_init(MotorTestNode_s* node)
+static void motor_node_init(MotorTestNode* node)
 {
     /* 1. 娉ㄥ唽鐢垫満 */
     dji_motor_register(&g_can1_bus, &node->handle, node->type, node->id, node->mode);
@@ -169,7 +168,7 @@ static void motor_node_init(MotorTestNode_s* node)
 void logic_task_func(void* pvParameters)
 {
     uint32_t period_ms = STEP_INTERVAL_MS;
-    OsalTimeMs_t last_ms = get_time_ms();
+    OsalTimeMs last_ms = get_time_ms();
     (void)pvParameters;
 
     /* 寤舵椂 1s 绛夊緟绯荤粺绋冲畾 */
@@ -199,7 +198,7 @@ void logic_task_func(void* pvParameters)
 void control_task_func(void* pvParameters)
 {
     uint32_t period_ms = 1000 / CONTROL_FREQ_HZ; // 1ms
-    OsalTimeMs_t last_ms = get_time_ms();
+    OsalTimeMs last_ms = get_time_ms();
     (void)pvParameters;
     g_can1_device_handle = device_find("can1");
     device_open(g_can1_device_handle, CAN_O_INT_RX | CAN_O_INT_TX);
@@ -220,7 +219,7 @@ void control_task_func(void* pvParameters)
         /* 1. 閬嶅巻璁＄畻 PID */
         for (int i = 0; i < TEST_MOTOR_CNT; i++)
         {
-            MotorTestNode_s* node = &g_motor_configs[i];
+            MotorTestNode* node = &g_motor_configs[i];
 
             /* 鑾峰彇鍙嶉 */
             float now_deg = dji_motor_get_total_angle(&node->handle);
@@ -252,8 +251,8 @@ int main(void)
     om_board_init();
     om_core_init();
     /* 4. 鍒涘缓 OSAL 浠诲姟 */
-    OsalThreadAttr_s control_attr = {0};
-    OsalThreadAttr_s logic_attr = {0};
+    OsalThreadAttr control_attr = {0};
+    OsalThreadAttr logic_attr = {0};
     control_attr.name = "ControlTask";
     logic_attr.name = "LogicTask";
     control_attr.stackSize = TASK_STACK_CONTROL;
@@ -275,4 +274,3 @@ int main(void)
         ;
     return 0;
 }
-

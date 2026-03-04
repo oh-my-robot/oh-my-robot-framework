@@ -59,7 +59,7 @@ static void SystemClock_Config(void)
     }
 }
 
-static OmBoardInterface_s OmBoardInterface = {
+static OmBoardInterface g_om_board_interface = {
     .errhandler = Error_Handler,
     .reset = HAL_NVIC_SystemReset,
     .getCpuTimeS = DWT_GetTimeline_s,
@@ -76,7 +76,7 @@ void om_board_init(void)
     SystemClock_Config();
     NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4); // 任务调度前，需要设置中断优先级分组
     // cpu注册
-    om_cpu_register(__OM_CPU_FREQ_MHZ, &OmBoardInterface);
+    om_cpu_register(__OM_CPU_FREQ_MHZ, &g_om_board_interface);
     // 外设注册、初始化
     DWT_Init(__OM_CPU_FREQ_MHZ);
     bsp_serial_register();

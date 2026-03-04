@@ -76,7 +76,7 @@ void HAL_CAN_WakeUpFromRxMsgCallback(CAN_HandleTypeDef* hcan)
 void HAL_CAN_ErrorCallback(CAN_HandleTypeDef* hcan)
 {
     BspCan_t BspCan = (BspCan_t)hcan;
-    CanStatusManager_t statusManager = &BspCan->parent.statusManager;
+    CanStatusManager* statusManager = &BspCan->parent.statusManager;
     // 超级无敌大屎山……应该有可以优化的地方，但是暂时没时间去管了
     // 先处理仲裁失败和发送失败，因为这两个是最常用的
     // 邮箱0

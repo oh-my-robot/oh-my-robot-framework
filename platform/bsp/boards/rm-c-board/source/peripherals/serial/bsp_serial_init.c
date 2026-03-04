@@ -35,7 +35,7 @@ static void _bsp_serial1_pre_init(bsp_serial_t bsp_serial, uint8_t is_enalbe_int
 {
     UART_HandleTypeDef* huart = &bsp_serial->handle;
     GPIO_InitTypeDef GPIO_InitStruct = {0};
-    SerialCfg_s cfg = {
+    SerialCfg cfg = {
         .baudrate = 1000000,
         .dataBits = DATA_BITS_8,
         .stopBits = STOP_BITS_1,
@@ -192,7 +192,7 @@ static void _bsp_serial6_pre_init(bsp_serial_t bsp_serial, uint8_t is_enalbe_int
 {
     UART_HandleTypeDef* huart = &bsp_serial->handle;
     GPIO_InitTypeDef GPIO_InitStruct = {0};
-    SerialCfg_s cfg = {
+    SerialCfg cfg = {
         .baudrate = 115200u,
         .dataBits = DATA_BITS_8,
         .stopBits = STOP_BITS_1,

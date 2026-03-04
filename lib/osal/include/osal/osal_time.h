@@ -2,7 +2,7 @@
  * @file osal_time.h
  * @brief OSAL 时间原语接口（32 位毫秒合同）
  * @details
- * - 对外统一使用 `OsalTimeMs_t`（uint32_t）表示单调毫秒时基。
+ * - 对外统一使用 `OsalTimeMs`（uint32_t）表示单调毫秒时基。
  * - 时间值允许自然回绕；比较必须使用回绕安全规则。
  */
 #ifndef OM_OSAL_TIME_H
@@ -18,7 +18,7 @@
  * - 表示单调时基上的毫秒计数。
  * - 允许自然回绕（`0xFFFFFFFF -> 0x00000000`）。
  */
-typedef uint32_t OsalTimeMs_t;
+typedef uint32_t OsalTimeMs;
 
 /**
  * @brief 秒到毫秒的换算常量（1000）
@@ -66,7 +66,7 @@ static inline uint32_t osal_time_ns_to_ms_ceil(uint64_t ns)
  * @return `1` 表示 `lhs` 晚于 `rhs`；`0` 表示否则
  * @note 仅在两时刻差值小于 2^31 ms 时有定义（约 24.8 天）
  */
-static inline int osal_time_after(OsalTimeMs_t lhs, OsalTimeMs_t rhs)
+static inline int osal_time_after(OsalTimeMs lhs, OsalTimeMs rhs)
 {
     return ((int32_t)(lhs - rhs) > 0) ? 1 : 0;
 }
@@ -78,17 +78,17 @@ static inline int osal_time_after(OsalTimeMs_t lhs, OsalTimeMs_t rhs)
  * @return `1` 表示 `lhs` 早于 `rhs`；`0` 表示否则
  * @note 仅在两时刻差值小于 2^31 ms 时有定义（约 24.8 天）
  */
-static inline int osal_time_before(OsalTimeMs_t lhs, OsalTimeMs_t rhs)
+static inline int osal_time_before(OsalTimeMs lhs, OsalTimeMs rhs)
 {
     return ((int32_t)(lhs - rhs) < 0) ? 1 : 0;
 }
 
 /**
  * @brief 获取系统单调时钟（毫秒，32 位）
- * @return 当前单调时钟毫秒值（`OsalTimeMs_t`）
+ * @return 当前单调时钟毫秒值（`OsalTimeMs`）
  * @note 返回值会自然回绕；比较必须使用 `osal_time_after/before`。
  */
-OsalTimeMs_t osal_time_now_monotonic(void);
+OsalTimeMs osal_time_now_monotonic(void);
 
 /**
  * @brief 线程休眠指定毫秒
@@ -97,7 +97,7 @@ OsalTimeMs_t osal_time_now_monotonic(void);
  * @note 仅允许在线程上下文调用。
  * @note `sleep_ms == OSAL_WAIT_FOREVER` 非法，应使用等待原语实现无限等待
  */
-OsalStatus_t osal_sleep_ms(OsalTimeMs_t sleep_ms);
+OsalStatus osal_sleep_ms(OsalTimeMs sleep_ms);
 
 /**
  * @brief 周期延时（保持固定周期，过期追赶）
@@ -113,7 +113,7 @@ OsalStatus_t osal_sleep_ms(OsalTimeMs_t sleep_ms);
  * @note 比较语义遵循 32 位回绕安全窗口（< 2^31 ms）。
  * @note 本接口每次只推进一个周期，不主动跨越多个周期。
  */
-OsalStatus_t osal_delay_until(OsalTimeMs_t* deadline_cursor_ms, OsalTimeMs_t period_ms, uint32_t* missed_periods);
+OsalStatus osal_delay_until(OsalTimeMs* deadline_cursor_ms, OsalTimeMs period_ms, uint32_t* missed_periods);
 
 #endif
 

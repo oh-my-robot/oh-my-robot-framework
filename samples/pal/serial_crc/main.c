@@ -4,11 +4,11 @@
 #include "osal/osal_time.h"
 #include <string.h>
 
-void serial_read_cb(Device_t dev, void* param, size_t paramsz)
+void serial_read_cb(Device* dev, void* param, size_t paramsz)
 {
 }
 
-void serial_write_cb(Device_t dev, void* param, size_t paramsz)
+void serial_write_cb(Device* dev, void* param, size_t paramsz)
 {
 }
 
@@ -20,7 +20,7 @@ void serial_write_cb(Device_t dev, void* param, size_t paramsz)
  * @param: paramsz 閿欒鍙傛暟澶у皬
  * @return: 鏃?
  */
-void serial_err_cb(Device_t dev, uint32_t errcode, void* param, size_t paramsz)
+void serial_err_cb(Device* dev, uint32_t errcode, void* param, size_t paramsz)
 {
     switch (errcode)
     {
@@ -49,7 +49,7 @@ void serial_err_cb(Device_t dev, uint32_t errcode, void* param, size_t paramsz)
 
 void serial_test_task(void* pvParameters)
 {
-    Device_t serial = device_find("usart6");
+    Device* serial = device_find("usart6");
     device_open(serial, SERIAL_O_BLCK_TX | SERIAL_O_BLCK_RX);
     device_set_read_cb(serial, serial_read_cb); // read done callback
     device_set_err_cb(serial, serial_err_cb);
@@ -59,7 +59,7 @@ void serial_test_task(void* pvParameters)
     uint8_t buf[128] = {0};
     uint32_t len = 0;
     device_write(serial, NULL, notify, strlen(notify));
-    OsalTimeMs_t last_time = osal_time_now_monotonic();
+    OsalTimeMs last_time = osal_time_now_monotonic();
     
     while (1)
     {
@@ -73,8 +73,8 @@ void serial_test_task(void* pvParameters)
 
 int main(void)
 {
-    OsalThread_t task1 = NULL;
-    OsalThreadAttr_s attr = {0};
+    OsalThread* task1 = NULL;
+    OsalThreadAttr attr = {0};
     attr.name = "SerialTestTask";
     attr.stackSize = 5120u * OSAL_STACK_WORD_BYTES;
     attr.priority = 4;

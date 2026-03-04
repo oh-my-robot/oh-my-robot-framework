@@ -1,6 +1,6 @@
 #include "core/om_cpu.h"
 
-static OmCpu_s om_cpu = {
+static OmCpu om_cpu = {
     .cpuName = OM_CPU_NAME,
     .omVersion = FRAMEWORK_VERSION,
 };
@@ -15,22 +15,22 @@ char *om_get_firmware_version(void)
     return om_cpu.omVersion;
 }
 
-cputime_s om_cpu_get_time_s(void)
+Cputime om_cpu_get_time_s(void)
 {
     return om_cpu.interface->getCpuTimeS();
 }
 
-cputime_ms om_cpu_get_time_ms(void)
+CputimeMs om_cpu_get_time_ms(void)
 {
     return om_cpu.interface->getCpuTimeMs();
 }
 
-cputime_us om_cpu_get_time_us(void)
+CputimeUs om_cpu_get_time_us(void)
 {
     return om_cpu.interface->getCpuTimeUs();
 }
 
-cputime_s om_cpu_get_delta_time_s(cputime_cnt *last_time_cnt)
+Cputime om_cpu_get_delta_time_s(CputimeCnt *last_time_cnt)
 {
     return om_cpu.interface->getDeltaCpuTimeS(last_time_cnt);
 }
@@ -55,7 +55,7 @@ void om_cpu_delay_ms(float ms)
     om_cpu.interface->delayMs(ms);
 }
 
-void om_cpu_register(uint32_t cpu_freq_m_hz, OmBoardInterface_t interface)
+void om_cpu_register(uint32_t cpu_freq_m_hz, OmBoardInterface* interface)
 {
     while (!interface)
     {

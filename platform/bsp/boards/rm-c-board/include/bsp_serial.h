@@ -128,7 +128,7 @@ typedef struct bsp_serial* bsp_serial_t;
 typedef struct bsp_serial
 {
     UART_HandleTypeDef handle; // 一定要放在第一位
-    HalSerial_s parent;
+    HalSerial parent;
     char* name;
     uint32_t regparams;
     bsp_serial_mutibuf_t rx_multibuf; // 多缓冲区接收

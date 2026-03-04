@@ -5,7 +5,7 @@
 
 #include "osal_core.h"
 
-typedef struct OsalQueueHandle_s* OsalQueue_t;
+typedef struct OsalQueueHandle_s OsalQueue;
 
 /**
  * @brief 创建消息队列（线程上下文）
@@ -15,7 +15,7 @@ typedef struct OsalQueueHandle_s* OsalQueue_t;
  * @return `OSAL_OK` 成功；失败返`OSAL_INVALID/OSAL_NO_RESOURCE`
  * @note 禁止ISR 中调用
  */
-OsalStatus_t osal_queue_create(OsalQueue_t* queue, uint32_t length, uint32_t item_size);
+OsalStatus osal_queue_create(OsalQueue** queue, uint32_t length, uint32_t item_size);
 
 /**
  * @brief 删除消息队列（线程上下文）
@@ -24,7 +24,7 @@ OsalStatus_t osal_queue_create(OsalQueue_t* queue, uint32_t length, uint32_t ite
  * @note 禁止ISR 中调用
  * @note 严格前置条件：调用方需确保无并发访问且无等待者无并发生产消费
  */
-OsalStatus_t osal_queue_delete(OsalQueue_t queue);
+OsalStatus osal_queue_delete(OsalQueue* queue);
 
 /**
  * @brief 发消息（线程上下文）
@@ -33,7 +33,7 @@ OsalStatus_t osal_queue_delete(OsalQueue_t queue);
  * @param timeout_ms 超时时间（ms），可用 OSAL_WAIT_FOREVER
  * @return `OSAL_OK` 成功；失败返`OSAL_WOULD_BLOCK/OSAL_TIMEOUT/OSAL_INVALID/OSAL_INTERNAL`
  */
-OsalStatus_t osal_queue_send(OsalQueue_t queue, const void* item, uint32_t timeout_ms);
+OsalStatus osal_queue_send(OsalQueue* queue, const void* item, uint32_t timeout_ms);
 
 /**
  * @brief 发消息（中断上下文）
@@ -42,7 +42,7 @@ OsalStatus_t osal_queue_send(OsalQueue_t queue, const void* item, uint32_t timeo
  * @return `OSAL_OK` 成功；失败返`OSAL_WOULD_BLOCK/OSAL_INVALID/OSAL_INTERNAL`
  * @note 仅允许在 ISR 中调用；在线程上下文调用返回 `OSAL_INVALID`
  */
-OsalStatus_t osal_queue_send_from_isr(OsalQueue_t queue, const void* item);
+OsalStatus osal_queue_send_from_isr(OsalQueue* queue, const void* item);
 
 /**
  * @brief 接收消息（线程上下文）
@@ -51,7 +51,7 @@ OsalStatus_t osal_queue_send_from_isr(OsalQueue_t queue, const void* item);
  * @param timeout_ms 超时时间（ms），可用 OSAL_WAIT_FOREVER
  * @return `OSAL_OK` 成功；失败返`OSAL_WOULD_BLOCK/OSAL_TIMEOUT/OSAL_INVALID/OSAL_INTERNAL`
  */
-OsalStatus_t osal_queue_recv(OsalQueue_t queue, void* item, uint32_t timeout_ms);
+OsalStatus osal_queue_recv(OsalQueue* queue, void* item, uint32_t timeout_ms);
 
 /**
  * @brief 接收消息（中断上下文）
@@ -60,7 +60,7 @@ OsalStatus_t osal_queue_recv(OsalQueue_t queue, void* item, uint32_t timeout_ms)
  * @return `OSAL_OK` 成功；失败返`OSAL_WOULD_BLOCK/OSAL_INVALID/OSAL_INTERNAL`
  * @note 仅允许在 ISR 中调用；在线程上下文调用返回 `OSAL_INVALID`
  */
-OsalStatus_t osal_queue_recv_from_isr(OsalQueue_t queue, void* item);
+OsalStatus osal_queue_recv_from_isr(OsalQueue* queue, void* item);
 
 /**
  * @brief 查看消息（线程上下文，不出队）
@@ -69,7 +69,7 @@ OsalStatus_t osal_queue_recv_from_isr(OsalQueue_t queue, void* item);
  * @param timeout_ms 超时时间（ms），可用 OSAL_WAIT_FOREVER
  * @return `OSAL_OK` 成功；失败返`OSAL_WOULD_BLOCK/OSAL_TIMEOUT/OSAL_INVALID/OSAL_INTERNAL`
  */
-OsalStatus_t osal_queue_peek(OsalQueue_t queue, void* item, uint32_t timeout_ms);
+OsalStatus osal_queue_peek(OsalQueue* queue, void* item, uint32_t timeout_ms);
 
 /**
  * @brief 查看消息（中断上下文，不出队）
@@ -78,7 +78,7 @@ OsalStatus_t osal_queue_peek(OsalQueue_t queue, void* item, uint32_t timeout_ms)
  * @return `OSAL_OK` 成功；失败返`OSAL_WOULD_BLOCK/OSAL_INVALID/OSAL_INTERNAL`
  * @note 仅允许在 ISR 中调用；在线程上下文调用返回 `OSAL_INVALID`
  */
-OsalStatus_t osal_queue_peek_from_isr(OsalQueue_t queue, void* item);
+OsalStatus osal_queue_peek_from_isr(OsalQueue* queue, void* item);
 
 /**
  * @brief 复位队列（清空）
@@ -86,7 +86,7 @@ OsalStatus_t osal_queue_peek_from_isr(OsalQueue_t queue, void* item);
  * @return `OSAL_OK` 成功；失败返`OSAL_INVALID/OSAL_INTERNAL`
  * @note 禁止ISR 中调用
  */
-OsalStatus_t osal_queue_reset(OsalQueue_t queue);
+OsalStatus osal_queue_reset(OsalQueue* queue);
 
 /**
  * @brief 获取队列中消息数
@@ -95,7 +95,7 @@ OsalStatus_t osal_queue_reset(OsalQueue_t queue);
  * @return `OSAL_OK` 成功；失败返`OSAL_INVALID/OSAL_INTERNAL`
  * @note 线程/ISR 上下文均可调用
  */
-OsalStatus_t osal_queue_messages_waiting(OsalQueue_t queue, uint32_t* out_count);
+OsalStatus osal_queue_messages_waiting(OsalQueue* queue, uint32_t* out_count);
 
 /**
  * @brief 获取队列剩余空间数量
@@ -104,6 +104,6 @@ OsalStatus_t osal_queue_messages_waiting(OsalQueue_t queue, uint32_t* out_count)
  * @return `OSAL_OK` 成功；失败返`OSAL_INVALID/OSAL_INTERNAL`
  * @note 线程/ISR 上下文均可调用
  */
-OsalStatus_t osal_queue_spaces_available(OsalQueue_t queue, uint32_t* out_count);
+OsalStatus osal_queue_spaces_available(OsalQueue* queue, uint32_t* out_count);
 
 #endif

@@ -15,19 +15,19 @@ typedef struct
 {
     uint32_t id;
     uint32_t payload;
-} osal_queue_test_message_s;
+} OsalQueueTestMessage;
 
 typedef struct
 {
     volatile uint32_t total;
     volatile uint32_t failed;
     volatile uint32_t done;
-} osal_queue_test_result_s;
+} OsalQueueTestResult;
 
-static OsalQueue_t g_queue = NULL;
-static OsalThread_t g_test_thread = NULL;
-static OsalThread_t g_sender_thread = NULL;
-static osal_queue_test_result_s g_queue_result = {0u, 0u, 0u};
+static OsalQueue* g_queue = NULL;
+static OsalThread* g_test_thread = NULL;
+static OsalThread* g_sender_thread = NULL;
+static OsalQueueTestResult g_queue_result = {0u, 0u, 0u};
 
 /**
  * @brief 绠€鍗曟柇瑷€璁℃暟鍣?
@@ -43,7 +43,7 @@ static void osal_queue_expect(int condition)
 /**
  * @brief 姣旇緝涓ゆ潯娴嬭瘯娑堟伅
  */
-static int osal_queue_message_equal(const osal_queue_test_message_s* left, const osal_queue_test_message_s* right)
+static int osal_queue_message_equal(const OsalQueueTestMessage* left, const OsalQueueTestMessage* right)
 {
     if (!left || !right)
         return 0;
@@ -57,7 +57,7 @@ static int osal_queue_message_equal(const osal_queue_test_message_s* left, const
  */
 static void osal_queue_sender_thread_entry(void* arg)
 {
-    osal_queue_test_message_s message = {0xA5u, 0x5Au};
+    OsalQueueTestMessage message = {0xA5u, 0x5Au};
 
     (void)arg;
     (void)osal_sleep_ms(20u);
@@ -78,14 +78,14 @@ static void osal_queue_sender_thread_entry(void* arg)
  */
 static void osal_queue_test_thread_entry(void* arg)
 {
-    OsalQueue_t queue_temp = NULL;
-    osal_queue_test_message_s message_1 = {1u, 11u};
-    osal_queue_test_message_s message_2 = {2u, 22u};
-    osal_queue_test_message_s message_3 = {3u, 33u};
-    osal_queue_test_message_s message_rx = {0u, 0u};
+    OsalQueue* queue_temp = NULL;
+    OsalQueueTestMessage message_1 = {1u, 11u};
+    OsalQueueTestMessage message_2 = {2u, 22u};
+    OsalQueueTestMessage message_3 = {3u, 33u};
+    OsalQueueTestMessage message_rx = {0u, 0u};
     uint32_t queue_count = 0u;
     uint32_t queue_space = 0u;
-    OsalThreadAttr_s sender_attr = {
+    OsalThreadAttr sender_attr = {
         "osal_queue_sender",
         512u * OSAL_STACK_WORD_BYTES,
         2u,
@@ -94,10 +94,10 @@ static void osal_queue_test_thread_entry(void* arg)
     (void)arg;
 
     /* 缁?1锛氬垱寤哄弬鏁颁笌鍩虹琛屼负 */
-    osal_queue_expect(osal_queue_create(NULL, 2u, sizeof(osal_queue_test_message_s)) == OSAL_INVALID);
-    osal_queue_expect(osal_queue_create(&queue_temp, 0u, sizeof(osal_queue_test_message_s)) == OSAL_INVALID);
+    osal_queue_expect(osal_queue_create(NULL, 2u, sizeof(OsalQueueTestMessage)) == OSAL_INVALID);
+    osal_queue_expect(osal_queue_create(&queue_temp, 0u, sizeof(OsalQueueTestMessage)) == OSAL_INVALID);
     osal_queue_expect(osal_queue_create(&queue_temp, 2u, 0u) == OSAL_INVALID);
-    osal_queue_expect(osal_queue_create(&g_queue, 2u, sizeof(osal_queue_test_message_s)) == OSAL_OK);
+    osal_queue_expect(osal_queue_create(&g_queue, 2u, sizeof(OsalQueueTestMessage)) == OSAL_OK);
     osal_queue_expect(osal_queue_delete(NULL) == OSAL_INVALID);
 
     /* 缁?2锛氭煡璇㈡帴鍙ｇ姸鎬佸寲 */
@@ -151,7 +151,7 @@ static void osal_queue_test_thread_entry(void* arg)
  */
 int main(void)
 {
-    OsalThreadAttr_s test_attr = {
+    OsalThreadAttr test_attr = {
         "osal_queue_test",
         768u * OSAL_STACK_WORD_BYTES,
         2u,

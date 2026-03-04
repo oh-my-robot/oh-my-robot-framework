@@ -13,17 +13,17 @@ extern "C" {
 typedef struct {
     size_t bitCount;
     size_t wordCount;
-} AwBitmapMeta_s;
+} AwBitmapMeta;
 
 typedef struct {
-    AwBitmapMeta_s meta;
+    AwBitmapMeta meta;
     unsigned long *words;
-} AwBitmapRom_s;
+} AwBitmapRom;
 
 typedef struct {
-    AwBitmapMeta_s meta;
-    om_atomic_ulong_t *words;
-} AwBitmapAtomic_s;
+    AwBitmapMeta meta;
+    OmAtomicUlong *words;
+} AwBitmapAtomic;
 
 /**
  * @brief 计算位图需要的机器字数量
@@ -35,29 +35,29 @@ size_t om_bitmap_word_count(size_t bit_count);
  * @retval OM_OK 成功
  * @retval OM_ERROR_PARAM 参数非法（bitmap/buffer 为空或 bit_count 为 0）
  */
-OmRet_e om_bitmap_rom_init(AwBitmapRom_s *bitmap, unsigned long *buffer, size_t bit_count);
+OmRet om_bitmap_rom_init(AwBitmapRom *bitmap, unsigned long *buffer, size_t bit_count);
 
 /**
  * @brief 读取 raw 位
  */
-bool om_bitmap_rom_test(const AwBitmapRom_s *bitmap, size_t bit_index);
+bool om_bitmap_rom_test(const AwBitmapRom *bitmap, size_t bit_index);
 
 /**
  * @brief 置位 raw 位
  */
-void om_bitmap_rom_set(AwBitmapRom_s *bitmap, size_t bit_index);
+void om_bitmap_rom_set(AwBitmapRom *bitmap, size_t bit_index);
 
 /**
  * @brief 清位 raw 位
  */
-void om_bitmap_rom_clear(AwBitmapRom_s *bitmap, size_t bit_index);
+void om_bitmap_rom_clear(AwBitmapRom *bitmap, size_t bit_index);
 
 /**
  * @brief 初始化 atomic 位图（线程安全）
  * @retval OM_OK 成功
  * @retval OM_ERROR_PARAM 参数非法（bitmap/buffer 为空或 bit_count 为 0）
  */
-OmRet_e om_bitmap_atomic_init(AwBitmapAtomic_s *bitmap, om_atomic_ulong_t *buffer, size_t bit_count);
+OmRet om_bitmap_atomic_init(AwBitmapAtomic *bitmap, OmAtomicUlong *buffer, size_t bit_count);
 
 /**
  * @brief 按 bit_count 计算并动态分配 raw 位图 buffer
@@ -75,7 +75,7 @@ unsigned long *om_bitmap_rom_buffer_alloc(size_t bit_count, void *(*pmalloc)(siz
  * @return 成功返回 buffer 指针，失败返回 NULL
  * @note 该接口仅负责 buffer 分配；需配合 om_bitmap_atomic_init 使用。
  */
-om_atomic_ulong_t *om_bitmap_atomic_buffer_alloc(size_t bit_count, void *(*pmalloc)(size_t));
+OmAtomicUlong *om_bitmap_atomic_buffer_alloc(size_t bit_count, void *(*pmalloc)(size_t));
 
 /**
  * @brief 释放由 om_bitmap_*_buffer_alloc 分配的 buffer
@@ -88,19 +88,19 @@ void om_bitmap_buffer_free(void *buffer, void (*pfree)(void *));
 /**
  * @brief 读取 atomic 位（线程安全）
  */
-bool om_bitmap_atomic_test(const AwBitmapAtomic_s *bitmap, size_t bit_index);
+bool om_bitmap_atomic_test(const AwBitmapAtomic *bitmap, size_t bit_index);
 
 /**
  * @brief 原子尝试置位
  * @retval true  从 0 -> 1 成功
  * @retval false 该位原本已为 1 或参数非法
  */
-bool om_bitmap_atomic_try_set(AwBitmapAtomic_s *bitmap, size_t bit_index);
+bool om_bitmap_atomic_try_set(AwBitmapAtomic *bitmap, size_t bit_index);
 
 /**
  * @brief 原子清位
  */
-void om_bitmap_atomic_clear(AwBitmapAtomic_s *bitmap, size_t bit_index);
+void om_bitmap_atomic_clear(AwBitmapAtomic *bitmap, size_t bit_index);
 
 /**
  * @brief 原子分配第一个空闲 bit（从 start_hint 开始循环扫描）
@@ -108,7 +108,7 @@ void om_bitmap_atomic_clear(AwBitmapAtomic_s *bitmap, size_t bit_index);
  * @retval OM_ERROR_BUSY 无可用 bit
  * @retval OM_ERROR_PARAM 参数非法
  */
-OmRet_e om_bitmap_atomic_alloc_first_zero(AwBitmapAtomic_s *bitmap, size_t start_hint, size_t *bit_out);
+OmRet om_bitmap_atomic_alloc_first_zero(AwBitmapAtomic *bitmap, size_t start_hint, size_t *bit_out);
 
 #ifdef __cplusplus
 }

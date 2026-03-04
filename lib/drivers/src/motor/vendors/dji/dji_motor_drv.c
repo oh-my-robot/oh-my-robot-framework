@@ -10,7 +10,7 @@
 
 /* --- 静态内存池管理 --- */
 /** @brief TxUnit 静态内存池（避免运行时动态分配） */
-static DJIMotorTxUnit_s s_tx_pool[DJI_MOTOR_MAX_TX_UNITS];
+static DJIMotorTxUnit s_tx_pool[DJI_MOTOR_MAX_TX_UNITS];
 /** @brief TxUnit 使用标记，1 表示该槽位已分配 */
 static uint8_t s_pool_usage_map[DJI_MOTOR_MAX_TX_UNITS] = {0};
 
@@ -18,14 +18,14 @@ static uint8_t s_pool_usage_map[DJI_MOTOR_MAX_TX_UNITS] = {0};
  * @brief 从静态池分配一个发送单元
  * @return 分配成功返回发送单元指针，池耗尽返回 `NULL`
  */
-static DJIMotorTxUnit_s *dji_alloc_tx_unit_static(void)
+static DJIMotorTxUnit *dji_alloc_tx_unit_static(void)
 {
     for (int i = 0; i < DJI_MOTOR_MAX_TX_UNITS; i++)
     {
         if (s_pool_usage_map[i] == 0)
         {
             s_pool_usage_map[i] = 1;
-            memset(&s_tx_pool[i], 0, sizeof(DJIMotorTxUnit_s));
+            memset(&s_tx_pool[i], 0, sizeof(DJIMotorTxUnit));
             INIT_LIST_HEAD(&s_tx_pool[i].list);
             return &s_tx_pool[i];
         }
@@ -40,13 +40,13 @@ static DJIMotorTxUnit_s *dji_alloc_tx_unit_static(void)
  * @return 对应发送单元指针，失败返回 `NULL`
  * @note 同一 CAN ID 的多个电机会共享同一个 TxUnit（组包发送）
  */
-static DJIMotorTxUnit_s *dji_get_or_create_tx_unit(DJIMotorBus_s *bus, uint32_t can_id)
+static DJIMotorTxUnit *dji_get_or_create_tx_unit(DJIMotorBus *bus, uint32_t can_id)
 {
-    DJIMotorTxUnit_s *unit;
-    ListHead_s *pos;
+    DJIMotorTxUnit *unit;
+    ListHead *pos;
     list_for_each(pos, &bus->txList)
     {
-        unit = list_entry(pos, DJIMotorTxUnit_s, list);
+        unit = list_entry(pos, DJIMotorTxUnit, list);
         if (unit->canId == can_id)
             return unit;
     }
@@ -68,14 +68,14 @@ static DJIMotorTxUnit_s *dji_get_or_create_tx_unit(DJIMotorBus_s *bus, uint32_t 
 /**
  * @brief CAN 接收回调，负责将反馈帧分发到目标电机对象
  * @param dev CAN 设备句柄
- * @param param 用户参数（DJIMotorBus_s*）
+ * @param param 用户参数（DJIMotorBus*）
  * @param filterHandle 当前命中的过滤器句柄
  * @param count 本次可读取的报文数量
  */
-static void dji_rx_callback(Device_t dev, void *param, CanFilterHandle_t filter_handle, size_t count)
+static void dji_rx_callback(Device* dev, void *param, CanFilterHandle filter_handle, size_t count)
 {
-    DJIMotorBus_s *bus = (DJIMotorBus_s *)param;
-    CanUserMsg_s msg;
+    DJIMotorBus *bus = (DJIMotorBus *)param;
+    CanUserMsg msg;
     uint8_t buf[8];
     msg.userBuf = buf;
     msg.filterHandle = filter_handle;
@@ -93,7 +93,7 @@ static void dji_rx_callback(Device_t dev, void *param, CanFilterHandle_t filter_
                 continue;
             }
 
-            DJIMotorDrv_s *motor = bus->rxMap[id - DJI_RX_ID_START];
+            DJIMotorDrv *motor = bus->rxMap[id - DJI_RX_ID_START];
             if (motor)
             {
                 uint8_t *d = msg.userBuf;
@@ -130,18 +130,18 @@ static void dji_rx_callback(Device_t dev, void *param, CanFilterHandle_t filter_
 /* --- Core API --- */
 
 /** @copydoc dji_motor_bus_init */
-OmRet_e dji_motor_bus_init(DJIMotorBus_s *bus, Device_t can_dev)
+OmRet dji_motor_bus_init(DJIMotorBus *bus, Device* can_dev)
 {
     if (!bus || !can_dev)
         return OM_ERROR_PARAM;
 
-    memset(bus, 0, sizeof(DJIMotorBus_s));
+    memset(bus, 0, sizeof(DJIMotorBus));
     bus->canDev = can_dev;
     bus->filterHandle = 0;
     INIT_LIST_HEAD(&bus->txList);
 
     /* 过滤条件覆盖 0x200~0x20F（掩码 0x7F0），匹配 DJI 电机反馈 ID 段。 */
-    CanFilterAllocArg_s alloc_arg = {0};
+    CanFilterAllocArg alloc_arg = {0};
     alloc_arg.request.workMode = CAN_FILTER_MODE_MASK;
     alloc_arg.request.idType = CAN_FILTER_ID_STD;
     alloc_arg.request.id = 0x200;
@@ -149,7 +149,7 @@ OmRet_e dji_motor_bus_init(DJIMotorBus_s *bus, Device_t can_dev)
     alloc_arg.request.rxCallback = dji_rx_callback;
     alloc_arg.request.param = bus;
 
-    OmRet_e ret = device_ctrl(can_dev, CAN_CMD_FILTER_ALLOC, &alloc_arg);
+    OmRet ret = device_ctrl(can_dev, CAN_CMD_FILTER_ALLOC, &alloc_arg);
     if (ret != OM_OK)
         return ret;
     bus->filterHandle = alloc_arg.handle;
@@ -157,12 +157,12 @@ OmRet_e dji_motor_bus_init(DJIMotorBus_s *bus, Device_t can_dev)
 }
 
 /** @copydoc dji_motor_register */
-OmRet_e dji_motor_register(DJIMotorBus_s *bus, DJIMotorDrv_s *motor, DJIMotorType_e type, uint8_t id, DJIMotorCtrlMode_e mode)
+OmRet dji_motor_register(DJIMotorBus *bus, DJIMotorDrv *motor, DJIMotorType type, uint8_t id, DJIMotorCtrlMode mode)
 {
     if (!bus || !motor || id == 0 || type > DJI_MOTOR_TYPE_UNKNOWN)
         return OM_ERROR_PARAM;
 
-    memset(motor, 0, sizeof(DJIMotorDrv_s)); /* 清空句柄，消除历史状态影响。 */
+    memset(motor, 0, sizeof(DJIMotorDrv)); /* 清空句柄，消除历史状态影响。 */
     /* 接收 ID 与电机类型相关：
      * C6x0: 0x201~0x208
      * GM6020: 0x205~0x20B
@@ -202,7 +202,7 @@ OmRet_e dji_motor_register(DJIMotorBus_s *bus, DJIMotorDrv_s *motor, DJIMotorTyp
         buf_idx = (id - (id <= 4 ? 1 : 5)) * 2;
     }
 
-    DJIMotorTxUnit_s *unit = dji_get_or_create_tx_unit(bus, target_can_id);
+    DJIMotorTxUnit *unit = dji_get_or_create_tx_unit(bus, target_can_id);
     if (unit == NULL)
         return OM_ERROR_MEMORY;
 
@@ -246,7 +246,7 @@ OmRet_e dji_motor_register(DJIMotorBus_s *bus, DJIMotorDrv_s *motor, DJIMotorTyp
 }
 
 /** @copydoc dji_motor_set_output */
-void dji_motor_set_output(DJIMotorDrv_s *motor, int16_t output)
+void dji_motor_set_output(DJIMotorDrv *motor, int16_t output)
 {
     if (!motor || !motor->link.txUnit)
         return;
@@ -261,19 +261,19 @@ void dji_motor_set_output(DJIMotorDrv_s *motor, int16_t output)
 }
 
 /** @copydoc dji_motor_bus_sync */
-void dji_motor_bus_sync(DJIMotorBus_s *bus)
+void dji_motor_bus_sync(DJIMotorBus *bus)
 {
     if (!bus)
         return;
 
-    DJIMotorTxUnit_s *unit;
-    ListHead_s *pos;
+    DJIMotorTxUnit *unit;
+    ListHead *pos;
     list_for_each(pos, &bus->txList)
     {
-        unit = list_entry(pos, DJIMotorTxUnit_s, list);
+        unit = list_entry(pos, DJIMotorTxUnit, list);
         if (unit->usageMask && unit->isDirty)
         {
-            CanUserMsg_s msg;
+            CanUserMsg msg;
             msg.dsc = CAN_DATA_MSG_DSC_INIT(unit->canId, CAN_IDE_STD, 8);
             msg.userBuf = unit->txBuffer;
             int write_ret = (int)device_write(bus->canDev, 0, &msg, 1);

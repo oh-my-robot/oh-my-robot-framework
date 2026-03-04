@@ -69,19 +69,19 @@ typedef struct
     float kd;
     float outputMin;
     float outputMax;
-} P1010BSpeedPidConfig_s;
+} P1010BSpeedPidConfig;
 
 typedef struct
 {
     uint8_t motorId;
-    P1010BMode_e mode;
+    P1010BMode mode;
     float speedTargetRpm;
-    P1010BSpeedPidConfig_s speedPidConfig;
+    P1010BSpeedPidConfig speedPidConfig;
 
     /* 运行态对象 */
-    P1010BDriver_s handle;
-    PidController_s speedPid;
-} P1010BSpeedLoopNode_s;
+    P1010BDriver handle;
+    PidController speedPid;
+} P1010BSpeedLoopNode;
 
 /**
  * @brief 在线调参块（可直接在调试器里改写）
@@ -97,7 +97,7 @@ typedef struct
     volatile float speedTargetRpm;
     volatile float speedPidGain[P1010B_PID_GAIN_COUNT];
     volatile float speedPidOutputLimit[P1010B_PID_OUTPUT_LIMIT_COUNT];
-} P1010BDebugTuneBlock_s;
+} P1010BDebugTuneBlock;
 
 /**
  * @brief 运行观测块（只读观测）
@@ -111,9 +111,9 @@ typedef struct
     volatile float pidOutput;
     volatile uint8_t activeMode;
     volatile uint8_t online;
-    volatile OmRet_e lastLoopRet;
-    volatile P1010BRejectReason_e lastRejectReason;
-} P1010BDebugRuntimeBlock_s;
+    volatile OmRet lastLoopRet;
+    volatile P1010BRejectReason lastRejectReason;
+} P1010BDebugRuntimeBlock;
 
 #define P1010B_SPEED_LOOP_NODE_INIT(_motorId, _mode, _targetRpm, _kp, _ki, _kd, _outMin, _outMax) \
     {                                                                                                 \
@@ -127,11 +127,11 @@ typedef struct
 /* 全局对象                                                                   */
 /* -------------------------------------------------------------------------- */
 
-static Device_t g_can_device = NULL;
-static P1010BBus_s g_p1010b_bus;
-static OsalThread_t g_speed_loop_thread = NULL;
+static Device* g_can_device = NULL;
+static P1010BBus g_p1010b_bus;
+static OsalThread* g_speed_loop_thread = NULL;
 
-static P1010BSpeedLoopNode_s g_motor_node = P1010B_SPEED_LOOP_NODE_INIT(
+static P1010BSpeedLoopNode g_motor_node = P1010B_SPEED_LOOP_NODE_INIT(
     P1010B_TEST_MOTOR_ID,
     P1010B_TEST_CONTROL_MODE,
     P1010B_TEST_TARGET_SPEED_RPM,
@@ -142,7 +142,7 @@ static P1010BSpeedLoopNode_s g_motor_node = P1010B_SPEED_LOOP_NODE_INIT(
     P1010B_TEST_PID_OUT_MAX);
 
 /* 在线调参入口：默认值与宏配置一致。 */
-volatile P1010BDebugTuneBlock_s g_p1010b_debug_tune_block = {
+volatile P1010BDebugTuneBlock g_p1010b_debug_tune_block = {
     .controlMode = (uint8_t)P1010B_TEST_CONTROL_MODE,
     .reserved = {0U, 0U, 0U},
     .speedTargetRpm = P1010B_TEST_TARGET_SPEED_RPM,
@@ -158,7 +158,7 @@ volatile P1010BDebugTuneBlock_s g_p1010b_debug_tune_block = {
 };
 
 /* 运行态观测出口。 */
-volatile P1010BDebugRuntimeBlock_s g_p1010b_debug_runtime_block = {0};
+volatile P1010BDebugRuntimeBlock g_p1010b_debug_runtime_block = {0};
 
 /* -------------------------------------------------------------------------- */
 /* 辅助函数                                                                   */
@@ -227,10 +227,10 @@ static void p1010b_sample_release_resources(void)
     }
 }
 
-static OmRet_e p1010b_sample_init_bus_and_motor(void)
+static OmRet p1010b_sample_init_bus_and_motor(void)
 {
-    OmRet_e awlf_ret;
-    P1010BConfig_s driver_config = P1010B_DEFAULT_CONFIG(P1010B_TEST_MOTOR_ID);
+    OmRet awlf_ret;
+    P1010BConfig driver_config = P1010B_DEFAULT_CONFIG(P1010B_TEST_MOTOR_ID);
 
     driver_config.defaultMode = P1010B_TEST_CONTROL_MODE;
     driver_config.activeReport.enable = false;
@@ -272,7 +272,7 @@ static OmRet_e p1010b_sample_init_bus_and_motor(void)
     return OM_OK;
 }
 
-static OmRet_e p1010b_sample_init_speed_pid(P1010BSpeedLoopNode_s *node)
+static OmRet p1010b_sample_init_speed_pid(P1010BSpeedLoopNode *node)
 {
     if (node == NULL)
     {
@@ -292,10 +292,10 @@ static OmRet_e p1010b_sample_init_speed_pid(P1010BSpeedLoopNode_s *node)
     return OM_OK;
 }
 
-static OmRet_e p1010b_sample_prepare_motor(P1010BSpeedLoopNode_s *node)
+static OmRet p1010b_sample_prepare_motor(P1010BSpeedLoopNode *node)
 {
-    OmRet_e awlf_ret;
-    P1010BResponse_s response = {0};
+    OmRet awlf_ret;
+    P1010BResponse response = {0};
 
     if (node == NULL)
     {
@@ -336,7 +336,7 @@ static OmRet_e p1010b_sample_prepare_motor(P1010BSpeedLoopNode_s *node)
  * - PID 参数或输出限幅变化后重建 PID；
  * - 模式变化后执行一次 disable->set_mode->enable。
  */
-static OmRet_e p1010b_sample_sync_debug_tuning(P1010BSpeedLoopNode_s *node)
+static OmRet p1010b_sample_sync_debug_tuning(P1010BSpeedLoopNode *node)
 {
     uint8_t requested_mode;
     float requested_kp;
@@ -358,7 +358,7 @@ static OmRet_e p1010b_sample_sync_debug_tuning(P1010BSpeedLoopNode_s *node)
     if (p1010b_sample_is_supported_control_mode(requested_mode) &&
         (requested_mode != (uint8_t)node->mode))
     {
-        node->mode = (P1010BMode_e)requested_mode;
+        node->mode = (P1010BMode)requested_mode;
         need_switch_mode = 1U;
     }
 
@@ -399,7 +399,7 @@ static OmRet_e p1010b_sample_sync_debug_tuning(P1010BSpeedLoopNode_s *node)
 
     if (need_reload_pid != 0U)
     {
-        OmRet_e awlf_ret = p1010b_sample_init_speed_pid(node);
+        OmRet awlf_ret = p1010b_sample_init_speed_pid(node);
         if (awlf_ret != OM_OK)
         {
             return awlf_ret;
@@ -408,7 +408,7 @@ static OmRet_e p1010b_sample_sync_debug_tuning(P1010BSpeedLoopNode_s *node)
 
     if (need_switch_mode != 0U)
     {
-        OmRet_e awlf_ret = p1010b_sample_prepare_motor(node);
+        OmRet awlf_ret = p1010b_sample_prepare_motor(node);
         if (awlf_ret != OM_OK)
         {
             return awlf_ret;
@@ -418,8 +418,8 @@ static OmRet_e p1010b_sample_sync_debug_tuning(P1010BSpeedLoopNode_s *node)
     return OM_OK;
 }
 
-static void p1010b_sample_update_debug_observer(P1010BSpeedLoopNode_s *node, float speed_command_rpm, float speed_feedback_rpm,
-                                                 float pid_output, OmRet_e loop_ret)
+static void p1010b_sample_update_debug_observer(P1010BSpeedLoopNode *node, float speed_command_rpm, float speed_feedback_rpm,
+                                                 float pid_output, OmRet loop_ret)
 {
     if (node == NULL)
     {
@@ -442,7 +442,7 @@ static void p1010b_sample_update_debug_observer(P1010BSpeedLoopNode_s *node, flo
 
 static void p1010b_speed_loop_thread_entry(void *argument)
 {
-    OsalTimer_t deadline_ms = 0U;
+    OsalTimeMs deadline_ms = 0U;
     float speed_command_rpm = 0.0f;
     uint8_t speed_command_initialized = 0U;
 
@@ -460,11 +460,11 @@ static void p1010b_speed_loop_thread_entry(void *argument)
 
     for (;;)
     {
-        const P1010BFeedback_s *feedback;
+        const P1010BFeedback *feedback;
         float speed_feedback_rpm = 0.0f;
         float pid_output;
-        OmRet_e awlf_ret;
-        OmRet_e tune_ret;
+        OmRet awlf_ret;
+        OmRet tune_ret;
 
         tune_ret = p1010b_sample_sync_debug_tuning(&g_motor_node);
         if (tune_ret != OM_OK)
@@ -520,9 +520,9 @@ static void p1010b_speed_loop_thread_entry(void *argument)
 
 int main(void)
 {
-    OmRet_e awlf_ret;
-    OsalStatus_t osal_ret;
-    OsalThreadAttr_s speed_loop_thread_attr = {0};
+    OmRet awlf_ret;
+    OsalStatus osal_ret;
+    OsalThreadAttr speed_loop_thread_attr = {0};
 
     om_board_init();
     om_core_init();

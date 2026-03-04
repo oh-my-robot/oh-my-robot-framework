@@ -29,20 +29,20 @@ extern "C" {
 typedef struct ListHead {
     struct ListHead *prev;
     struct ListHead *next;
-} ListHead_s;
+} ListHead;
 
 #define LIST_HEAD_INIT(name) \
     { &(name), &(name) }
-#define LIST_HEAD(name) ListHead_s name = LIST_HEAD_INIT(name)
+#define LIST_HEAD(name) ListHead name = LIST_HEAD_INIT(name)
 
-static inline void init_list_head(ListHead_s *list)
+static inline void init_list_head(ListHead *list)
 {
     list->next = list;
     list->prev = list;
 }
 #define INIT_LIST_HEAD(list) init_list_head(list)
 
-static inline void list_add_between(ListHead_s *new_node, ListHead_s *prev, ListHead_s *next)
+static inline void list_add_between(ListHead *new_node, ListHead *prev, ListHead *next)
 {
     new_node->prev = prev;
     prev->next = new_node;
@@ -50,53 +50,53 @@ static inline void list_add_between(ListHead_s *new_node, ListHead_s *prev, List
     next->prev = new_node;
 }
 
-static inline void list_add(ListHead_s *new_node, ListHead_s *head)
+static inline void list_add(ListHead *new_node, ListHead *head)
 {
     list_add_between(new_node, head, head->next);
 }
 
-static inline void list_add_tail(ListHead_s *new_node, ListHead_s *head)
+static inline void list_add_tail(ListHead *new_node, ListHead *head)
 {
     list_add_between(new_node, head->prev, head);
 }
 
-static inline void list_del_between(ListHead_s *prev, ListHead_s *next)
+static inline void list_del_between(ListHead *prev, ListHead *next)
 {
     prev->next = next;
     next->prev = prev;
 }
 
-static inline void list_del(ListHead_s *entry)
+static inline void list_del(ListHead *entry)
 {
     list_del_between(entry->prev, entry->next);
     entry->next = entry;
     entry->prev = entry;
 }
 
-static inline uint8_t list_empty(const ListHead_s *head)
+static inline uint8_t list_empty(const ListHead *head)
 {
     return (head->next == head);
 }
 
-static inline void list_splice_between(ListHead_s *list, ListHead_s *head)
+static inline void list_splice_between(ListHead *list, ListHead *head)
 {
-    ListHead_s *first = list->next;
-    ListHead_s *last = list->prev;
-    ListHead_s *at = head->next;
+    ListHead *first = list->next;
+    ListHead *last = list->prev;
+    ListHead *at = head->next;
     first->prev = head;
     head->next = first;
     last->next = at;
     at->prev = last;
 }
 
-static inline void list_splice(ListHead_s *list, ListHead_s *head)
+static inline void list_splice(ListHead *list, ListHead *head)
 {
     if (!list_empty(list)) {
         list_splice_between(list, head);
     }
 }
 
-static inline void list_replace(ListHead_s *old_node, ListHead_s *new_node)
+static inline void list_replace(ListHead *old_node, ListHead *new_node)
 {
     new_node->next = old_node->next;
     new_node->next->prev = new_node;
@@ -104,19 +104,19 @@ static inline void list_replace(ListHead_s *old_node, ListHead_s *new_node)
     new_node->prev->next = new_node;
 }
 
-static inline void list_replace_init(ListHead_s *old_node, ListHead_s *new_node)
+static inline void list_replace_init(ListHead *old_node, ListHead *new_node)
 {
     list_replace(old_node, new_node);
     init_list_head(old_node);
 }
 
-static inline void list_move(ListHead_s *list, ListHead_s *head)
+static inline void list_move(ListHead *list, ListHead *head)
 {
     list_del_between(list->prev, list->next);
     list_add(list, head);
 }
 
-static inline void list_move_tail(ListHead_s *list, ListHead_s *head)
+static inline void list_move_tail(ListHead *list, ListHead *head)
 {
     list_del_between(list->prev, list->next);
     list_add_tail(list, head);

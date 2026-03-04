@@ -3,23 +3,23 @@
 #include <string.h>
 
 /* CAN鎶ユ枃瀹瑰櫒 */
-typedef struct CanMsgContainer *CanMsgContainer_t;
+typedef struct CanMsgContainer  CanMsgContainer;
 typedef struct CanMsgContainer
 {
-    CanMsgList_s listNode;
+    CanMsgList listNode;
     uint8_t container[8];
-} OM_PACKED CanMsgContainer_s;
+} OM_PACKED CanMsgContainer;
 
-static void *can_msgbuffer_alloc(ListHead_s *free_list_head, uint32_t msg_num)
+static void *can_msgbuffer_alloc(ListHead *free_list_head, uint32_t msg_num)
 {
-    size_t size = msg_num * sizeof(CanMsgContainer_s);
+    size_t size = msg_num * sizeof(CanMsgContainer);
     void *msg_buffer = osal_malloc(size);
     if (msg_buffer == NULL)
         return NULL;
     memset(msg_buffer, 0, size);
 
     // Add all CAN message containers into the free list.
-    CanMsgContainer_t msg_list = (CanMsgContainer_t)msg_buffer;
+    CanMsgContainer* msg_list = (CanMsgContainer*)msg_buffer;
     for (size_t i = 0; i < msg_num; i++)
     {
         INIT_LIST_HEAD(&msg_list[i].listNode.fifoListNode);
@@ -30,11 +30,11 @@ static void *can_msgbuffer_alloc(ListHead_s *free_list_head, uint32_t msg_num)
     return msg_buffer;
 }
 
-static CanAdapterInterface_s can_adapter_interface = {
+static CanAdapterInterface can_adapter_interface = {
     .msgbufferAlloc = can_msgbuffer_alloc,
 };
 
-CanAdapterInterface_t hal_can_get_classic_adapter_interface(void)
+CanAdapterInterface* hal_can_get_classic_adapter_interface(void)
 {
     return &can_adapter_interface;
 }

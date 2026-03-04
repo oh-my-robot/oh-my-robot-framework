@@ -5,14 +5,14 @@
 #include "semphr.h"
 #include "task.h"
 
-static inline SemaphoreHandle_t osal_mutex_to_native(OsalMutex_t mutex)
+static inline SemaphoreHandle_t osal_mutex_to_native(OsalMutex* mutex)
 {
     return (SemaphoreHandle_t)mutex;
 }
 
-static inline OsalMutex_t osal_mutex_from_native(SemaphoreHandle_t mutex)
+static inline OsalMutex* osal_mutex_from_native(SemaphoreHandle_t mutex)
 {
-    return (OsalMutex_t)mutex;
+    return (OsalMutex*)mutex;
 }
 
 static int osal_mutex_check_task_context(void)
@@ -22,14 +22,14 @@ static int osal_mutex_check_task_context(void)
     return (in_isr == 0);
 }
 
-static int osal_mutex_is_current_owner(OsalMutex_t mutex)
+static int osal_mutex_is_current_owner(OsalMutex* mutex)
 {
     TaskHandle_t current_task = xTaskGetCurrentTaskHandle();
     TaskHandle_t owner_task = xSemaphoreGetMutexHolder(osal_mutex_to_native(mutex));
     return (owner_task == current_task);
 }
 
-OsalStatus_t osal_mutex_create(OsalMutex_t* mutex)
+OsalStatus osal_mutex_create(OsalMutex** mutex)
 {
     if (!mutex)
         return OSAL_INVALID;
@@ -40,7 +40,7 @@ OsalStatus_t osal_mutex_create(OsalMutex_t* mutex)
     return (*mutex) ? OSAL_OK : OSAL_NO_RESOURCE;
 }
 
-OsalStatus_t osal_mutex_delete(OsalMutex_t mutex)
+OsalStatus osal_mutex_delete(OsalMutex* mutex)
 {
     if (!mutex)
         return OSAL_INVALID;
@@ -51,7 +51,7 @@ OsalStatus_t osal_mutex_delete(OsalMutex_t mutex)
     return OSAL_OK;
 }
 
-OsalStatus_t osal_mutex_lock(OsalMutex_t mutex, uint32_t timeout_ms)
+OsalStatus osal_mutex_lock(OsalMutex* mutex, uint32_t timeout_ms)
 {
     if (!mutex)
         return OSAL_INVALID;
@@ -64,7 +64,7 @@ OsalStatus_t osal_mutex_lock(OsalMutex_t mutex, uint32_t timeout_ms)
     return osal_wait_result_to_status(ok, timeout_ms);
 }
 
-OsalStatus_t osal_mutex_unlock(OsalMutex_t mutex)
+OsalStatus osal_mutex_unlock(OsalMutex* mutex)
 {
     if (!mutex)
         return OSAL_INVALID;

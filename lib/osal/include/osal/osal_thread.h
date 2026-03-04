@@ -5,15 +5,15 @@
 
 #include "osal_core.h"
 
-typedef struct OsalThreadHandle_s* OsalThread_t;
-typedef void (*OsalThreadEntry_t)(void* arg);
+typedef struct OsalThreadHandle_s OsalThread;
+typedef void (*OsalThreadEntryFunction)(void* arg);
 
 typedef struct
 {
     const char* name;    /* 线程名称，用于调试*/
     uint32_t stackSize; /* 栈大小（字节）*/
     uint32_t priority;   /* 线程优先级*/
-} OsalThreadAttr_s;
+} OsalThreadAttr;
 
 /**
  * @brief 创建线程（线程上下文）
@@ -24,14 +24,14 @@ typedef struct
  * @return `OSAL_OK` 成功；失败返`OSAL_INVALID/OSAL_NO_RESOURCE/OSAL_INTERNAL`
  * @note 禁止ISR 中调用
  */
-OsalStatus_t osal_thread_create(OsalThread_t* thread, const OsalThreadAttr_s* attr, OsalThreadEntry_t entry,
+OsalStatus osal_thread_create(OsalThread** thread, const OsalThreadAttr* attr, OsalThreadEntryFunction entry,
                                  void* arg);
 
 /**
  * @brief 获取当前线程句柄（线程上下文）
  * @return 当前线程句柄；在 ISR 中误用时返回 NULL
  */
-OsalThread_t osal_thread_self(void);
+OsalThread* osal_thread_self(void);
 
 /**
  * @brief 等待线程结束（可选能力，线程上下文）
@@ -41,7 +41,7 @@ OsalThread_t osal_thread_self(void);
  * @note 当前 FreeRTOS 端口保持 `OSAL_NOT_SUPPORTED`
  * @note 禁止ISR 中调用
  */
-OsalStatus_t osal_thread_join(OsalThread_t thread, uint32_t timeout_ms);
+OsalStatus osal_thread_join(OsalThread* thread, uint32_t timeout_ms);
 
 /**
  * @brief 主动让出 CPU（线程上下文）
@@ -64,13 +64,13 @@ void osal_thread_exit(void);
  * @warning `terminate(self)` 视为非法，必须使用 `osal_thread_exit` 完成自退出
  * @note 推荐优先使用“协作退出”模型；跨线程终止仅用于受控场景
  */
-OsalStatus_t osal_thread_terminate(OsalThread_t thread);
+OsalStatus osal_thread_terminate(OsalThread* thread);
 
 /**
  * @brief 启动调度器（RTOS 场景，线程上下文）
  * @return `OSAL_OK` 成功；失败返`OSAL_INVALID/OSAL_INTERNAL`
  * @note 禁止ISR 中调用
  */
-OsalStatus_t osal_kernel_start(void);
+OsalStatus osal_kernel_start(void);
 
 #endif

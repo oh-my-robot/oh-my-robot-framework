@@ -25,13 +25,13 @@ typedef enum
 {
     OM_FALSE = 0U,
     OM_TRUE = 1U
-} OmBool_e;
+} OmBool;
 
 typedef enum
 {
     OM_DISABLE = 0U,
     OM_ENABLE = !OM_DISABLE
-} OmAction_e;
+} OmAction;
 
 /* 返回值定义(标准错误码) */
 typedef enum
@@ -48,7 +48,7 @@ typedef enum
     OM_ERROR_BUSY,        // 忙错误
     OM_ERROR_EMPTY,       // 空转错误
     OM_ERROR_NOT_SUPPORT, // 不支持的操作
-} OmRet_e;
+} OmRet;
 
 typedef enum
 {
@@ -58,7 +58,7 @@ typedef enum
     OM_LOG_LEVEL_ERROR,      // 错误
     OM_LOG_LEVEL_FATAL,      // 致命错误
     OM_LOG_LEVEL_MAX,        // 日志级别最大值
-} OmLogLevel_e;
+} OmLogLevel;
 
 #define OM_WAIT_FOREVER 0xffffffffU
 

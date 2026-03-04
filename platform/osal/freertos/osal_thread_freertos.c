@@ -6,14 +6,14 @@
 #define OSAL_THREAD_DEFAULT_STACK_DEPTH (512u)
 #define OSAL_THREAD_DEFAULT_PRIORITY (1u)
 
-static inline TaskHandle_t osal_thread_to_native(OsalThread_t thread)
+static inline TaskHandle_t osal_thread_to_native(OsalThread* thread)
 {
     return (TaskHandle_t)thread;
 }
 
-static inline OsalThread_t osal_thread_from_native(TaskHandle_t thread)
+static inline OsalThread* osal_thread_from_native(TaskHandle_t thread)
 {
-    return (OsalThread_t)thread;
+    return (OsalThread*)thread;
 }
 
 static int osal_thread_check_task_context(void)
@@ -53,7 +53,7 @@ static int osal_thread_stack_bytes_to_depth(uint32_t stack_size_bytes, configSTA
     return 1;
 }
 
-OsalStatus_t osal_thread_create(OsalThread_t* thread, const OsalThreadAttr_s* attr, OsalThreadEntry_t entry,
+OsalStatus osal_thread_create(OsalThread** thread, const OsalThreadAttr* attr, OsalThreadEntryFunction entry,
                                  void* arg)
 {
     configSTACK_DEPTH_TYPE stack_depth = 0;
@@ -79,7 +79,7 @@ OsalStatus_t osal_thread_create(OsalThread_t* thread, const OsalThreadAttr_s* at
     return OSAL_NO_RESOURCE;
 }
 
-OsalThread_t osal_thread_self(void)
+OsalThread* osal_thread_self(void)
 {
     if (!osal_thread_check_task_context())
         return NULL;
@@ -87,7 +87,7 @@ OsalThread_t osal_thread_self(void)
     return osal_thread_from_native(xTaskGetCurrentTaskHandle());
 }
 
-OsalStatus_t osal_thread_join(OsalThread_t thread, uint32_t timeout_ms)
+OsalStatus osal_thread_join(OsalThread* thread, uint32_t timeout_ms)
 {
     if (!thread)
         return OSAL_INVALID;
@@ -114,7 +114,7 @@ void osal_thread_exit(void)
     vTaskDelete(NULL);
 }
 
-OsalStatus_t osal_thread_terminate(OsalThread_t thread)
+OsalStatus osal_thread_terminate(OsalThread* thread)
 {
     TaskHandle_t target;
     TaskHandle_t self;
@@ -133,7 +133,7 @@ OsalStatus_t osal_thread_terminate(OsalThread_t thread)
     return OSAL_OK;
 }
 
-OsalStatus_t osal_kernel_start(void)
+OsalStatus osal_kernel_start(void)
 {
     if (!osal_thread_check_task_context())
         return OSAL_INVALID;

@@ -42,7 +42,7 @@
 #include <stdatomic.h>
 
 // 直接映射标准类型，确保类型兼容性
-typedef memory_order om_memory_order;
+typedef memory_order OmMemoryOrder;
 
 // 映射宏常量
 #define AW_MO_RELAXED memory_order_relaxed
@@ -63,7 +63,7 @@ typedef enum
     AW_MO_RELEASE = 3,
     AW_MO_ACQ_REL = 4,
     AW_MO_SEQ_CST = 5
-} om_memory_order;
+} OmMemoryOrder;
 
 #endif
 
@@ -74,8 +74,8 @@ typedef enum
 /*
  * 用于声明原子变量的宏。
  * * 示例:
- * om_atomic_int_t counter = AW_ATOMIC_VAR_INIT(0);
- * om_atomic_long_t flag;
+ * OmAtomicInt counter = AW_ATOMIC_VAR_INIT(0);
+ * OmAtomicLong flag;
  * * 原理:
  * - C11: 使用 _Atomic 关键字修饰 (例如 _Atomic int)。
  * - MSVC/Legacy: 使用 volatile 关键字修饰 (例如 volatile int)，
@@ -94,14 +94,14 @@ typedef enum
 #endif
 
 // 常用原子类型别名
-typedef OM_ATOMIC_T(int) om_atomic_int_t;
-typedef OM_ATOMIC_T(unsigned int) om_atomic_uint_t;
-typedef OM_ATOMIC_T(long) om_atomic_long_t;
-typedef OM_ATOMIC_T(unsigned long) om_atomic_ulong_t;
-typedef OM_ATOMIC_T(long long) om_atomic_llong_t;
-typedef OM_ATOMIC_T(unsigned long long) om_atomic_ullong_t;
-typedef OM_ATOMIC_T(void*) om_atomic_ptr_t;
-typedef OM_ATOMIC_T(size_t) om_atomic_size_t;
+typedef OM_ATOMIC_T(int) OmAtomicInt;
+typedef OM_ATOMIC_T(unsigned int) OmAtomicUint;
+typedef OM_ATOMIC_T(long) OmAtomicLong;
+typedef OM_ATOMIC_T(unsigned long) OmAtomicUlong;
+typedef OM_ATOMIC_T(long long) OmAtomicLlong;
+typedef OM_ATOMIC_T(unsigned long long) OmAtomicUllong;
+typedef OM_ATOMIC_T(void*) OmAtomicPtr;
+typedef OM_ATOMIC_T(size_t) OmAtomicSize;
 
 // ============================================================================
 // 4. 辅助宏

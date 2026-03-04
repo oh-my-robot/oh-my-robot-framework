@@ -17,15 +17,15 @@ extern "C"
 {
 #endif
 
-    typedef uint32_t pidtime_cnt; // PID控制器时间计数器类型，由此计数类型，通过换算关系计算得到以下时间类型
-    typedef float pidtime_s;      // PID控制器时间类型，单位：s
+    typedef uint32_t PidtimeCnt; // PID控制器时间计数器类型，由此计数类型，通过换算关系计算得到以下时间类型
+    typedef float Pidtime;      // PID控制器时间类型，单位：s
 
     // PID模式定义
     typedef enum
     {
         PID_POSITIONAL_MODE = 0, // 位置式PID
         PID_INCREMENTAL_MODE = 1 // 增量式PID
-    } PidMode_e;
+    } PidMode;
 
     // PID优化功能位域定义
     typedef union
@@ -41,10 +41,10 @@ extern "C"
             uint16_t reserved : 10;              // 保留位
         } settings;
         uint16_t allSettings; // 整体访问
-    } PidImprovementConfig_u;
+    } PidImprovementConfig;
 
     // PID控制器结构体
-    typedef struct PidController* PidController_t;
+    typedef struct PidController PidController;
     typedef struct PidController
     {
         // 基本PID参数
@@ -53,10 +53,10 @@ extern "C"
         float kd; // 微分系数
 
         // PID模式
-        PidMode_e mode; // PID模式选择
+        PidMode mode; // PID模式选择
 
         // 优化功能配置
-        PidImprovementConfig_u improvementConfig;
+        PidImprovementConfig improvementConfig;
 
         // 优化参数
         struct
@@ -92,9 +92,9 @@ extern "C"
         float prevOut;  // 上一次输出
 
         // 时间相关
-        pidtime_s lastTick; // 上一次计算的时间戳，单位s
-        pidtime_s dt;       // 时间间隔，单位s
-    } PidController_s;
+        Pidtime lastTick; // 上一次计算的时间戳，单位s
+        Pidtime dt;       // 时间间隔，单位s
+    } PidController;
 
     // 函数声明
     /**
@@ -106,7 +106,7 @@ extern "C"
      * @param kd 微分系数
      * @return 初始化结果，true成功，false失败
      */
-    bool pid_init(PidController_t pid, PidMode_e mode, float kp, float ki, float kd);
+    bool pid_init(PidController* pid, PidMode mode, float kp, float ki, float kd);
 
     /**
      * @brief 设置PID基本参数
@@ -115,35 +115,35 @@ extern "C"
      * @param ki 积分系数
      * @param kd 微分系数
      */
-    void pid_set_params(PidController_t pid, float kp, float ki, float kd);
+    void pid_set_params(PidController* pid, float kp, float ki, float kd);
 
     /**
      * @brief 设置输出限幅
      * @param pid PID控制器实例
      * @param limit 限幅值
      */
-    void pid_set_output_limit(PidController_t pid, float min_limit, float max_limit);
+    void pid_set_output_limit(PidController* pid, float min_limit, float max_limit);
 
     /**
      * @brief 设置积分限幅
      * @param pid PID控制器实例
      * @param limit 限幅值
      */
-    void pid_set_integral_limit(PidController_t pid, float limit);
+    void pid_set_integral_limit(PidController* pid, float limit);
 
     /**
      * @brief 设置死区宽度
      * @param pid PID控制器实例
      * @param deadBand 死区宽度
      */
-    void pid_set_dead_band(PidController_t pid, float dead_band);
+    void pid_set_dead_band(PidController* pid, float dead_band);
 
     /**
      * @brief 设置微分滤波器系数
      * @param pid PID控制器实例
      * @param coeff 滤波系数(0-1)
      */
-    void pid_set_derivative_filter_coeff(PidController_t pid, float coeff);
+    void pid_set_derivative_filter_coeff(PidController* pid, float coeff);
 
     /**
      * @brief 设置微分先行使能
@@ -151,7 +151,7 @@ extern "C"
      * @param pid
      * @param enable
      */
-    void pid_set_derivative_first_enable(PidController_t pid, bool enable);
+    void pid_set_derivative_first_enable(PidController* pid, bool enable);
 
     /**
      * @brief 设置变速积分阈值
@@ -159,13 +159,13 @@ extern "C"
      * @param thresholdA 阈值A
      * @param thresholdB 阈值B
      */
-    void pid_set_variable_integral_thresholds(PidController_t pid, float threshold_a, float threshold_b);
+    void pid_set_variable_integral_thresholds(PidController* pid, float threshold_a, float threshold_b);
 
     /**
      * @brief 重置PID控制器内部状态
      * @param pid PID控制器实例
      */
-    void pid_reset(PidController_t pid);
+    void pid_reset(PidController* pid);
 
     /**
      * @brief PID计算函数
@@ -175,7 +175,7 @@ extern "C"
      * @param currentTick 当前时间戳
      * @return PID输出值
      */
-    float pid_compute(PidController_t pid, float setpoint, float measurement, pidtime_s current_tick);
+    float pid_compute(PidController* pid, float setpoint, float measurement, Pidtime current_tick);
 
     /**
      * @brief 获取PID各分量输出值
@@ -184,7 +184,7 @@ extern "C"
      * @param iOut 积分项输出指针
      * @param dOut 微分项输出指针
      */
-    void pid_get_component_outputs(PidController_t pid, float* p_out, float* i_out, float* d_out);
+    void pid_get_component_outputs(PidController* pid, float* p_out, float* i_out, float* d_out);
 
 #ifdef __cplusplus
 }

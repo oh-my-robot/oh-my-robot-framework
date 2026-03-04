@@ -4,14 +4,14 @@
 #include "osal_time_freertos.h"
 #include "queue.h"
 
-static inline QueueHandle_t osal_queue_to_native(OsalQueue_t queue)
+static inline QueueHandle_t osal_queue_to_native(OsalQueue* queue)
 {
     return (QueueHandle_t)queue;
 }
 
-static inline OsalQueue_t osal_queue_from_native(QueueHandle_t queue)
+static inline OsalQueue* osal_queue_from_native(QueueHandle_t queue)
 {
-    return (OsalQueue_t)queue;
+    return (OsalQueue*)queue;
 }
 
 static inline int osal_queue_check_task_context(void)
@@ -28,12 +28,12 @@ static inline int osal_queue_check_isr_context(void)
     return (in_isr != 0);
 }
 
-static inline OsalStatus_t osal_queue_from_isr_result_to_status(BaseType_t result)
+static inline OsalStatus osal_queue_from_isr_result_to_status(BaseType_t result)
 {
     return (result == pdPASS) ? OSAL_OK : OSAL_WOULD_BLOCK;
 }
 
-OsalStatus_t osal_queue_create(OsalQueue_t* queue, uint32_t length, uint32_t item_size)
+OsalStatus osal_queue_create(OsalQueue** queue, uint32_t length, uint32_t item_size)
 {
     if (!queue || length == 0u || item_size == 0u)
         return OSAL_INVALID;
@@ -48,7 +48,7 @@ OsalStatus_t osal_queue_create(OsalQueue_t* queue, uint32_t length, uint32_t ite
     return OSAL_OK;
 }
 
-OsalStatus_t osal_queue_delete(OsalQueue_t queue)
+OsalStatus osal_queue_delete(OsalQueue* queue)
 {
     if (!queue)
         return OSAL_INVALID;
@@ -59,7 +59,7 @@ OsalStatus_t osal_queue_delete(OsalQueue_t queue)
     return OSAL_OK;
 }
 
-OsalStatus_t osal_queue_send(OsalQueue_t queue, const void* item, uint32_t timeout_ms)
+OsalStatus osal_queue_send(OsalQueue* queue, const void* item, uint32_t timeout_ms)
 {
     if (!queue || !item)
         return OSAL_INVALID;
@@ -72,7 +72,7 @@ OsalStatus_t osal_queue_send(OsalQueue_t queue, const void* item, uint32_t timeo
     return osal_wait_result_to_status(ok, timeout_ms);
 }
 
-OsalStatus_t osal_queue_send_from_isr(OsalQueue_t queue, const void* item)
+OsalStatus osal_queue_send_from_isr(OsalQueue* queue, const void* item)
 {
     if (!queue || !item)
         return OSAL_INVALID;
@@ -87,7 +87,7 @@ OsalStatus_t osal_queue_send_from_isr(OsalQueue_t queue, const void* item)
     return osal_queue_from_isr_result_to_status(ok);
 }
 
-OsalStatus_t osal_queue_recv(OsalQueue_t queue, void* item, uint32_t timeout_ms)
+OsalStatus osal_queue_recv(OsalQueue* queue, void* item, uint32_t timeout_ms)
 {
     if (!queue || !item)
         return OSAL_INVALID;
@@ -100,7 +100,7 @@ OsalStatus_t osal_queue_recv(OsalQueue_t queue, void* item, uint32_t timeout_ms)
     return osal_wait_result_to_status(ok, timeout_ms);
 }
 
-OsalStatus_t osal_queue_recv_from_isr(OsalQueue_t queue, void* item)
+OsalStatus osal_queue_recv_from_isr(OsalQueue* queue, void* item)
 {
     if (!queue || !item)
         return OSAL_INVALID;
@@ -115,7 +115,7 @@ OsalStatus_t osal_queue_recv_from_isr(OsalQueue_t queue, void* item)
     return osal_queue_from_isr_result_to_status(ok);
 }
 
-OsalStatus_t osal_queue_peek(OsalQueue_t queue, void* item, uint32_t timeout_ms)
+OsalStatus osal_queue_peek(OsalQueue* queue, void* item, uint32_t timeout_ms)
 {
     if (!queue || !item)
         return OSAL_INVALID;
@@ -128,7 +128,7 @@ OsalStatus_t osal_queue_peek(OsalQueue_t queue, void* item, uint32_t timeout_ms)
     return osal_wait_result_to_status(ok, timeout_ms);
 }
 
-OsalStatus_t osal_queue_peek_from_isr(OsalQueue_t queue, void* item)
+OsalStatus osal_queue_peek_from_isr(OsalQueue* queue, void* item)
 {
     if (!queue || !item)
         return OSAL_INVALID;
@@ -139,7 +139,7 @@ OsalStatus_t osal_queue_peek_from_isr(OsalQueue_t queue, void* item)
     return osal_queue_from_isr_result_to_status(ok);
 }
 
-OsalStatus_t osal_queue_reset(OsalQueue_t queue)
+OsalStatus osal_queue_reset(OsalQueue* queue)
 {
     if (!queue)
         return OSAL_INVALID;
@@ -149,7 +149,7 @@ OsalStatus_t osal_queue_reset(OsalQueue_t queue)
     return (xQueueReset(osal_queue_to_native(queue)) == pdPASS) ? OSAL_OK : OSAL_INTERNAL;
 }
 
-OsalStatus_t osal_queue_messages_waiting(OsalQueue_t queue, uint32_t* out_count)
+OsalStatus osal_queue_messages_waiting(OsalQueue* queue, uint32_t* out_count)
 {
     if (!queue || !out_count)
         return OSAL_INVALID;
@@ -164,7 +164,7 @@ OsalStatus_t osal_queue_messages_waiting(OsalQueue_t queue, uint32_t* out_count)
     return OSAL_OK;
 }
 
-OsalStatus_t osal_queue_spaces_available(OsalQueue_t queue, uint32_t* out_count)
+OsalStatus osal_queue_spaces_available(OsalQueue* queue, uint32_t* out_count)
 {
     if (!queue || !out_count)
         return OSAL_INVALID;

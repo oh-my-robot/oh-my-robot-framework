@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 
-typedef struct AvlTree avl_tree_t;
-typedef void (*avl_visit)(void* ele);           // 用户提供的元素访问操作
-typedef void (*pf_avl_free_element)(void* ele); // 用户提供的节点元素中保存的动态内存的释放方法
-typedef uint16_t (*pf_avl_hash)(void* ele);     // 用户提供的 hash 函数
+typedef struct AvlTree AvlTree;
+typedef void (*AvlVisitFunction)(void* ele);           // 用户提供的元素访问操作
+typedef void (*PfAvlFreeElementFunction)(void* ele); // 用户提供的节点元素中保存的动态内存的释放方法
+typedef uint16_t (*PfAvlHashFunction)(void* ele);     // 用户提供的 hash 函数
 
 /*
  * @brief:
@@ -17,7 +17,7 @@ typedef uint16_t (*pf_avl_hash)(void* ele);     // 用户提供的 hash 函数
  * @return:
  *		int8_t:		-1 树指针为空， -2 创建节点失败， -3 重复插入
  */
-typedef int8_t (*pf_avl_add)(avl_tree_t* avl_root, void* data);
+typedef int8_t (*PfAvlAddFunction)(AvlTree* avl_root, void* data);
 
 /*
  * @brief:
@@ -28,7 +28,7 @@ typedef int8_t (*pf_avl_add)(avl_tree_t* avl_root, void* data);
  * @return:
  *		(void*):	数据的指针
  */
-typedef void* (*pf_avl_query_by_key)(avl_tree_t* avl_root, uint16_t key);
+typedef void* (*PfAvlQueryByKeyFunction)(AvlTree* avl_root, uint16_t key);
 
 /*
  * @brief:
@@ -39,7 +39,7 @@ typedef void* (*pf_avl_query_by_key)(avl_tree_t* avl_root, uint16_t key);
  * @return:
  *		none.
  */
-typedef void (*pf_avl_preorder)(avl_tree_t* avl_root, avl_visit visit);
+typedef void (*PfAvlPreorderFunction)(AvlTree* avl_root, AvlVisitFunction visit);
 
 /*
  * @brief:
@@ -47,7 +47,7 @@ typedef void (*pf_avl_preorder)(avl_tree_t* avl_root, avl_visit visit);
  * @param:
  *		avl_root:	根节点
  */
-typedef uint16_t (*pf_avl_get_size)(avl_tree_t* avl_root);
+typedef uint16_t (*PfAvlGetSizeFunction)(AvlTree* avl_root);
 
 /*
  * @brief:
@@ -58,7 +58,7 @@ typedef uint16_t (*pf_avl_get_size)(avl_tree_t* avl_root);
  * @return:
  *      uint8_t:    0 成功  -1 失败
  */
-typedef uint8_t (*pf_avl_del_node_by_key)(avl_tree_t* avl_root, int key);
+typedef uint8_t (*PfAvlDelNodeByKeyFunction)(AvlTree* avl_root, int key);
 
 /*
  * @brief:
@@ -69,7 +69,7 @@ typedef uint8_t (*pf_avl_del_node_by_key)(avl_tree_t* avl_root, int key);
  * @return:
  *      uint8_t:    0 成功  -1 失败
  */
-typedef uint8_t (*pf_avl_del_node_by_element)(avl_tree_t* avl_root, void* element);
+typedef uint8_t (*PfAvlDelNodeByElementFunction)(AvlTree* avl_root, void* element);
 
 /*
  * @brief:
@@ -79,7 +79,7 @@ typedef uint8_t (*pf_avl_del_node_by_element)(avl_tree_t* avl_root, void* elemen
  * @return:
  *		none.
  */
-typedef void (*pf_avl_clear_node)(avl_tree_t* avl_root);
+typedef void (*PfAvlClearNodeFunction)(AvlTree* avl_root);
 
 /*
  * @brief:
@@ -89,23 +89,23 @@ typedef void (*pf_avl_clear_node)(avl_tree_t* avl_root);
  * @return:
  *      none.
  */
-typedef void (*pf_avl_destory)(avl_tree_t* avl_root);
+typedef void (*PfAvlDestoryFunction)(AvlTree* avl_root);
 
 struct AvlTree
 {
     void* private;
-    pf_avl_free_element pfFreeElement;
-    pf_avl_hash pfHash;
-    pf_avl_add add;
-    pf_avl_query_by_key queryByKey;
-    pf_avl_preorder preorder;
-    pf_avl_get_size getSize;
-    pf_avl_del_node_by_key delNodeByKey;
-    pf_avl_del_node_by_element delNodeByElement;
-    pf_avl_clear_node clearNode;
-    pf_avl_destory destory;
+    PfAvlFreeElementFunction pfFreeElement;
+    PfAvlHashFunction pfHash;
+    PfAvlAddFunction add;
+    PfAvlQueryByKeyFunction queryByKey;
+    PfAvlPreorderFunction preorder;
+    PfAvlGetSizeFunction getSize;
+    PfAvlDelNodeByKeyFunction delNodeByKey;
+    PfAvlDelNodeByElementFunction delNodeByElement;
+    PfAvlClearNodeFunction clearNode;
+    PfAvlDestoryFunction destory;
 };
 
-avl_tree_t* avl_tree_create(int element_size, pf_avl_hash hash_func, pf_avl_free_element free_element);
+AvlTree* avl_tree_create(int element_size, PfAvlHashFunction hash_func, PfAvlFreeElementFunction free_element);
 
 #endif

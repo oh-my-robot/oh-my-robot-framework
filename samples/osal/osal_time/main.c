@@ -18,10 +18,10 @@ typedef struct
     volatile uint32_t total;
     volatile uint32_t failed;
     volatile uint32_t done;
-} osal_time_test_result_s;
+} OsalTimeTestResult;
 
-static OsalThread_t g_test_thread = NULL;
-static osal_time_test_result_s g_time_result = {0u, 0u, 0u};
+static OsalThread* g_test_thread = NULL;
+static OsalTimeTestResult g_time_result = {0u, 0u, 0u};
 
 /**
  * @brief 绠€鍗曟柇瑷€璁℃暟鍣?
@@ -61,8 +61,8 @@ static void osal_time_test_conversion_group(void)
  */
 static void osal_time_test_monotonic_group(void)
 {
-    OsalTimeMs_t now_first = osal_time_now_monotonic();
-    OsalTimeMs_t now_second = osal_time_now_monotonic();
+    OsalTimeMs now_first = osal_time_now_monotonic();
+    OsalTimeMs now_second = osal_time_now_monotonic();
 
     osal_time_expect(!osal_time_before(now_second, now_first));
 
@@ -95,9 +95,9 @@ static void osal_time_test_sleep_group(void)
  */
 static void osal_time_test_delay_until_base_group(void)
 {
-    OsalTimeMs_t deadline_cursor_ms = 0u;
-    OsalTimeMs_t now_before_ms = 0u;
-    OsalTimeMs_t expected_next_deadline_ms = 0u;
+    OsalTimeMs deadline_cursor_ms = 0u;
+    OsalTimeMs now_before_ms = 0u;
+    OsalTimeMs expected_next_deadline_ms = 0u;
     uint32_t missed_periods = 0u;
 
     osal_time_expect(osal_delay_until(NULL, 10u, NULL) == OSAL_INVALID);
@@ -107,11 +107,11 @@ static void osal_time_test_delay_until_base_group(void)
     deadline_cursor_ms = 0u;
     missed_periods = 0xFFFFFFFFu;
     osal_time_expect(osal_delay_until(&deadline_cursor_ms, 5u, &missed_periods) == OSAL_OK);
-    osal_time_expect(!osal_time_before(deadline_cursor_ms, (OsalTimeMs_t)(now_before_ms + 5u)));
+    osal_time_expect(!osal_time_before(deadline_cursor_ms, (OsalTimeMs)(now_before_ms + 5u)));
     osal_time_expect(missed_periods == 0u);
 
-    deadline_cursor_ms = (OsalTimeMs_t)(osal_time_now_monotonic() + 3u);
-    expected_next_deadline_ms = (OsalTimeMs_t)(deadline_cursor_ms + 7u);
+    deadline_cursor_ms = (OsalTimeMs)(osal_time_now_monotonic() + 3u);
+    expected_next_deadline_ms = (OsalTimeMs)(deadline_cursor_ms + 7u);
     missed_periods = 0xFFFFFFFFu;
     osal_time_expect(osal_delay_until(&deadline_cursor_ms, 7u, &missed_periods) == OSAL_OK);
     osal_time_expect(deadline_cursor_ms == expected_next_deadline_ms);
@@ -126,20 +126,20 @@ static void osal_time_test_delay_until_base_group(void)
  */
 static void osal_time_test_delay_until_catchup_group(void)
 {
-    OsalTimeMs_t now_ms = osal_time_now_monotonic();
-    OsalTimeMs_t old_deadline_ms = (OsalTimeMs_t)(now_ms - 25u);
-    OsalTimeMs_t deadline_cursor_ms = old_deadline_ms;
+    OsalTimeMs now_ms = osal_time_now_monotonic();
+    OsalTimeMs old_deadline_ms = (OsalTimeMs)(now_ms - 25u);
+    OsalTimeMs deadline_cursor_ms = old_deadline_ms;
     uint32_t missed_periods = 0u;
 
     osal_time_expect(osal_delay_until(&deadline_cursor_ms, 10u, &missed_periods) == OSAL_OK);
     osal_time_expect(missed_periods >= 2u);
-    osal_time_expect(deadline_cursor_ms == (OsalTimeMs_t)(old_deadline_ms + 10u));
+    osal_time_expect(deadline_cursor_ms == (OsalTimeMs)(old_deadline_ms + 10u));
 
     now_ms = osal_time_now_monotonic();
-    old_deadline_ms = (OsalTimeMs_t)(now_ms - 8u);
+    old_deadline_ms = (OsalTimeMs)(now_ms - 8u);
     deadline_cursor_ms = old_deadline_ms;
     osal_time_expect(osal_delay_until(&deadline_cursor_ms, 4u, NULL) == OSAL_OK);
-    osal_time_expect(deadline_cursor_ms == (OsalTimeMs_t)(old_deadline_ms + 4u));
+    osal_time_expect(deadline_cursor_ms == (OsalTimeMs)(old_deadline_ms + 4u));
 }
 
 /**
@@ -172,7 +172,7 @@ static void osal_time_test_thread_entry(void* arg)
  */
 int main(void)
 {
-    OsalThreadAttr_s test_attr = {
+    OsalThreadAttr test_attr = {
         "osal_time_test",
         768u * OSAL_STACK_WORD_BYTES,
         2u,

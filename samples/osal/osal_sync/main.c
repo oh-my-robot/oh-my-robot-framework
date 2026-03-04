@@ -20,18 +20,18 @@ typedef struct
 {
     uint32_t seq;
     uint32_t time_ms;
-} osal_test_msg_s;
+} OsalTestMsg;
 
-static OsalQueue_t g_queue;
-static OsalMutex_t g_mutex;
-static OsalSem_t g_sem;
-static OsalEventFlags_t g_event;
-static OsalThread_t g_thread_prod;
-static OsalThread_t g_thread_cons;
-static OsalThread_t g_thread_mon;
-static OsalThread_t g_thread_cnt;
-static OsalThread_t g_thread_edge;
-static OsalTimer_t g_timer;
+static OsalQueue* g_queue;
+static OsalMutex* g_mutex;
+static OsalSem* g_sem;
+static OsalEventFlags* g_event;
+static OsalThread* g_thread_prod;
+static OsalThread* g_thread_cons;
+static OsalThread* g_thread_mon;
+static OsalThread* g_thread_cnt;
+static OsalThread* g_thread_edge;
+static OsalTimer* g_timer;
 
 /* 杩愯鐘舵€佺粺璁★紝鏂逛究璋冭瘯瑙傚療 */
 static volatile uint32_t g_produced_cnt;
@@ -43,7 +43,7 @@ static volatile uint32_t g_edge_tests;
 static volatile uint32_t g_edge_failures;
 static volatile uint32_t g_edge_done;
 
-static void _timer_cb(OsalTimer_t timer)
+static void _timer_cb(OsalTimer* timer)
 {
     (void)timer;
     /* 瀹氭椂鍣ㄥ洖璋冧腑鍙戦€佷俊鍙烽噺锛屽敜閱掔洃鎺х嚎绋?*/
@@ -53,8 +53,8 @@ static void _timer_cb(OsalTimer_t timer)
 static void _producer_thread(void* arg)
 {
     (void)arg;
-    osal_test_msg_s msg;
-    OsalTimeMs_t last_ms = osal_time_now_monotonic();
+    OsalTestMsg msg;
+    OsalTimeMs last_ms = osal_time_now_monotonic();
 
     while (1)
     {
@@ -83,7 +83,7 @@ static void _producer_thread(void* arg)
 static void _consumer_thread(void* arg)
 {
     (void)arg;
-    osal_test_msg_s msg;
+    OsalTestMsg msg;
 
     while (1)
     {
@@ -138,7 +138,7 @@ static void _edge_thread(void* arg)
 
     /* 闃熷垪杈圭晫娴嬭瘯 */
     {
-        OsalQueue_t q = NULL;
+        OsalQueue* q = NULL;
         uint8_t item = 0x5A;
 
         tests++;
@@ -188,7 +188,7 @@ static void _edge_thread(void* arg)
 
     /* 淇″彿閲忚竟鐣屾祴璇?*/
     {
-        OsalSem_t s = NULL;
+        OsalSem* s = NULL;
         uint32_t sem_count = 0u;
 
         tests++;
@@ -238,7 +238,7 @@ static void _edge_thread(void* arg)
 
     /* 浜掓枼閿佽竟鐣屾祴璇?*/
     {
-        OsalMutex_t m = NULL;
+        OsalMutex* m = NULL;
 
         tests++;
         if (osal_mutex_create(&m) != OSAL_OK)
@@ -272,7 +272,7 @@ static void _edge_thread(void* arg)
     /* 浜嬩欢杈圭晫娴嬭瘯 */
     {
         uint32_t value = 0;
-        OsalEventFlags_t event = NULL;
+        OsalEventFlags* event = NULL;
 
         tests++;
         if (osal_event_flags_create(&event) != OSAL_OK)
@@ -287,7 +287,7 @@ static void _edge_thread(void* arg)
 
     /* 瀹氭椂鍣ㄨ竟鐣屾祴璇?*/
     {
-        OsalTimer_t timer = NULL;
+        OsalTimer* timer = NULL;
 
         tests++;
         if (osal_timer_create(NULL, "bad_timer", 1U, OSAL_TIMER_PERIODIC, NULL, _timer_cb) != OSAL_INVALID)
@@ -304,8 +304,8 @@ static void _edge_thread(void* arg)
 
     /* 鏃堕棿鎺ュ彛杈圭晫娴嬭瘯 */
     {
-        OsalTimeMs_t ms = osal_time_now_monotonic();
-        OsalTimeMs_t ms_next = osal_time_now_monotonic();
+        OsalTimeMs ms = osal_time_now_monotonic();
+        OsalTimeMs ms_next = osal_time_now_monotonic();
         tests++;
         if (osal_time_before(ms_next, ms))
             failures++;
@@ -328,7 +328,7 @@ int main(void)
         return -1;
 
     /* 鍒涘缓闃熷垪 */
-    if (osal_queue_create(&g_queue, TEST_QUEUE_LEN, sizeof(osal_test_msg_s)) != OSAL_OK)
+    if (osal_queue_create(&g_queue, TEST_QUEUE_LEN, sizeof(OsalTestMsg)) != OSAL_OK)
         return -1;
 
     /* 鍒涘缓浜掓枼閿?*/
@@ -340,11 +340,11 @@ int main(void)
         return -1;
 
     /* 鍒涘缓绾跨▼ */
-    OsalThreadAttr_s attr_prod = {"osal_prod", 512U * OSAL_STACK_WORD_BYTES, 2U};
-    OsalThreadAttr_s attr_cons = {"osal_cons", 512U * OSAL_STACK_WORD_BYTES, 2U};
-    OsalThreadAttr_s attr_mon = {"osal_mon", 512U * OSAL_STACK_WORD_BYTES, 1U};
-    OsalThreadAttr_s attr_cnt = {"osal_cnt", 512U * OSAL_STACK_WORD_BYTES, 1U};
-    OsalThreadAttr_s attr_edge = {"osal_edge", 768U * OSAL_STACK_WORD_BYTES, 2U};
+    OsalThreadAttr attr_prod = {"osal_prod", 512U * OSAL_STACK_WORD_BYTES, 2U};
+    OsalThreadAttr attr_cons = {"osal_cons", 512U * OSAL_STACK_WORD_BYTES, 2U};
+    OsalThreadAttr attr_mon = {"osal_mon", 512U * OSAL_STACK_WORD_BYTES, 1U};
+    OsalThreadAttr attr_cnt = {"osal_cnt", 512U * OSAL_STACK_WORD_BYTES, 1U};
+    OsalThreadAttr attr_edge = {"osal_edge", 768U * OSAL_STACK_WORD_BYTES, 2U};
 
     if (osal_thread_create(&g_thread_prod, &attr_prod, _producer_thread, NULL) != OSAL_OK)
         return -1;

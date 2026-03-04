@@ -9,7 +9,7 @@
 // For Load/Store, we use volatile access + barriers.
 
 // AC5 Barrier Helpers
-AW_INLINE void _om_ac5_barrier(om_memory_order order)
+AW_INLINE void _om_ac5_barrier(OmMemoryOrder order)
 {
     if (order != AW_MO_RELAXED)
     {
