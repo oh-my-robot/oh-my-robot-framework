@@ -655,7 +655,7 @@ static const P1010BRxDispatchDescriptor *p1010b_internal_find_rx_dispatch_descri
  * - ISR 读出过滤器消息后直接完成协议解析与电机实例路由；
  * - 反馈/故障/读参应答均在 ISR 内更新状态并触发回调
  */
-static void p1010b_internal_rx_callback(Device* device, void *param, CanFilterHandle filter_handle, size_t message_count)
+static void p1010b_internal_rx_callback(Device *device, void *param, CanFilterHandle filter_handle, size_t message_count)
 {
     P1010BBus *bus = (P1010BBus *)param;
     CanUserMsg rx_message;
@@ -725,7 +725,7 @@ static void p1010b_internal_rx_callback(Device* device, void *param, CanFilterHa
  * - 分配一个过滤器用于收包
  * - 首版采用总线级全匹配，由 ISR `motor_id` 做二次路由
  */
-OmRet p1010b_bus_init(P1010BBus *bus, Device* can_device)
+OmRet p1010b_bus_init(P1010BBus *bus, Device *can_device)
 {
     OmRet ret;
     CanFilterAllocArg filter_alloc_arg;
@@ -1067,7 +1067,7 @@ static OmRet p1010b_internal_encode_target_raw_value(P1010BDriver *driver, int16
  * @brief 编码语义给定命令（自动 scale）
  */
 static OmRet p1010b_internal_encode_set_target(P1010BDriver *driver, const P1010BRequest *request,
-                                                 P1010BEncodedRequest *encoded)
+                                               P1010BEncodedRequest *encoded)
 {
     int16_t raw_target;
 
@@ -1079,7 +1079,7 @@ static OmRet p1010b_internal_encode_set_target(P1010BDriver *driver, const P1010
  * @brief 编码软件复位命令（0x40）
  */
 static OmRet p1010b_internal_encode_software_reset(P1010BDriver *driver, const P1010BRequest *request,
-                                                     P1010BEncodedRequest *encoded)
+                                                   P1010BEncodedRequest *encoded)
 {
     (void)driver;
     (void)request;
@@ -1091,7 +1091,7 @@ static OmRet p1010b_internal_encode_software_reset(P1010BDriver *driver, const P
  * @brief 编码主动上报配置命令（0x34）
  */
 static OmRet p1010b_internal_encode_set_active_report(P1010BDriver *driver, const P1010BRequest *request,
-                                                        P1010BEncodedRequest *encoded)
+                                                      P1010BEncodedRequest *encoded)
 {
     const P1010BActiveReportConfig *report_config;
 
@@ -1110,7 +1110,7 @@ static OmRet p1010b_internal_encode_set_active_report(P1010BDriver *driver, cons
  * @brief 编码主动查询命令（0x35）
  */
 static OmRet p1010b_internal_encode_active_query(P1010BDriver *driver, const P1010BRequest *request,
-                                                   P1010BEncodedRequest *encoded)
+                                                 P1010BEncodedRequest *encoded)
 {
     (void)driver;
     encoded->payload[0] = request->args.activeQuery.dataTypeSlots[0];
@@ -1124,7 +1124,7 @@ static OmRet p1010b_internal_encode_active_query(P1010BDriver *driver, const P10
  * @brief 编码参数写命令（0x36）
  */
 static OmRet p1010b_internal_encode_write_parameter(P1010BDriver *driver, const P1010BRequest *request,
-                                                      P1010BEncodedRequest *encoded)
+                                                    P1010BEncodedRequest *encoded)
 {
     p1010b_internal_encode_parameter_write_payload(driver->config.motorId, request->args.writeParameter.parameterId, request->args.writeParameter.parameterValue, encoded->payload);
     encoded->expectedParameterId = request->args.writeParameter.parameterId;
@@ -1135,7 +1135,7 @@ static OmRet p1010b_internal_encode_write_parameter(P1010BDriver *driver, const 
  * @brief 编码参数读命令（0x37）
  */
 static OmRet p1010b_internal_encode_read_parameter(P1010BDriver *driver, const P1010BRequest *request,
-                                                     P1010BEncodedRequest *encoded)
+                                                   P1010BEncodedRequest *encoded)
 {
     encoded->payload[0] = driver->config.motorId;
     encoded->payload[1] = request->args.readParameter.parameterId;
@@ -1148,7 +1148,7 @@ static OmRet p1010b_internal_encode_read_parameter(P1010BDriver *driver, const P
  * @details 状态命令写入与 motor_id 对应的组槽位
  */
 static OmRet p1010b_internal_encode_state_control(P1010BDriver *driver, const P1010BRequest *request,
-                                                    P1010BEncodedRequest *encoded)
+                                                  P1010BEncodedRequest *encoded)
 {
     uint8_t command_slot_index;
 
@@ -1167,7 +1167,7 @@ static OmRet p1010b_internal_encode_state_control(P1010BDriver *driver, const P1
  * - payload[2..7]：保留位（预留未来扩展）
  */
 static OmRet p1010b_internal_encode_save_parameters(P1010BDriver *driver, const P1010BRequest *request,
-                                                      P1010BEncodedRequest *encoded)
+                                                    P1010BEncodedRequest *encoded)
 {
     uint8_t index;
 
@@ -1587,7 +1587,7 @@ OmRet p1010b_request_sync(P1010BDriver *driver, const P1010BRequest *request, P1
  * @brief 行为 API：执行同步请求（允许 response 为空
  */
 static OmRet p1010b_internal_execute_sync_behavior(P1010BDriver *driver, P1010BRequest request, uint32_t timeout_ms,
-                                                     P1010BResponse *response)
+                                                   P1010BResponse *response)
 {
     P1010BResponse local_response = {0};
 
@@ -1643,8 +1643,8 @@ OmRet p1010b_set_active_report(P1010BDriver *driver, const P1010BActiveReportCon
  * @brief 主动查询指定 4 槽数据（构造+执行一体，同步）
  */
 OmRet p1010b_active_query_slots(P1010BDriver *driver, P1010BReportDataType slot0, P1010BReportDataType slot1,
-                                  P1010BReportDataType slot2, P1010BReportDataType slot3, uint32_t timeout_ms,
-                                  P1010BResponse *response)
+                                P1010BReportDataType slot2, P1010BReportDataType slot3, uint32_t timeout_ms,
+                                P1010BResponse *response)
 {
     return p1010b_internal_execute_sync_behavior(driver, p1010b_req_active_query_slots(slot0, slot1, slot2, slot3), timeout_ms,
                                                  response);
@@ -1654,7 +1654,7 @@ OmRet p1010b_active_query_slots(P1010BDriver *driver, P1010BReportDataType slot0
  * @brief 写参数（构造+执行一体，同步）
  */
 OmRet p1010b_write_parameter(P1010BDriver *driver, uint8_t parameter_id, int32_t parameter_value, uint32_t timeout_ms,
-                               P1010BResponse *response)
+                             P1010BResponse *response)
 {
     return p1010b_internal_execute_sync_behavior(driver, p1010b_req_write_parameter(parameter_id, parameter_value), timeout_ms,
                                                  response);

@@ -11,7 +11,7 @@
  * @param kd 微分系数
  * @return 初始化结果，true成功，false失败
  */
-bool pid_init(PidController* pid, PidMode mode, float kp, float ki, float kd)
+bool pid_init(PidController *pid, PidMode mode, float kp, float ki, float kd)
 {
     // 参数检查
     if (pid == NULL)
@@ -51,7 +51,7 @@ bool pid_init(PidController* pid, PidMode mode, float kp, float ki, float kd)
  * @param ki 积分系数
  * @param kd 微分系数
  */
-void pid_set_params(PidController* pid, float kp, float ki, float kd)
+void pid_set_params(PidController *pid, float kp, float ki, float kd)
 {
     // 参数检查
     if (pid == NULL)
@@ -69,7 +69,7 @@ void pid_set_params(PidController* pid, float kp, float ki, float kd)
  * @param pid PID控制器实例
  * @param limit 限幅值
  */
-void pid_set_output_limit(PidController* pid, float min_limit, float max_limit)
+void pid_set_output_limit(PidController *pid, float min_limit, float max_limit)
 {
     // 参数检查
     if (pid == NULL)
@@ -86,7 +86,7 @@ void pid_set_output_limit(PidController* pid, float min_limit, float max_limit)
  * @param pid PID控制器实例
  * @param limit 限幅值
  */
-void pid_set_integral_limit(PidController* pid, float limit)
+void pid_set_integral_limit(PidController *pid, float limit)
 {
     // 参数检查
     if (pid == NULL)
@@ -102,7 +102,7 @@ void pid_set_integral_limit(PidController* pid, float limit)
  * @param pid PID控制器实例
  * @param deadBand 死区宽度
  */
-void pid_set_dead_band(PidController* pid, float dead_band)
+void pid_set_dead_band(PidController *pid, float dead_band)
 {
     // 参数检查
     if (pid == NULL)
@@ -118,7 +118,7 @@ void pid_set_dead_band(PidController* pid, float dead_band)
  * @param pid PID控制器实例
  * @param coeff 滤波系数(0-1)
  */
-void pid_set_derivative_filter_coeff(PidController* pid, float coeff)
+void pid_set_derivative_filter_coeff(PidController *pid, float coeff)
 {
     // 参数检查
     if (pid == NULL)
@@ -141,7 +141,7 @@ void pid_set_derivative_filter_coeff(PidController* pid, float coeff)
  * @param thresholdA 阈值A
  * @param thresholdB 阈值B
  */
-void pid_set_variable_integral_thresholds(PidController* pid, float threshold_a, float threshold_b)
+void pid_set_variable_integral_thresholds(PidController *pid, float threshold_a, float threshold_b)
 {
     // 参数检查
     if (pid == NULL)
@@ -157,7 +157,7 @@ void pid_set_variable_integral_thresholds(PidController* pid, float threshold_a,
  * @brief 重置PID控制器内部状态
  * @param pid PID控制器实例
  */
-void pid_reset(PidController* pid)
+void pid_reset(PidController *pid)
 {
     // 参数检查
     if (pid == NULL)
@@ -190,7 +190,7 @@ void pid_reset(PidController* pid)
  * @param error 当前误差
  * @return 变速积分系数
  */
-static float pid_calc_variable_integral_factor(PidController* pid, float error)
+static float pid_calc_variable_integral_factor(PidController *pid, float error)
 {
     float abs_error = fabsf(error);
     float a = pid->improvementParams.variableIntegralThresholdA;
@@ -218,7 +218,7 @@ static float pid_calc_variable_integral_factor(PidController* pid, float error)
  * @param pid PID控制器实例
  * @return 是否在死区内
  */
-static bool pid_dead_band_process(PidController* pid)
+static bool pid_dead_band_process(PidController *pid)
 {
     if (fabsf(pid->err) < pid->improvementParams.deadBand)
     {
@@ -231,7 +231,7 @@ static bool pid_dead_band_process(PidController* pid)
  * @brief 积分限幅处理（位置式PID）
  * @param pid PID控制器实例
  */
-static void pid_integral_limit_process_positional(PidController* pid)
+static void pid_integral_limit_process_positional(PidController *pid)
 {
     if (pid->iOut > pid->improvementParams.integralLimit)
     {
@@ -247,7 +247,7 @@ static void pid_integral_limit_process_positional(PidController* pid)
  * @brief 积分限幅处理（增量式PID）
  * @param pid PID控制器实例
  */
-static void pid_integral_limit_process_incremental(PidController* pid)
+static void pid_integral_limit_process_incremental(PidController *pid)
 {
     if (pid->iOut > pid->improvementParams.integralLimit)
     {
@@ -263,7 +263,7 @@ static void pid_integral_limit_process_incremental(PidController* pid)
  * @brief 微分滤波处理
  * @param pid PID控制器实例
  */
-static void pid_derivative_filter_process(PidController* pid)
+static void pid_derivative_filter_process(PidController *pid)
 {
     float alpha = pid->improvementParams.derivativeFilterCoeff;
     pid->dOut = alpha * pid->dOut + (1.0f - alpha) * pid->prevDOut;
@@ -275,7 +275,7 @@ static void pid_derivative_filter_process(PidController* pid)
  * @param pid PID控制器实例
  * @param enable 是否开启微分先行使能
  */
-void pid_set_derivative_first_enable(PidController* pid, bool enable)
+void pid_set_derivative_first_enable(PidController *pid, bool enable)
 {
     pid->improvementConfig.settings.derivativeFirstEnable = (enable == true);
 }
@@ -288,7 +288,7 @@ void pid_set_derivative_first_enable(PidController* pid, bool enable)
  * 除此之外，积分器正常工作。即，在饱和情况下，只进行有助于削弱饱和程度的积分运算。
  * @todo: 也许可以引入反馈抑制抗饱和算法，以实现更智能的抗饱和控制
  */
-static void pid_output_limit_process(PidController* pid)
+static void pid_output_limit_process(PidController *pid)
 {
     if (pid->out > pid->improvementParams.outputLimitMax)
     {
@@ -321,7 +321,7 @@ static void pid_output_limit_process(PidController* pid)
  * @param pid PID控制器实例
  * @return PID输出值
  */
-static float pid_positional_compute(PidController* pid)
+static float pid_positional_compute(PidController *pid)
 {
     float error = pid->err;
 
@@ -406,7 +406,7 @@ static float pid_positional_compute(PidController* pid)
  * @param pid PID控制器实例
  * @return PID输出值
  */
-static float pid_incremental_compute(PidController* pid)
+static float pid_incremental_compute(PidController *pid)
 {
     if (pid->improvementConfig.settings.deadBandEnable && pid_dead_band_process(pid))
     {
@@ -465,7 +465,7 @@ static float pid_incremental_compute(PidController* pid)
  * @param measurement 测量值
  * @return PID输出值
  */
-float pid_compute(PidController* pid, float setpoint, float measurement, Pidtime current_tick)
+float pid_compute(PidController *pid, float setpoint, float measurement, Pidtime current_tick)
 {
     // 参数检查
     if (pid == NULL)
@@ -520,7 +520,7 @@ float pid_compute(PidController* pid, float setpoint, float measurement, Pidtime
  * @param iOut 积分项输出指针
  * @param dOut 微分项输出指针
  */
-void pid_get_component_outputs(PidController* pid, float *p_out, float *i_out, float *d_out)
+void pid_get_component_outputs(PidController *pid, float *p_out, float *i_out, float *d_out)
 {
     // 参数检查
     if (pid == NULL)

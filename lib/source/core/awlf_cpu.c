@@ -55,7 +55,7 @@ void om_cpu_delay_ms(float ms)
     om_cpu.interface->delayMs(ms);
 }
 
-void om_cpu_register(uint32_t cpu_freq_m_hz, OmBoardInterface* interface)
+void om_cpu_register(uint32_t cpu_freq_m_hz, OmBoardInterface *interface)
 {
     while (!interface)
     {

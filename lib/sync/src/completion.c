@@ -34,7 +34,7 @@ static OmRet completion_wait_status_from_osal(OsalStatus wait_status)
     return OM_ERROR;
 }
 
-static void completion_sem_drain(OsalSem* sem)
+static void completion_sem_drain(OsalSem *sem)
 {
     if (!sem)
         return;
@@ -43,7 +43,7 @@ static void completion_sem_drain(OsalSem* sem)
     }
 }
 
-static OmRet completion_sem_init(Completion* completion)
+static OmRet completion_sem_init(Completion *completion)
 {
     if (!completion)
         return OM_ERROR_PARAM;
@@ -60,7 +60,7 @@ static OmRet completion_sem_init(Completion* completion)
     return OM_OK;
 }
 
-static void completion_sem_deinit(Completion* completion)
+static void completion_sem_deinit(Completion *completion)
 {
     if (!completion)
         return;
@@ -75,14 +75,14 @@ static void completion_sem_deinit(Completion* completion)
     completion->status = COMP_INIT;
 }
 
-static OmRet completion_sem_wait_one_shot(Completion* completion, size_t timeout_ms)
+static OmRet completion_sem_wait_one_shot(Completion *completion, size_t timeout_ms)
 {
     if (!completion || !completion->sem)
         return OM_ERROR_PARAM;
     if (osal_is_in_isr())
         return OM_ERROR_PARAM;
 
-    OsalThread* self = osal_thread_self();
+    OsalThread *self = osal_thread_self();
     if (!self)
         return OM_ERROR;
 
@@ -135,7 +135,7 @@ static OmRet completion_sem_wait_one_shot(Completion* completion, size_t timeout
     return OM_OK;
 }
 
-static OmRet completion_sem_done_one_shot(Completion* completion)
+static OmRet completion_sem_done_one_shot(Completion *completion)
 {
     if (!completion || !completion->sem)
         return OM_ERROR_PARAM;
@@ -186,10 +186,10 @@ static OmRet completion_sem_done_one_shot(Completion* completion)
 }
 
 #if OM_COMPLETION_ACCEL_ENABLED
-extern OmRet completion_accel_init(Completion* completion);
-extern void completion_accel_deinit(Completion* completion);
-extern OmRet completion_accel_wait_one_shot(Completion* completion, size_t timeout_ms);
-extern OmRet completion_accel_done_one_shot(Completion* completion);
+extern OmRet completion_accel_init(Completion *completion);
+extern void completion_accel_deinit(Completion *completion);
+extern OmRet completion_accel_wait_one_shot(Completion *completion, size_t timeout_ms);
+extern OmRet completion_accel_done_one_shot(Completion *completion);
 #define OM_COMPLETION_BACKEND_INIT completion_accel_init
 #define OM_COMPLETION_BACKEND_DEINIT completion_accel_deinit
 #define OM_COMPLETION_BACKEND_WAIT_ONE_SHOT completion_accel_wait_one_shot
@@ -201,22 +201,22 @@ extern OmRet completion_accel_done_one_shot(Completion* completion);
 #define OM_COMPLETION_BACKEND_DONE_ONE_SHOT completion_sem_done_one_shot
 #endif
 
-OmRet completion_init(Completion* completion)
+OmRet completion_init(Completion *completion)
 {
     return OM_COMPLETION_BACKEND_INIT(completion);
 }
 
-void completion_deinit(Completion* completion)
+void completion_deinit(Completion *completion)
 {
     OM_COMPLETION_BACKEND_DEINIT(completion);
 }
 
-OmRet completion_wait(Completion* completion, size_t timeout_ms)
+OmRet completion_wait(Completion *completion, size_t timeout_ms)
 {
     return OM_COMPLETION_BACKEND_WAIT_ONE_SHOT(completion, timeout_ms);
 }
 
-OmRet completion_done(Completion* completion)
+OmRet completion_done(Completion *completion)
 {
     return OM_COMPLETION_BACKEND_DONE_ONE_SHOT(completion);
 }

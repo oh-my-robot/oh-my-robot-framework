@@ -12,7 +12,7 @@
 2. `integration`：日常集成联调主线，接收 `feature/*`、`fix/*` 合入，并接收 `hotfix/*` 回灌。
 3. `feature/*`：功能开发分支，按任务目标拆分。
 4. `hotfix/*`：紧急修复分支，从 `main`（或对应发布 Tag）切出，先合入 `main`，再回灌 `integration`。
-5. `fix/*`：常规缺陷修复分支，从 `integration` 切出并回合到 `integration`。
+5. `fix/*`：常规缺陷修复分支，从 `integration` 切出并合入到 `integration`。
 
 ## 3. 远端仓库管理与派生工作流（Forking Workflow）
 
@@ -30,6 +30,9 @@
 
 ### 3.3 初始环境配置（必做）
 
+1. 先在 GitHub Web 端打开 `https://github.com/oh-my-robot/oh-my-robot-framework`，点击 `Fork`，在个人账号下创建同名派生仓库。
+2. 若个人账号下已存在该 Fork，可跳过创建并直接执行下面命令。
+
 ```bash
 # 1) 克隆个人派生库（默认远端名为 origin）
 git clone https://github.com/<your-username>/oh-my-robot-framework.git
@@ -41,6 +44,8 @@ git remote add upstream https://github.com/oh-my-robot/oh-my-robot-framework.git
 # 3) 验证远端配置
 git remote -v
 ```
+
+3. Fork 关系的强制校验以第 `4.1.2` 节为准。
 
 ## 4. 分支同步与变基（Rebase）标准规范
 
@@ -240,15 +245,16 @@ git push origin feature/15-osal-mutex --force-with-lease
 
 1. 仅允许在个人开发分支（`feature/*`、`fix/*`、`hotfix/*`）且未合并前执行强推。
 2. 严禁对 `integration` 与 `main` 执行任何形式的强推。
-3. 严禁执行 `git push upstream`。
-4. 本地 `integration` 和 `main` 视为只读镜像，禁止在其上 `commit` 或 `merge` 开发内容。
+3. 默认禁止向 `upstream` 推送；仅发布管理员按 `docs/process/git_version_release_spec.md` 推送 Release Tag 时，允许执行 `git push upstream <tag>`。
+4. 严禁向 `upstream` 推送任何分支（包括 `main`、`integration`、`feature/*`、`fix/*`、`hotfix/*`）。
+5. 本地 `integration` 和 `main` 视为只读镜像，禁止在其上 `commit` 或 `merge` 开发内容。
 
 ## 8. 任务驱动原则
 
 1. 分支必须绑定具体 Issue，严禁“无 Issue 开发”。
 2. 禁止按系统层级拆分“半成品分支”互相阻塞。
 3. 单个 `feature/*` 应形成可编译、可验证的纵向切片。
-4. 分支命名统一使用 `feature/<issue编号>-<slug>`。
+4. 分支类型前缀与职责以第 2 章为唯一事实来源；Issue 编号与 slug 的拼接规则按第 5 章与第 6.1 节执行。
 
 ## 9. 原子提交规范（Atomic Commit）
 
@@ -297,7 +303,7 @@ git push origin feature/15-osal-mutex --force-with-lease
 ## 11. PR 纪律
 
 1. PR 描述必须包含范围、风险、验证结果。
-2. PR 目标分支固定为 `upstream/integration`（除 `hotfix` 特殊流程外）。
+2. 日常开发 PR 目标分支为 `upstream/integration`；发布与热修复 PR 目标分支为 `upstream/main`。
 3. 关键字策略统一为：到 `integration` 使用 `Refs #<id>`；到 `main` 使用 `Fixes #<id>`。
 4. 全仓库不再使用 `Resolves` 关键字。
 5. 评审后若有新增提交，需重新确认通过后再合并。

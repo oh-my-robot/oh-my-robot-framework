@@ -72,7 +72,7 @@ static DJIMotorTxUnit *dji_get_or_create_tx_unit(DJIMotorBus *bus, uint32_t can_
  * @param filterHandle 当前命中的过滤器句柄
  * @param count 本次可读取的报文数量
  */
-static void dji_rx_callback(Device* dev, void *param, CanFilterHandle filter_handle, size_t count)
+static void dji_rx_callback(Device *dev, void *param, CanFilterHandle filter_handle, size_t count)
 {
     DJIMotorBus *bus = (DJIMotorBus *)param;
     CanUserMsg msg;
@@ -130,7 +130,7 @@ static void dji_rx_callback(Device* dev, void *param, CanFilterHandle filter_han
 /* --- Core API --- */
 
 /** @copydoc dji_motor_bus_init */
-OmRet dji_motor_bus_init(DJIMotorBus *bus, Device* can_dev)
+OmRet dji_motor_bus_init(DJIMotorBus *bus, Device *can_dev)
 {
     if (!bus || !can_dev)
         return OM_ERROR_PARAM;
