@@ -7,7 +7,7 @@
 #include "osal_config.h"
 
 /* OSAL 统一状态码（Phase 1 合同）*/
-typedef int32_t OsalStatus_t;
+typedef int32_t OsalStatus;
 
 #define OSAL_OK (0)               /* 成功 */
 #define OSAL_TIMEOUT (-1)         /* 超时（timeout > 0 的 WAIT_FOREVER 语义超时）*/
@@ -27,7 +27,7 @@ int osal_is_in_isr(void);
  * @brief ISR 临界区状态类型
  * @note 由端口实现定义其具体含义；在 FreeRTOS 端映射为中断屏蔽旧状态
  */
-typedef uint32_t OsalIrqIsrState_t;
+typedef uint32_t OsalIrqIsrState;
 
 /**
  * @brief 在线程上下文进入临界区
@@ -46,14 +46,14 @@ void osal_irq_unlock_task(void);
  * @return ISR 临界区恢复状态
  * @note 禁止在线程上下文调用
  */
-OsalIrqIsrState_t osal_irq_lock_from_isr(void);
+OsalIrqIsrState osal_irq_lock_from_isr(void);
 
 /**
  * @brief ISR 上下文恢复中断状态
  * @param state `osal_irq_lock_from_isr` 返回的状态
  * @note 禁止在线程上下文调用
  */
-void osal_irq_unlock_from_isr(OsalIrqIsrState_t state);
+void osal_irq_unlock_from_isr(OsalIrqIsrState state);
 
 /**
  * @brief OSAL 内存申请

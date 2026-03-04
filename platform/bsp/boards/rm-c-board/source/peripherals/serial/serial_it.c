@@ -191,7 +191,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* huart, uint16_t Size)
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart)
 {
-    SerialEvent_e event;
+    SerialEvent event;
     uint32_t regparams;
     bsp_serial_t bsp_serial;
     bsp_serial = (bsp_serial_t)huart; // 这就是为什么要把UART_HandleTypeDef成员放在bsp_serial_t中的第一位

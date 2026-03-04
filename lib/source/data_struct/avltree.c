@@ -26,14 +26,14 @@
 
 #define INIT_KEY (int)(-1)
 
-typedef struct AvlNode avl_node_t;
-typedef struct AvlTreePrivate avl_tree_private_t;
+typedef struct AvlNode AvlNode;
+typedef struct AvlTreePrivate AvlTreePrivate;
 
 struct AvlNode
 {
-    avl_node_t *parent;     // 父节点
-    avl_node_t *leftChild;  // 左孩子
-    avl_node_t *rightChild; // 右孩子
+    AvlNode *parent;     // 父节点
+    AvlNode *leftChild;  // 左孩子
+    AvlNode *rightChild; // 右孩子
 
     void *element; // 节点保存的元素
     int depth;     // 当前节点的高度
@@ -42,7 +42,7 @@ struct AvlNode
 
 struct AvlTreePrivate
 {
-    avl_node_t *root;
+    AvlNode *root;
     uint16_t elementSize;
     uint16_t nodeCount;
 };
@@ -53,13 +53,13 @@ struct AvlTreePrivate
  * @param:
  *      tree 树指针
  * @return:
- *      avl_tree_private_t* : 私有成员变量结构体指针
+ *      AvlTreePrivate* : 私有成员变量结构体指针
  */
-static avl_tree_private_t *get_private_member(avl_tree_t *tree)
+static AvlTreePrivate *get_private_member(AvlTree *tree)
 {
     if (NULL == tree)
         return NULL;
-    return (avl_tree_private_t *)(tree->private);
+    return (AvlTreePrivate *)(tree->private);
 }
 
 /**
@@ -71,14 +71,14 @@ static avl_tree_private_t *get_private_member(avl_tree_t *tree)
  * @return:
  *      None.
  */
-static void add_to_left(avl_node_t *node, avl_node_t *p)
+static void add_to_left(AvlNode *node, AvlNode *p)
 {
     p->leftChild = node;
     node->parent = p;
     node->leftChild = node->rightChild = NULL;
     node->depth = 1;
 }
-static void add_to_right(avl_node_t *node, avl_node_t *p)
+static void add_to_right(AvlNode *node, AvlNode *p)
 {
     p->rightChild = node;
     node->parent = p;
@@ -92,7 +92,7 @@ static void add_to_right(avl_node_t *node, avl_node_t *p)
  * @param:
  *      node : 要调整的节点
  * @return:
- *      avl_node_t* 调整后的根节点（此根节点并非树的根节点，而是替换被调整那个节点的位置的节点）
+ *      AvlNode* 调整后的根节点（此根节点并非树的根节点，而是替换被调整那个节点的位置的节点）
  * @note:
  *      算法说明：左左旋（LL）
 
@@ -118,10 +118,10 @@ static void add_to_right(avl_node_t *node, avl_node_t *p)
         | 1 |
         +---+
  */
-static avl_node_t *ll(avl_node_t *node)
+static AvlNode *ll(AvlNode *node)
 {
     // AVL_LOG_DEBUG("LL %d", *((char*)(node->element) + 4));
-    avl_node_t *temp = node->leftChild;
+    AvlNode *temp = node->leftChild;
 
     node->leftChild = temp->rightChild;
     if (NULL != temp->rightChild)
@@ -138,10 +138,10 @@ static avl_node_t *ll(avl_node_t *node)
     return temp;
 }
 
-static avl_node_t *rr(avl_node_t *node)
+static AvlNode *rr(AvlNode *node)
 {
     // AVL_LOG_DEBUG("RR %d", *((char*)(node->element) + 4));
-    avl_node_t *temp = node->rightChild;
+    AvlNode *temp = node->rightChild;
 
     node->rightChild = temp->leftChild;
     if (NULL != temp->leftChild)
@@ -158,13 +158,13 @@ static avl_node_t *rr(avl_node_t *node)
     return temp;
 }
 
-static avl_node_t *rl(avl_node_t *node)
+static AvlNode *rl(AvlNode *node)
 {
     node->rightChild = ll(node->rightChild);
     return rr(node);
 }
 
-static avl_node_t *lr(avl_node_t *node)
+static AvlNode *lr(AvlNode *node)
 {
     node->leftChild = rr(node->leftChild);
     return ll(node);
@@ -176,14 +176,14 @@ static avl_node_t *lr(avl_node_t *node)
  * @param:
  *      node : 要调整的节点
  * @return:
- *      avl_node_t* 调整后的根节点（此根节点并非树的根节点，而是替换被调整那个节点的位置的节点）
+ *      AvlNode* 调整后的根节点（此根节点并非树的根节点，而是替换被调整那个节点的位置的节点）
  * @note:
  *      None.
  */
-static avl_node_t *avl_tree_adjust(avl_node_t *node)
+static AvlNode *avl_tree_adjust(AvlNode *node)
 {
-    avl_node_t *left_child = node->leftChild;
-    avl_node_t *right_child = node->rightChild;
+    AvlNode *left_child = node->leftChild;
+    AvlNode *right_child = node->rightChild;
 
     if (ABS(HEIGHT(left_child) - HEIGHT(right_child)) < 2)
         return node;
@@ -227,7 +227,7 @@ static avl_node_t *avl_tree_adjust(avl_node_t *node)
  * @return:
  *      uint8_t:    0 成功-1 失败
  */
-static uint8_t avl_tree_free_node(avl_tree_t *tree, avl_node_t *node)
+static uint8_t avl_tree_free_node(AvlTree *tree, AvlNode *node)
 {
     if (NULL == node || NULL == tree)
         return -1;
@@ -253,15 +253,15 @@ static uint8_t avl_tree_free_node(avl_tree_t *tree, avl_node_t *node)
  * @param:
  *      tree : 树指针
  * @return:
- *      avl_node_t* 创建的节点
+ *      AvlNode* 创建的节点
  */
-static avl_node_t *avl_tree_create_node(avl_tree_t *tree)
+static AvlNode *avl_tree_create_node(AvlTree *tree)
 {
     if (NULL == tree)
         return NULL;
 
-    avl_tree_private_t *this = get_private_member(tree);
-    avl_node_t *node = (avl_node_t *)malloc(sizeof(avl_node_t));
+    AvlTreePrivate *this = get_private_member(tree);
+    AvlNode *node = (AvlNode *)malloc(sizeof(AvlNode));
     if (NULL == node)
     {
         AVL_LOG_DEBUG("[ERROR]:node malloc");
@@ -281,17 +281,17 @@ static avl_node_t *avl_tree_create_node(avl_tree_t *tree)
  * @return:
  *      int8_t:    -1 树指针为空；-2 创建节点失败；-3 重复插入
  */
-static int8_t avl_tree_add(avl_tree_t *tree, void *ele)
+static int8_t avl_tree_add(AvlTree *tree, void *ele)
 {
     if (tree == NULL)
         return -1;
 
-    avl_node_t *node = avl_tree_create_node(tree);
+    AvlNode *node = avl_tree_create_node(tree);
 
     if (NULL == node)
         return -2;
 
-    avl_tree_private_t *this = get_private_member(tree);
+    AvlTreePrivate *this = get_private_member(tree);
 
     AVL_LOG_DEBUG("Add key[%d]", tree->pfHash(ele));
     node->element = ele;
@@ -310,7 +310,7 @@ static int8_t avl_tree_add(avl_tree_t *tree, void *ele)
         this->nodeCount = 1;
         return 0;
     }
-    avl_node_t *p = this->root;
+    AvlNode *p = this->root;
 
     while (NULL != p)
     {
@@ -379,16 +379,16 @@ static int8_t avl_tree_add(avl_tree_t *tree, void *ele)
  *      tree : 树指针
  *      key : 节点元素对应的键
  * @return:
- *      avl_node_t* 查找到的节点
+ *      AvlNode* 查找到的节点
  */
-static avl_node_t *query_by_key(avl_tree_t *tree, int key)
+static AvlNode *query_by_key(AvlTree *tree, int key)
 {
     if (NULL == tree)
         return NULL;
     AVL_LOG_DEBUG("Query key %d", key);
-    avl_tree_private_t *this = get_private_member(tree);
+    AvlTreePrivate *this = get_private_member(tree);
 
-    avl_node_t *p = this->root;
+    AvlNode *p = this->root;
     while (NULL != p)
     {
         if (key > p->key)
@@ -405,9 +405,9 @@ static avl_node_t *query_by_key(avl_tree_t *tree, int key)
     return p;
 }
 
-static void *avl_tree_query_by_key(avl_tree_t *tree, uint16_t key)
+static void *avl_tree_query_by_key(AvlTree *tree, uint16_t key)
 {
-    avl_node_t *node = query_by_key(tree, key);
+    AvlNode *node = query_by_key(tree, key);
 
     if (NULL == node)
         return NULL;
@@ -424,20 +424,20 @@ static void *avl_tree_query_by_key(avl_tree_t *tree, uint16_t key)
  * @return:
  *      uint8_t:    0 成功  -1 失败
  */
-static uint8_t avl_tree_del_by_key(avl_tree_t *tree, int key)
+static uint8_t avl_tree_del_by_key(AvlTree *tree, int key)
 {
     if (NULL == tree)
         return -1;
-    avl_tree_private_t *this = get_private_member(tree);
-    avl_node_t *node = query_by_key(tree, key);
+    AvlTreePrivate *this = get_private_member(tree);
+    AvlNode *node = query_by_key(tree, key);
 
     if (NULL == node)
         return -1;
 
     this->nodeCount--;
 
-    avl_node_t *p = node->parent; // 先保存删除节点的父节点，方便后续调整
-    avl_node_t *temp = NULL;      // 替换 node 节点的节点
+    AvlNode *p = node->parent; // 先保存删除节点的父节点，方便后续调整
+    AvlNode *temp = NULL;      // 替换 node 节点的节点
 
     /*
         当该节点存在左子树或者右子树的时候，比较两边的高度；
@@ -547,18 +547,18 @@ static uint8_t avl_tree_del_by_key(avl_tree_t *tree, int key)
  *      tree : 树指针
  *      ele : 要查找的元素
  * @return:
- *      avl_node_t* 查找到的节点
+ *      AvlNode* 查找到的节点
  */
-static avl_node_t *avl_tree_query_by_element(avl_tree_t *tree, void *ele)
+static AvlNode *avl_tree_query_by_element(AvlTree *tree, void *ele)
 {
     if (NULL == tree || NULL == ele)
         return NULL;
 
-    avl_tree_private_t *this = get_private_member(tree);
+    AvlTreePrivate *this = get_private_member(tree);
 
     uint16_t key = tree->pfHash(ele);
 
-    avl_node_t *p = this->root;
+    AvlNode *p = this->root;
     while (NULL != p)
     {
         if (key > p->key)
@@ -584,9 +584,9 @@ static avl_node_t *avl_tree_query_by_element(avl_tree_t *tree, void *ele)
  * @return:
  *      uint8_t:    0 成功  -1 失败
  */
-static uint8_t avl_tree_del_by_element(avl_tree_t *tree, void *ele)
+static uint8_t avl_tree_del_by_element(AvlTree *tree, void *ele)
 {
-    avl_node_t *node = avl_tree_query_by_element(tree, ele);
+    AvlNode *node = avl_tree_query_by_element(tree, ele);
 
     if (NULL == node)
         return -1;
@@ -603,7 +603,7 @@ static uint8_t avl_tree_del_by_element(avl_tree_t *tree, void *ele)
  * @return:
  *      None.
  */
-static void preorder(avl_node_t *node, void (*visit)(void *e))
+static void preorder(AvlNode *node, void (*visit)(void *e))
 {
     if (NULL == node)
         return;
@@ -613,9 +613,9 @@ static void preorder(avl_node_t *node, void (*visit)(void *e))
     preorder(node->rightChild, visit); // 遍历右子树
 }
 
-static void avl_tree_preorder(avl_tree_t *tree, void (*visit)(void *e))
+static void avl_tree_preorder(AvlTree *tree, void (*visit)(void *e))
 {
-    avl_tree_private_t *this = get_private_member(tree);
+    AvlTreePrivate *this = get_private_member(tree);
     preorder(this->root, visit);
 }
 
@@ -627,9 +627,9 @@ static void avl_tree_preorder(avl_tree_t *tree, void (*visit)(void *e))
  * @return:
  *      uint16_t:    树节点的数量
  */
-static uint16_t avl_tree_size(avl_tree_t *tree)
+static uint16_t avl_tree_size(AvlTree *tree)
 {
-    avl_tree_private_t *this = get_private_member(tree);
+    AvlTreePrivate *this = get_private_member(tree);
     return this->nodeCount;
 }
 
@@ -642,7 +642,7 @@ static uint16_t avl_tree_size(avl_tree_t *tree)
  * @return:
  *      None.
  */
-static void avl_tree_node_clear(avl_tree_t *tree, avl_node_t *node)
+static void avl_tree_node_clear(AvlTree *tree, AvlNode *node)
 {
     if (NULL == node)
         return;
@@ -661,9 +661,9 @@ static void avl_tree_node_clear(avl_tree_t *tree, avl_node_t *node)
  * @return:
  *      None.
  */
-static void avl_tree_clear(avl_tree_t *tree)
+static void avl_tree_clear(AvlTree *tree)
 {
-    avl_tree_private_t *this = get_private_member(tree);
+    AvlTreePrivate *this = get_private_member(tree);
     avl_tree_node_clear(tree, this->root);
     this->nodeCount = 0;
 }
@@ -676,9 +676,9 @@ static void avl_tree_clear(avl_tree_t *tree)
  * @return:
  *      None.
  */
-static void avl_tree_destory(avl_tree_t *tree)
+static void avl_tree_destory(AvlTree *tree)
 {
-    avl_tree_t *this = tree;
+    AvlTree *this = tree;
 
     if (NULL == this)
         return;
@@ -710,22 +710,22 @@ static void avl_tree_destory(avl_tree_t *tree)
  *      free_element:       若节点元素不包含额外的动态内存， 此参数可为 NULL
  *                          若节点包含的元素中还包含额外的动态内存，用户需传入此函数以正确释放内存;
  * @return:
- *      avl_tree_t* : 创建平衡二叉树的指针
+ *      AvlTree* : 创建平衡二叉树的指针
  * @note:
  *      该树有缺陷，element_size 必须指针类型，否则会出错
  *      待完善
  */
-avl_tree_t *avl_tree_create(int element_size, pf_avl_hash hash_func, pf_avl_free_element free_element)
+AvlTree *avl_tree_create(int element_size, PfAvlHashFunction hash_func, PfAvlFreeElementFunction free_element)
 {
 
     if (NULL == hash_func)
         return NULL;
-    avl_tree_t *tree = (avl_tree_t *)malloc(sizeof(avl_tree_t));
+    AvlTree *tree = (AvlTree *)malloc(sizeof(AvlTree));
     if (NULL == tree)
         return NULL;
-    memset(tree, 0, sizeof(avl_tree_t));
+    memset(tree, 0, sizeof(AvlTree));
 
-    avl_tree_private_t *private_member = (avl_tree_private_t *)malloc(sizeof(avl_tree_private_t));
+    AvlTreePrivate *private_member = (AvlTreePrivate *)malloc(sizeof(AvlTreePrivate));
     if (NULL == private_member)
     {
         free(tree);

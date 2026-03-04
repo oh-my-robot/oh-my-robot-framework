@@ -4,14 +4,14 @@
 #include "event_groups.h"
 #include "osal_time_freertos.h"
 
-static inline EventGroupHandle_t osal_event_flags_to_native(OsalEventFlags_t event_flags)
+static inline EventGroupHandle_t osal_event_flags_to_native(OsalEventFlags* event_flags)
 {
     return (EventGroupHandle_t)event_flags;
 }
 
-static inline OsalEventFlags_t osal_event_flags_from_native(EventGroupHandle_t event_flags)
+static inline OsalEventFlags* osal_event_flags_from_native(EventGroupHandle_t event_flags)
 {
-    return (OsalEventFlags_t)event_flags;
+    return (OsalEventFlags*)event_flags;
 }
 
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
@@ -53,7 +53,7 @@ static int osal_event_check_isr_context(void)
     return (in_isr != 0);
 }
 
-OsalStatus_t osal_event_flags_create(OsalEventFlags_t* event_flags)
+OsalStatus osal_event_flags_create(OsalEventFlags** event_flags)
 {
     if (!event_flags)
         return OSAL_INVALID;
@@ -68,7 +68,7 @@ OsalStatus_t osal_event_flags_create(OsalEventFlags_t* event_flags)
     return OSAL_OK;
 }
 
-OsalStatus_t osal_event_flags_delete(OsalEventFlags_t event_flags)
+OsalStatus osal_event_flags_delete(OsalEventFlags* event_flags)
 {
     if (!event_flags)
         return OSAL_INVALID;
@@ -79,7 +79,7 @@ OsalStatus_t osal_event_flags_delete(OsalEventFlags_t event_flags)
     return OSAL_OK;
 }
 
-OsalStatus_t osal_event_flags_set(OsalEventFlags_t event_flags, uint32_t flags)
+OsalStatus osal_event_flags_set(OsalEventFlags* event_flags, uint32_t flags)
 {
     if (!event_flags)
         return OSAL_INVALID;
@@ -92,7 +92,7 @@ OsalStatus_t osal_event_flags_set(OsalEventFlags_t event_flags, uint32_t flags)
     return OSAL_OK;
 }
 
-OsalStatus_t osal_event_flags_set_from_isr(OsalEventFlags_t event_flags, uint32_t flags)
+OsalStatus osal_event_flags_set_from_isr(OsalEventFlags* event_flags, uint32_t flags)
 {
     if (!event_flags)
         return OSAL_INVALID;
@@ -113,7 +113,7 @@ OsalStatus_t osal_event_flags_set_from_isr(OsalEventFlags_t event_flags, uint32_
     return OSAL_NO_RESOURCE;
 }
 
-OsalStatus_t osal_event_flags_clear(OsalEventFlags_t event_flags, uint32_t flags)
+OsalStatus osal_event_flags_clear(OsalEventFlags* event_flags, uint32_t flags)
 {
     if (!event_flags)
         return OSAL_INVALID;
@@ -126,7 +126,7 @@ OsalStatus_t osal_event_flags_clear(OsalEventFlags_t event_flags, uint32_t flags
     return OSAL_OK;
 }
 
-OsalStatus_t osal_event_flags_wait(OsalEventFlags_t event_flags, uint32_t wait_mask, uint32_t* out_value,
+OsalStatus osal_event_flags_wait(OsalEventFlags* event_flags, uint32_t wait_mask, uint32_t* out_value,
                                     uint32_t timeout_ms, uint32_t options)
 {
     if (!event_flags || wait_mask == 0u)

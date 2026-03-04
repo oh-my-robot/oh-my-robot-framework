@@ -34,7 +34,7 @@ typedef enum {
 typedef struct BspCan *BspCan_t;
 typedef struct BspCan {
     CAN_HandleTypeDef handle;
-    HalCanHandler_s parent;
+    HalCanHandler parent;
     char *name;
     uint32_t regparams;
 } BspCan_s;

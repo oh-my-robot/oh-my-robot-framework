@@ -8,7 +8,7 @@
 #include "core/om_cpu.h"
 /******************************************* SERIAL INTERFACE IMPLEMENTATION
  * *************************************************/
-static OmRet_e bsp_serial_configure(HalSerial_t serial, SerialCfg_t cfg)
+static OmRet bsp_serial_configure(HalSerial* serial, SerialCfg* cfg)
 {
     bsp_serial_t bsp_serial;
     UART_HandleTypeDef* huart;
@@ -65,7 +65,7 @@ static OmRet_e bsp_serial_configure(HalSerial_t serial, SerialCfg_t cfg)
     return OM_OK;
 }
 
-static OmRet_e bsp_serial_control(HalSerial_t serial, uint32_t cmd, void* arg)
+static OmRet bsp_serial_control(HalSerial* serial, uint32_t cmd, void* arg)
 {
     bsp_serial_t bsp_serial;
     uint32_t regparams;
@@ -105,7 +105,7 @@ static OmRet_e bsp_serial_control(HalSerial_t serial, uint32_t cmd, void* arg)
 
     case SERIAL_CMD_RESUME:
     {
-        if (arg != NULL && bsp_serial_configure(serial, (SerialCfg_t)arg) != OM_OK)
+        if (arg != NULL && bsp_serial_configure(serial, (SerialCfg*)arg) != OM_OK)
             return OM_ERROR;
     }
     break;
@@ -116,9 +116,9 @@ static OmRet_e bsp_serial_control(HalSerial_t serial, uint32_t cmd, void* arg)
     return OM_OK;
 }
 
-static OmRet_e bsp_serial_getByte(const HalSerial_t serial, uint8_t* buf)
+static OmRet bsp_serial_getByte(HalSerial* const serial, uint8_t* buf)
 {
-    OmRet_e ret = OM_ERROR;
+    OmRet ret = OM_ERROR;
     bsp_serial_t bsp_serial;
     bsp_serial = (bsp_serial_t)serial->parent.handle;
     if (HAL_UART_Receive(&bsp_serial->handle, buf, 1, 10) != HAL_OK)
@@ -128,7 +128,7 @@ static OmRet_e bsp_serial_getByte(const HalSerial_t serial, uint8_t* buf)
     return ret;
 }
 
-static OmRet_e bsp_serial_putByte(const HalSerial_t serial, uint8_t data)
+static OmRet bsp_serial_putByte(HalSerial* const serial, uint8_t data)
 {
     bsp_serial_t bsp_serial;
     HAL_StatusTypeDef ret;
@@ -139,7 +139,7 @@ static OmRet_e bsp_serial_putByte(const HalSerial_t serial, uint8_t data)
     return OM_OK;
 }
 
-static size_t bsp_serial_transmit(HalSerial_t serial, const uint8_t* data, size_t length)
+static size_t bsp_serial_transmit(HalSerial* serial, const uint8_t* data, size_t length)
 {
     bsp_serial_t bsp_serial;
     HAL_StatusTypeDef ret;
@@ -160,7 +160,7 @@ static size_t bsp_serial_transmit(HalSerial_t serial, const uint8_t* data, size_
 }
 
 /********************************** SERIAL INTERFACE DEFINITION ***************************************/
-static SerialInterface_s bsp_serial_interface = 
+static SerialInterface bsp_serial_interface = 
 {
     .configure = bsp_serial_configure,
     .control = bsp_serial_control,

@@ -30,7 +30,7 @@ static uint32_t gBs2Table[CAN_TSEG2_MAX] =
 
 // clang-format on
 
-static inline uint32_t bsp_can_bs1_trans(CanBS1_e bs1)
+static inline uint32_t bsp_can_bs1_trans(CanBS1 bs1)
 {
     while (bs1 >= CAN_TSEG1_MAX || bs1 < 0)
     {
@@ -38,7 +38,7 @@ static inline uint32_t bsp_can_bs1_trans(CanBS1_e bs1)
     return gBs1Table[bs1];
 }
 
-static inline uint32_t bsp_can_bs2_trans(CanBS2_e bs2)
+static inline uint32_t bsp_can_bs2_trans(CanBS2 bs2)
 {
     while (bs2 >= CAN_TSEG2_MAX || bs2 < 0)
     {
@@ -46,7 +46,7 @@ static inline uint32_t bsp_can_bs2_trans(CanBS2_e bs2)
     return gBs2Table[bs2];
 }
 
-static uint32_t bsp_can_sjw_trans(CanSjw_e sjw)
+static uint32_t bsp_can_sjw_trans(CanSjw sjw)
 {
     uint32_t ret = 0;
     switch (sjw)
@@ -72,7 +72,7 @@ static uint32_t bsp_can_sjw_trans(CanSjw_e sjw)
     return ret;
 }
 
-static OmRet_e bsp_can_set_filter(CAN_HandleTypeDef* hcan, CanHwFilterCfg_t cfg)
+static OmRet bsp_can_set_filter(CAN_HandleTypeDef* hcan, CanHwFilterCfg* cfg)
 {
     CAN_FilterTypeDef FilterConfig;
     FilterConfig.FilterBank = cfg->bank;
@@ -140,7 +140,7 @@ static OmRet_e bsp_can_set_filter(CAN_HandleTypeDef* hcan, CanHwFilterCfg_t cfg)
     return OM_OK;
 }
 
-static OmRet_e bsp_can_clear_filter(CAN_HandleTypeDef* hcan, size_t bank)
+static OmRet bsp_can_clear_filter(CAN_HandleTypeDef* hcan, size_t bank)
 {
     CAN_FilterTypeDef FilterConfig = {0};
     FilterConfig.FilterBank = bank;
@@ -155,7 +155,7 @@ static OmRet_e bsp_can_clear_filter(CAN_HandleTypeDef* hcan, size_t bank)
 }
 
 // 常用波特率预设参数（假设 CAN 内核时钟为 42MHz）。
-static CanTimeCfg_s BspCanBitTimeTable[] = {
+static CanTimeCfg BspCanBitTimeTable[] = {
     {CAN_BAUD_10K, 300, {CAN_TSEG1_9TQ, CAN_TSEG2_4TQ, CAN_SYNCJW_2TQ}},
     {CAN_BAUD_20K, 150, {CAN_TSEG1_9TQ, CAN_TSEG2_4TQ, CAN_SYNCJW_2TQ}},
     {CAN_BAUD_50K, 60, {CAN_TSEG1_9TQ, CAN_TSEG2_4TQ, CAN_SYNCJW_2TQ}},
@@ -167,7 +167,7 @@ static CanTimeCfg_s BspCanBitTimeTable[] = {
     {CAN_BAUD_1M, 3, {CAN_TSEG1_9TQ, CAN_TSEG2_4TQ, CAN_SYNCJW_2TQ}},
 };
 
-static CanTimeCfg_t bsp_can_time_cfg_matched(CanBaudRate_e baud)
+static CanTimeCfg* bsp_can_time_cfg_matched(CanBaudRate baud)
 {
     for (int i = 0; i < sizeof(BspCanBitTimeTable) / sizeof(BspCanBitTimeTable[0]); i++)
     {
@@ -181,14 +181,14 @@ static CanTimeCfg_t bsp_can_time_cfg_matched(CanBaudRate_e baud)
     }; // TODO: assert
 }
 
-static OmRet_e bsp_can_configure(HalCanHandler_t can, CanCfg_t cfg)
+static OmRet bsp_can_configure(HalCanHandler* can, CanCfg* cfg)
 {
     BspCan_t bsp_can = (BspCan_t)can->parent.handle;
     CAN_HandleTypeDef* hcan = (CAN_HandleTypeDef*)bsp_can;
-    CanTimeCfg_t TimeCfg = bsp_can_time_cfg_matched(cfg->normalTimeCfg.baudRate);
-    CanBS1_e bs1 = TimeCfg->bitTimeCfg.bs1;
-    CanBS2_e bs2 = TimeCfg->bitTimeCfg.bs2;
-    CanSjw_e sjw = TimeCfg->bitTimeCfg.syncJumpWidth;
+    CanTimeCfg* TimeCfg = bsp_can_time_cfg_matched(cfg->normalTimeCfg.baudRate);
+    CanBS1 bs1 = TimeCfg->bitTimeCfg.bs1;
+    CanBS2 bs2 = TimeCfg->bitTimeCfg.bs2;
+    CanSjw sjw = TimeCfg->bitTimeCfg.syncJumpWidth;
     hcan->Init.Prescaler = TimeCfg->psc;
     switch (cfg->workMode)
     {
@@ -236,19 +236,19 @@ static const uint8_t gCan1HwBanks[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
 static const uint8_t gCan2HwBanks[] = {14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27};
 #endif
 
-static OmRet_e bsp_can_control(HalCanHandler_t can, uint32_t cmd, void *arg)
+static OmRet bsp_can_control(HalCanHandler* can, uint32_t cmd, void *arg)
 {
     if (!can || !can->parent.handle)
         return OM_ERROR_PARAM;
 
     CAN_HandleTypeDef *hcan = (CAN_HandleTypeDef *)can->parent.handle;
-    OmRet_e ret = OM_OK;
+    OmRet ret = OM_OK;
 
     switch (cmd)
     {
     case CAN_CMD_GET_STATUS:
     {
-        CanErrCounter_t errCounter = (CanErrCounter_t)arg;
+        CanErrCounter* errCounter = (CanErrCounter*)arg;
         uint32_t errReg = READ_REG(hcan->Instance->ESR);
         errCounter->txErrCnt = (errReg >> 16) & 0xFF;
         errCounter->rxErrCnt = (errReg >> 24);
@@ -262,7 +262,7 @@ static OmRet_e bsp_can_control(HalCanHandler_t can, uint32_t cmd, void *arg)
             ret = OM_ERROR_PARAM;
             break;
         }
-        CanHwCapability_t capability = (CanHwCapability_t)arg;
+        CanHwCapability* capability = (CanHwCapability*)arg;
 #ifdef USE_CAN2
         if (hcan->Instance == CAN2)
         {
@@ -290,7 +290,7 @@ static OmRet_e bsp_can_control(HalCanHandler_t can, uint32_t cmd, void *arg)
 
     case CAN_CMD_CFG:
         // 配置 CAN
-        ret = bsp_can_configure(can, (CanCfg_t)arg);
+        ret = bsp_can_configure(can, (CanCfg*)arg);
         break;
 
     case CAN_CMD_SUSPEND:
@@ -372,7 +372,7 @@ static OmRet_e bsp_can_control(HalCanHandler_t can, uint32_t cmd, void *arg)
             ret = OM_ERROR_PARAM;
             break;
         }
-        CanHwFilterCfg_t filter_cfg = (CanHwFilterCfg_t)arg;
+        CanHwFilterCfg* filter_cfg = (CanHwFilterCfg*)arg;
         if ((hcan->Instance == CAN1) && filter_cfg->bank >= BSP_CAN_FILTER_SPLIT_BANK)
         {
             ret = OM_ERROR_PARAM;
@@ -395,7 +395,7 @@ static OmRet_e bsp_can_control(HalCanHandler_t can, uint32_t cmd, void *arg)
             ret = OM_ERROR_PARAM;
             break;
         }
-        CanHwFilterCfg_t filter_cfg = (CanHwFilterCfg_t)arg;
+        CanHwFilterCfg* filter_cfg = (CanHwFilterCfg*)arg;
         ret = bsp_can_clear_filter(hcan, filter_cfg->bank);
     }
     break;
@@ -408,7 +408,7 @@ static OmRet_e bsp_can_control(HalCanHandler_t can, uint32_t cmd, void *arg)
     return ret;
 }
 
-static OmRet_e bsp_can_recv_msg(HalCanHandler_t can, CanHwMsg_t msg, int32_t rxfifo_bank)
+static OmRet bsp_can_recv_msg(HalCanHandler* can, CanHwMsg* msg, int32_t rxfifo_bank)
 {
     CAN_RxHeaderTypeDef rx_header;
     uint8_t data[8];
@@ -446,7 +446,7 @@ static OmRet_e bsp_can_recv_msg(HalCanHandler_t can, CanHwMsg_t msg, int32_t rxf
     return OM_OK;
 }
 
-static OmRet_e bsp_can_send_msg(HalCanHandler_t can, CanHwMsg_t msg)
+static OmRet bsp_can_send_msg(HalCanHandler* can, CanHwMsg* msg)
 {
     CAN_TxHeaderTypeDef tx_header;
     if (!can || !can->parent.handle || !msg)
@@ -499,7 +499,7 @@ static OmRet_e bsp_can_send_msg(HalCanHandler_t can, CanHwMsg_t msg)
     return OM_OK;
 }
 
-static CanHwInterface_s gCanHwInterface = {
+static CanHwInterface gCanHwInterface = {
     .configure = bsp_can_configure,
     .control = bsp_can_control,
     .recvMsg = bsp_can_recv_msg,
@@ -564,7 +564,7 @@ static void bsp_can_pre_init(void)
 void bsp_can_register(void)
 {
     uint8_t cnt = sizeof(gBspCan) / sizeof(gBspCan[0]);
-    OmRet_e ret = OM_OK;
+    OmRet ret = OM_OK;
     for (int i = 0; i < cnt; i++)
     {
         gBspCan[i].parent.hwInterface = &gCanHwInterface;

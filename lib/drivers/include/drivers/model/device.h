@@ -14,52 +14,52 @@
 extern "C" {
 #endif
 
-typedef struct DevInterface *DevInterface_t;
-typedef struct Device *Device_t;
+typedef struct DevInterface  DevInterface;
+typedef struct Device  Device;
 
 typedef struct DevInterface {
-    OmRet_e (*init)(Device_t dev);
-    OmRet_e (*open)(Device_t dev, uint32_t oparam);
-    OmRet_e (*close)(Device_t dev);
-    size_t (*read)(Device_t dev, void *ctrl_info, void *data, size_t len);
-    size_t (*write)(Device_t dev, void *ctrl_info, void *data, size_t len);
-    OmRet_e (*control)(Device_t dev, size_t cmd, void *args);
-} DevInterface_s;
+    OmRet (*init)(Device* dev);
+    OmRet (*open)(Device* dev, uint32_t oparam);
+    OmRet (*close)(Device* dev);
+    size_t (*read)(Device* dev, void *ctrl_info, void *data, size_t len);
+    size_t (*write)(Device* dev, void *ctrl_info, void *data, size_t len);
+    OmRet (*control)(Device* dev, size_t cmd, void *args);
+} DevInterface;
 
-typedef struct DevAttr *DevAttr_t;
+typedef struct DevAttr  DevAttr;
 typedef struct DevAttr {
     char *name;
-    om_atomic_uint_t oparams;
-    om_atomic_uint_t regparams;
-    om_atomic_uint_t refCount;
-    om_atomic_uint_t cFlags;
-    om_atomic_uint_t status;
+    OmAtomicUint oparams;
+    OmAtomicUint regparams;
+    OmAtomicUint refCount;
+    OmAtomicUint cFlags;
+    OmAtomicUint status;
 
     void *param;
-    void (*readCallback)(Device_t dev, void *param, size_t paramsz);
-    void (*writeCallback)(Device_t dev, void *param, size_t paramsz);
-    void (*errCallback)(Device_t dev, uint32_t errcode, void *param, size_t paramsz);
-} DevAttr_s;
+    void (*readCallback)(Device* dev, void *param, size_t paramsz);
+    void (*writeCallback)(Device* dev, void *param, size_t paramsz);
+    void (*errCallback)(Device* dev, uint32_t errcode, void *param, size_t paramsz);
+} DevAttr;
 
 typedef struct Device {
-    DevInterface_t interface;
-    DevAttr_s priv;
+    DevInterface* interface;
+    DevAttr priv;
     void *handle;
-    ListHead_s list;
-} Device_s;
+    ListHead list;
+} Device;
 
 /* Device operations */
-Device_t device_find(char *name);
-OmRet_e device_init(Device_t dev);
-OmRet_e device_open(Device_t dev, uint32_t oparam);
-OmRet_e device_close(Device_t dev);
-size_t device_read(Device_t dev, void *pos, void *data, size_t len);
-size_t device_write(Device_t dev, void *pos, void *data, size_t len);
-OmRet_e device_ctrl(Device_t dev, size_t cmd, void *args);
-OmRet_e device_register(Device_t dev, char *name, uint32_t regparams);
+Device* device_find(char *name);
+OmRet device_init(Device* dev);
+OmRet device_open(Device* dev, uint32_t oparam);
+OmRet device_close(Device* dev);
+size_t device_read(Device* dev, void *pos, void *data, size_t len);
+size_t device_write(Device* dev, void *pos, void *data, size_t len);
+OmRet device_ctrl(Device* dev, size_t cmd, void *args);
+OmRet device_register(Device* dev, char *name, uint32_t regparams);
 
 /* Callback helpers */
-static inline void device_set_read_cb(Device_t dev, void (*callback)(Device_t dev, void *params, size_t paramsz))
+static inline void device_set_read_cb(Device* dev, void (*callback)(Device* dev, void *params, size_t paramsz))
 {
     if (!dev) {
         return;
@@ -67,7 +67,7 @@ static inline void device_set_read_cb(Device_t dev, void (*callback)(Device_t de
     dev->priv.readCallback = callback;
 }
 
-static inline void device_set_write_cb(Device_t dev, void (*callback)(Device_t dev, void *params, size_t paramsz))
+static inline void device_set_write_cb(Device* dev, void (*callback)(Device* dev, void *params, size_t paramsz))
 {
     if (!dev) {
         return;
@@ -75,7 +75,7 @@ static inline void device_set_write_cb(Device_t dev, void (*callback)(Device_t d
     dev->priv.writeCallback = callback;
 }
 
-static inline void device_set_err_cb(Device_t dev, void (*callback)(Device_t dev, uint32_t errcode, void *params, size_t paramsz))
+static inline void device_set_err_cb(Device* dev, void (*callback)(Device* dev, uint32_t errcode, void *params, size_t paramsz))
 {
     if (!dev) {
         return;
@@ -83,7 +83,7 @@ static inline void device_set_err_cb(Device_t dev, void (*callback)(Device_t dev
     dev->priv.errCallback = callback;
 }
 
-static inline void device_set_param(Device_t dev, void *param)
+static inline void device_set_param(Device* dev, void *param)
 {
     if (!dev) {
         return;
@@ -91,21 +91,21 @@ static inline void device_set_param(Device_t dev, void *param)
     dev->priv.param = param;
 }
 
-static inline void device_read_cb(Device_t dev, size_t paramsz)
+static inline void device_read_cb(Device* dev, size_t paramsz)
 {
     if (dev->priv.readCallback) {
         dev->priv.readCallback(dev, dev->priv.param, paramsz);
     }
 }
 
-static inline void device_write_cb(Device_t dev, size_t paramsz)
+static inline void device_write_cb(Device* dev, size_t paramsz)
 {
     if (dev->priv.writeCallback) {
         dev->priv.writeCallback(dev, dev->priv.param, paramsz);
     }
 }
 
-static inline void device_err_cb(Device_t dev, uint32_t errcode, size_t paramsz)
+static inline void device_err_cb(Device* dev, uint32_t errcode, size_t paramsz)
 {
     if (dev->priv.errCallback) {
         dev->priv.errCallback(dev, errcode, dev->priv.param, paramsz);
@@ -113,42 +113,42 @@ static inline void device_err_cb(Device_t dev, uint32_t errcode, size_t paramsz)
 }
 
 /* Status helpers */
-static inline uint32_t device_get_oparams(Device_t dev)
+static inline uint32_t device_get_oparams(Device* dev)
 {
     return (uint32_t)dev->priv.oparams;
 }
 
-static inline uint32_t device_get_cflags(Device_t dev)
+static inline uint32_t device_get_cflags(Device* dev)
 {
     return (uint32_t)dev->priv.cFlags;
 }
 
-static inline void device_set_cflags(Device_t dev, uint32_t c_flags)
+static inline void device_set_cflags(Device* dev, uint32_t c_flags)
 {
     dev->priv.status |= c_flags;
 }
 
-static inline void device_set_status(Device_t dev, uint32_t status)
+static inline void device_set_status(Device* dev, uint32_t status)
 {
     OM_FOR_REL(&dev->priv.status, status);
 }
 
-static inline void device_clr_status(Device_t dev, uint32_t status)
+static inline void device_clr_status(Device* dev, uint32_t status)
 {
     OM_FAND_REL(&dev->priv.status, ~status);
 }
 
-static inline uint32_t device_check_status(Device_t dev, uint32_t status)
+static inline uint32_t device_check_status(Device* dev, uint32_t status)
 {
     return OM_LOAD_ACQ(&dev->priv.status) & status;
 }
 
-static inline uint32_t device_get_regparams(Device_t dev)
+static inline uint32_t device_get_regparams(Device* dev)
 {
     return OM_LOAD_ACQ(&dev->priv.regparams);
 }
 
-static inline char *device_get_name(Device_t dev)
+static inline char *device_get_name(Device* dev)
 {
     return dev->priv.name;
 }

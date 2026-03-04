@@ -118,7 +118,7 @@ typedef enum {
     P1010B_REPORT_DATA_SYSTEM_STATE      = 12, /**< 当前系统状态 */
     P1010B_REPORT_DATA_ABSOLUTE_POSITION = 13, /**< 绝对位置（0~32768） */
     P1010B_REPORT_DATA_PHASE_CURRENT_MAX = 14, /**< 相电流最大值（raw/100，A） */
-} P1010BReportDataType_e;
+} P1010BReportDataType;
 
 /**
  * @brief 主动上报配置（0x34）
@@ -127,8 +127,8 @@ typedef struct
 {
     bool enable;                                            /**< 是否启用主动上报 */
     uint8_t periodMs;                                       /**< 上报周期（ms） */
-    uint8_t dataTypeSlots[P1010B_ACTIVE_REPORT_SLOT_COUNT]; /**< 上报类型槽位（使用 P1010BReportDataType_e） */
-} P1010BActiveReportConfig_s;
+    uint8_t dataTypeSlots[P1010B_ACTIVE_REPORT_SLOT_COUNT]; /**< 上报类型槽位（使用 P1010BReportDataType） */
+} P1010BActiveReportConfig;
 
 /**
  * @brief 驱动工作模式
@@ -139,7 +139,7 @@ typedef enum {
     P1010B_MODE_CURRENT   = 2u, /**< 电流模式，给定值 = A * 100，默认模式（官方手册规定的） */
     P1010B_MODE_SPEED     = 3u, /**< 速度模式，给定值 = RPM * 10 */
     P1010B_MODE_POSITION  = 4u  /**< 位置模式，给定值 = Cycle * 100 */
-} P1010BMode_e;
+} P1010BMode;
 
 /**
  * @brief 驱动状态机状态
@@ -149,7 +149,7 @@ typedef enum {
     P1010B_STATE_ENABLED,      /**< 使能态，可下发控制给定 */
     P1010B_STATE_FAULT_LOCKED, /**< 故障闭锁态，禁止控制给定 */
     P1010B_STATE_CONFIGURING   /**< 配置事务态（内部瞬时态） */
-} P1010BState_e;
+} P1010BState;
 
 /**
  * @brief 最近一次控制拒绝原因
@@ -162,7 +162,7 @@ typedef enum {
     P1010B_REJECT_CONFIG_ONLY_WHEN_DISABLED, /**< 配置接口仅允许 Disabled */
     P1010B_REJECT_PARAM_NOT_WHITELISTED,     /**< 参数不在白名单 */
     P1010B_REJECT_INVALID_TARGET             /**< 目标值非法（保留扩展） */
-} P1010BRejectReason_e;
+} P1010BRejectReason;
 
 /**
  * @brief 电机反馈快照（语义化量）
@@ -174,7 +174,7 @@ typedef struct
     float busVoltage;          /**< 母线电压（V） */
     uint16_t absolutePosition; /**< 绝对位置编码值 */
     uint32_t timestampMs;      /**< 快照时间戳（ms） */
-} P1010BFeedback_s;
+} P1010BFeedback;
 
 /**
  * @brief 故障与报警快照
@@ -185,7 +185,7 @@ typedef struct
     uint16_t alarmCode;  /**< 报警码（当前仅上报，不自动降级） */
     uint32_t statusBits; /**< 协议保留位镜像（不参与 fault 回调触发判定） */
     bool calibrated;     /**< 校准是否完成 */
-} P1010BFaultState_s;
+} P1010BFaultState;
 
 /**
  * @brief 驱动配置
@@ -200,20 +200,20 @@ typedef struct
     uint8_t motorId;                         /**< 电机 ID（1~8） */
     uint32_t requestTimeoutMs;               /**< 同步事务超时（ms） */
     uint8_t maxRetryCount;                   /**< 最大重试次数（预留） */
-    P1010BMode_e defaultMode;                /**< 默认模式 */
-    P1010BActiveReportConfig_s activeReport; /**< 默认主动上报配置（仅缓存，不在 register 自动下发） */
+    P1010BMode defaultMode;                /**< 默认模式 */
+    P1010BActiveReportConfig activeReport; /**< 默认主动上报配置（仅缓存，不在 register 自动下发） */
     int32_t currentLimitRaw;                 /**< 电流限幅（原始量，预留） */
     int32_t speedLimitRaw;                   /**< 速度限幅（原始量，预留） */
     int32_t positionLimitRaw;                /**< 位置限幅（原始量，预留） */
     int32_t voltageLimitRaw;                 /**< 电压限幅（原始量，预留） */
-} P1010BConfig_s;
+} P1010BConfig;
 
 /**
  * @brief 默认主动上报配置结构体宏
  * @note 默认槽位：速度 / IQ 电流 / 母线电压 / 绝对位置。
  */
 #define P1010B_ACTIVE_REPORT_DEFAULT_CONFIG                \
-    ((P1010BActiveReportConfig_s){                         \
+    ((P1010BActiveReportConfig){                         \
         .enable        = true,                             \
         .periodMs      = 10U,                              \
         .dataTypeSlots = {                                 \
@@ -229,7 +229,7 @@ typedef struct
  * @param _motorId 目标电机 ID（1~8）
  */
 #define P1010B_DEFAULT_CONFIG(_motorId)                          \
-    ((P1010BConfig_s){                                           \
+    ((P1010BConfig){                                           \
         .motorId          = (_motorId),                          \
         .requestTimeoutMs = 20U,                                 \
         .maxRetryCount    = 1U,                                  \
@@ -258,7 +258,7 @@ typedef enum {
     P1010B_COMMAND_STATE_CONTROL,     /**< 使能/失能控制（0x38 -> 0xA0+id，默认同步） */
     P1010B_COMMAND_SAVE_PARAMETERS,   /**< 参数保存（0x39 -> 0xB0+id，默认同步） */
     P1010B_COMMAND_SOFTWARE_RESET,    /**< 软件复位（0x40，默认异步） */
-} P1010BCommand_e;
+} P1010BCommand;
 
 /**
  * @brief 请求标志位
@@ -270,7 +270,7 @@ typedef enum {
     P1010B_REQUEST_FLAG_NONE  = 0U,
     P1010B_REQUEST_FLAG_SYNC  = (1U << 0U),
     P1010B_REQUEST_FLAG_ASYNC = (1U << 1U)
-} P1010BRequestFlag_e;
+} P1010BRequestFlag;
 
 /**
  * @brief 统一请求对象
@@ -282,13 +282,13 @@ typedef enum {
  */
 typedef struct
 {
-    P1010BCommand_e command;
+    P1010BCommand command;
     uint8_t flags;
     uint32_t timeoutMs;
     union {
         struct
         {
-            P1010BActiveReportConfig_s config;
+            P1010BActiveReportConfig config;
         } setActiveReport;
         struct
         {
@@ -326,14 +326,14 @@ typedef struct
         } saveParameters;
         struct
         {
-            P1010BMode_e mode;
+            P1010BMode mode;
         } setMode;
         struct
         {
             float targetValue;
         } setTarget;
     } args;
-} P1010BRequest_s;
+} P1010BRequest;
 
 /**
  * @brief 统一响应对象
@@ -343,8 +343,8 @@ typedef struct
  */
 typedef struct
 {
-    P1010BCommand_e command;
-    OmRet_e result;
+    P1010BCommand command;
+    OmRet result;
     uint32_t timestampMs;
     uint8_t ackPayload[8U];
     union {
@@ -358,10 +358,10 @@ typedef struct
         {
             uint8_t stateCommand;
             uint8_t reserved[3];
-            P1010BFaultState_s faultState;
+            P1010BFaultState faultState;
         } stateControl;
     } data;
-} P1010BResponse_s;
+} P1010BResponse;
 
 /**
  * @brief 线程侧解析使用的原始帧缓存结构
@@ -372,28 +372,28 @@ typedef struct
     uint8_t payload[8];   /**< 帧载荷（8 字节） */
     uint8_t dataLength;   /**< 帧长（应为 8） */
     uint32_t timestampMs; /**< 帧时间戳（ms） */
-} P1010BRawFrame_s;
+} P1010BRawFrame;
 
 /** @brief P1010B 驱动实例前置声明 */
-typedef struct P1010BDriver P1010BDriver_s;
+typedef struct P1010BDriver P1010BDriver;
 
 /**
  * @brief 反馈更新回调
  */
-typedef void (*P1010BFeedbackCallback_t)(P1010BDriver_s *driver, const P1010BFeedback_s *feedback);
+typedef void (*P1010BFeedbackCallback)(P1010BDriver *driver, const P1010BFeedback *feedback);
 /**
  * @brief 故障/报警变化回调
  */
-typedef void (*P1010BFaultCallback_t)(P1010BDriver_s *driver, const P1010BFaultState_s *fault_state);
+typedef void (*P1010BFaultCallback)(P1010BDriver *driver, const P1010BFaultState *fault_state);
 /**
  * @brief 在线状态变化回调
  */
-typedef void (*P1010BOnlineCallback_t)(P1010BDriver_s *driver, bool is_online);
+typedef void (*P1010BOnlineCallback)(P1010BDriver *driver, bool is_online);
 /**
  * @brief 读参完成回调
  * @note 该回调在 ISR 上下文触发，回调实现必须保持非阻塞。
  */
-typedef void (*P1010BParamReadCallback_t)(P1010BDriver_s *driver, uint8_t parameter_id, int32_t parameter_value, OmRet_e result,
+typedef void (*P1010BParamReadCallback)(P1010BDriver *driver, uint8_t parameter_id, int32_t parameter_value, OmRet result,
                                           uint32_t timestamp_ms);
 
 /**
@@ -405,7 +405,7 @@ typedef void (*P1010BParamReadCallback_t)(P1010BDriver_s *driver, uint8_t parame
 typedef enum {
     P1010B_WAIT_MODE_ASYNC = 0,
     P1010B_WAIT_MODE_SYNC  = 1
-} P1010BWaitMode_e;
+} P1010BWaitMode;
 
 /**
  * @brief 编码后请求对象（执行器内部使用）
@@ -422,7 +422,7 @@ typedef struct
     uint8_t expectedParameterId;
     uint8_t expectedStateCommand;
     uint8_t payload[P1010B_CAN_DLC];
-} P1010BEncodedRequest_s;
+} P1010BEncodedRequest;
 
 /**
  * @brief ISR 回调上下文（解码器 -> 回调触发桥接）
@@ -432,22 +432,22 @@ typedef struct
     bool triggerParamReadCallback;
     uint8_t callbackParameterId;
     int32_t callbackParameterValue;
-} P1010BIsrCallbackContext_s;
+} P1010BIsrCallbackContext;
 
-typedef struct P1010BCommandDescriptor P1010BCommandDescriptor_s;
+typedef struct P1010BCommandDescriptor P1010BCommandDescriptor;
 
 /** @brief 命令状态守卫函数类型 */
-typedef OmRet_e (*P1010BStateGuardFn_t)(P1010BDriver_s *driver, const P1010BRequest_s *request);
+typedef OmRet (*P1010BStateGuardFunction)(P1010BDriver *driver, const P1010BRequest *request);
 /** @brief 命令编码函数类型 */
-typedef OmRet_e (*P1010BEncodeFn_t)(P1010BDriver_s *driver, const P1010BRequest_s *request, P1010BEncodedRequest_s *encoded);
+typedef OmRet (*P1010BEncodeFunction)(P1010BDriver *driver, const P1010BRequest *request, P1010BEncodedRequest *encoded);
 /** @brief 同步应答匹配函数类型 */
-typedef bool (*P1010BAckMatchFn_t)(const P1010BDriver_s *driver, const P1010BRawFrame_s *frame);
+typedef bool (*P1010BAckMatchFunction)(const P1010BDriver *driver, const P1010BRawFrame *frame);
 /** @brief 同步应答解码函数类型 */
-typedef void (*P1010BDecodeAckFn_t)(P1010BDriver_s *driver, const P1010BRawFrame_s *frame, P1010BResponse_s *response,
-                                    P1010BIsrCallbackContext_s *callback_context);
+typedef void (*P1010BDecodeAckFunction)(P1010BDriver *driver, const P1010BRawFrame *frame, P1010BResponse *response,
+                                    P1010BIsrCallbackContext *callback_context);
 /** @brief 命令执行后处理函数类型 */
-typedef void (*P1010BPostCommitFn_t)(P1010BDriver_s *driver, const P1010BRequest_s *request, OmRet_e result,
-                                     const P1010BResponse_s *response);
+typedef void (*P1010BPostCommitFunction)(P1010BDriver *driver, const P1010BRequest *request, OmRet result,
+                                     const P1010BResponse *response);
 
 /**
  * @brief 命令描述符
@@ -455,20 +455,20 @@ typedef void (*P1010BPostCommitFn_t)(P1010BDriver_s *driver, const P1010BRequest
  * 每条命令通过一行描述符串联：状态守卫 -> 编码 -> 同步匹配 -> 解码 -> 后处理。
  */
 struct P1010BCommandDescriptor {
-    P1010BCommand_e command;
+    P1010BCommand command;
     uint16_t requestCanId;
     uint8_t ackBaseId;
     uint8_t defaultRequestFlags;
     bool useConfiguringState;
-    P1010BStateGuardFn_t stateGuardFn;
-    P1010BEncodeFn_t encodeFn;
-    P1010BAckMatchFn_t ackMatchFn;
-    P1010BDecodeAckFn_t decodeAckFn;
-    P1010BPostCommitFn_t postCommitFn;
+    P1010BStateGuardFunction stateGuardFn;
+    P1010BEncodeFunction encodeFn;
+    P1010BAckMatchFunction ackMatchFn;
+    P1010BDecodeAckFunction decodeAckFn;
+    P1010BPostCommitFunction postCommitFn;
 };
 
 /** @brief RX 副作用处理函数类型（反馈/故障等） */
-typedef void (*P1010BRxSideEffectFn_t)(P1010BDriver_s *driver, const P1010BRawFrame_s *frame);
+typedef void (*P1010BRxSideEffectFunction)(P1010BDriver *driver, const P1010BRawFrame *frame);
 
 /**
  * @brief 接收分发表项
@@ -479,8 +479,8 @@ typedef struct
 {
     uint8_t replyBaseId;
     bool mayCompleteSync;
-    P1010BRxSideEffectFn_t sideEffectFn;
-} P1010BRxDispatchDescriptor_s;
+    P1010BRxSideEffectFunction sideEffectFn;
+} P1010BRxDispatchDescriptor;
 
 /**
  * @brief P1010B 总线上下文（一个 CAN 设备对应一个实例）
@@ -491,39 +491,39 @@ typedef struct
  */
 typedef struct
 {
-    Device_t canDevice;             /**< 绑定的 CAN 设备 */
-    CanFilterHandle_t filterHandle; /**< 过滤器句柄 */
+    Device* canDevice;             /**< 绑定的 CAN 设备 */
+    CanFilterHandle filterHandle; /**< 过滤器句柄 */
     bool filterAllocated;           /**< 过滤器是否已分配 */
     int16_t groupTargetsRaw[2][4];  /**< 组帧缓存（2 组 x 每组 4 槽） */
     uint32_t rxDroppedCount;        /**< 线程解析格式丢弃计数（非标准帧或 DLC!=8） */
     uint32_t rxLateReadParamCount;  /**< 同步应答迟到/未匹配计数 */
 
-    P1010BDriver_s *driverTable[P1010B_MOTOR_ID_MAX + 1U]; /**< 按 motorId 索引驱动实例 */
-} P1010BBus_s;
+    P1010BDriver *driverTable[P1010B_MOTOR_ID_MAX + 1U]; /**< 按 motorId 索引驱动实例 */
+} P1010BBus;
 
 /**
  * @brief 驱动运行态数据（实例状态）
  */
 typedef struct
 {
-    P1010BMode_e currentMode;                /**< 当前模式 */
-    P1010BState_e state;                     /**< 当前状态机状态 */
-    P1010BRejectReason_e lastRejectReason;   /**< 最近拒绝原因 */
+    P1010BMode currentMode;                /**< 当前模式 */
+    P1010BState state;                     /**< 当前状态机状态 */
+    P1010BRejectReason lastRejectReason;   /**< 最近拒绝原因 */
     float targetScale;                       /**< 当前模式目标缩放系数（注册/设模时确定） */
-    P1010BActiveReportConfig_s activeReport; /**< 生效中的主动上报配置 */
-} P1010BDriverRuntime_s;
+    P1010BActiveReportConfig activeReport; /**< 生效中的主动上报配置 */
+} P1010BDriverRuntime;
 
 /**
  * @brief 驱动遥测数据（反馈/故障/在线）
  */
 typedef struct
 {
-    P1010BFeedback_s feedback;         /**< 最近反馈快照 */
-    P1010BFaultState_s faultState;     /**< 最近故障快照 */
+    P1010BFeedback feedback;         /**< 最近反馈快照 */
+    P1010BFaultState faultState;     /**< 最近故障快照 */
     bool online;                       /**< 在线状态（仅由接收边沿更新，不含超时检测） */
     uint32_t lastSuccessRxTimestampMs; /**< 最近成功接收时间 */
     uint32_t lastSuccessTxTimestampMs; /**< 最近成功发送时间 */
-} P1010BDriverTelemetry_s;
+} P1010BDriverTelemetry;
 
 /**
  * @brief 驱动同步事务数据（请求-应答匹配上下文）
@@ -531,41 +531,41 @@ typedef struct
 typedef struct
 {
     bool pending;                   /**< 是否存在未决同步事务 */
-    P1010BCommand_e pendingCommand; /**< 当前同步事务命令 */
+    P1010BCommand pendingCommand; /**< 当前同步事务命令 */
     uint8_t expectedReplyBaseId;    /**< 期望应答基地址 */
     uint8_t expectedParameterId;    /**< 期望参数 ID（参数读写事务使用） */
     uint8_t expectedStateCommand;   /**< 期望状态命令（0x38 事务使用） */
-    OmRet_e result;               /**< 当前同步事务结果 */
+    OmRet result;               /**< 当前同步事务结果 */
     uint32_t timestampMs;           /**< 当前同步事务完成时间戳 */
-    P1010BResponse_s response;      /**< 同步事务应答缓存 */
-    Completion_s completion;        /**< 同步事务 completion */
-} P1010BDriverSync_s;
+    P1010BResponse response;      /**< 同步事务应答缓存 */
+    Completion completion;        /**< 同步事务 completion */
+} P1010BDriverSync;
 
 /**
  * @brief 驱动回调注册表（用户回调）
  */
 typedef struct
 {
-    P1010BFeedbackCallback_t onFeedback;    /**< 反馈回调 */
-    P1010BFaultCallback_t onFaultChanged;   /**< 故障回调 */
-    P1010BOnlineCallback_t onOnlineChanged; /**< 在线状态回调 */
-    P1010BParamReadCallback_t onParamRead;  /**< 读参完成回调（ISR 上下文） */
-} P1010BDriverCallbacks_s;
+    P1010BFeedbackCallback onFeedback;    /**< 反馈回调 */
+    P1010BFaultCallback onFaultChanged;   /**< 故障回调 */
+    P1010BOnlineCallback onOnlineChanged; /**< 在线状态回调 */
+    P1010BParamReadCallback onParamRead;  /**< 读参完成回调（ISR 上下文） */
+} P1010BDriverCallbacks;
 
 /**
  * @brief P1010B 驱动实例
  * @note
- * 一个实例对应一个电机 ID；多个实例可共享同一个 `P1010BBus_s`。
+ * 一个实例对应一个电机 ID；多个实例可共享同一个 `P1010BBus`。
  * @details
  * 结构体仅保存实例状态数据，不承载通用策略函数。
  */
 struct P1010BDriver {
-    P1010BBus_s *bus;                  /**< 所属总线（顶层保留） */
-    P1010BConfig_s config;             /**< 驱动配置（顶层保留） */
-    P1010BDriverRuntime_s runtime;     /**< 运行态数据 */
-    P1010BDriverTelemetry_s telemetry; /**< 遥测数据 */
-    P1010BDriverSync_s sync;           /**< 同步事务数据 */
-    P1010BDriverCallbacks_s callbacks; /**< 用户回调注册表 */
+    P1010BBus *bus;                  /**< 所属总线（顶层保留） */
+    P1010BConfig config;             /**< 驱动配置（顶层保留） */
+    P1010BDriverRuntime runtime;     /**< 运行态数据 */
+    P1010BDriverTelemetry telemetry; /**< 遥测数据 */
+    P1010BDriverSync sync;           /**< 同步事务数据 */
+    P1010BDriverCallbacks callbacks; /**< 用户回调注册表 */
 };
 
 /* -------------------------------------------------------------------------- */
@@ -578,14 +578,14 @@ struct P1010BDriver {
  * @param can_device 已打开的 CAN 设备句柄
  * @return `OM_OK` 成功，其他返回值表示失败原因
  */
-OmRet_e p1010b_bus_init(P1010BBus_s *bus, Device_t can_device);
+OmRet p1010b_bus_init(P1010BBus *bus, Device* can_device);
 
 /**
  * @brief 释放总线上下文资源
  * @param bus 总线上下文
  * @return `OM_OK` 成功，其他返回值表示失败原因
  */
-OmRet_e p1010b_bus_deinit(P1010BBus_s *bus);
+OmRet p1010b_bus_deinit(P1010BBus *bus);
 
 /* -------------------------------------------------------------------------- */
 /* Driver lifecycle API                                                        */
@@ -598,7 +598,7 @@ OmRet_e p1010b_bus_deinit(P1010BBus_s *bus);
  * @param config 驱动配置（可为 NULL，表示使用默认配置）
  * @return `OM_OK` 成功；`OM_ERR_CONFLICT` 表示 motorId 冲突
  */
-OmRet_e p1010b_register(P1010BBus_s *bus, P1010BDriver_s *driver, const P1010BConfig_s *config);
+OmRet p1010b_register(P1010BBus *bus, P1010BDriver *driver, const P1010BConfig *config);
 
 /**
  * @brief 设置事件回调
@@ -608,8 +608,8 @@ OmRet_e p1010b_register(P1010BBus_s *bus, P1010BDriver_s *driver, const P1010BCo
  * @param online_cb 在线状态回调
  * @param param_read_cb 读参完成回调（ISR 上下文）
  */
-void p1010b_set_callbacks(P1010BDriver_s *driver, P1010BFeedbackCallback_t feedback_cb, P1010BFaultCallback_t fault_cb,
-                          P1010BOnlineCallback_t online_cb, P1010BParamReadCallback_t param_read_cb);
+void p1010b_set_callbacks(P1010BDriver *driver, P1010BFeedbackCallback feedback_cb, P1010BFaultCallback fault_cb,
+                          P1010BOnlineCallback online_cb, P1010BParamReadCallback param_read_cb);
 
 /* -------------------------------------------------------------------------- */
 /* Unified request API                                                         */
@@ -619,14 +619,14 @@ void p1010b_set_callbacks(P1010BDriver_s *driver, P1010BFeedbackCallback_t feedb
  * @brief 异步提交请求（仅接受异步命令）
  * @note 仅支持 SET_TARGET / SOFTWARE_RESET。
  */
-OmRet_e p1010b_submit(P1010BDriver_s *driver, const P1010BRequest_s *request);
+OmRet p1010b_submit(P1010BDriver *driver, const P1010BRequest *request);
 
 /**
  * @brief 同步请求（仅接受同步命令）
  * @note 支持 SET_ACTIVE_REPORT / ACTIVE_QUERY / WRITE_PARAMETER /
  *       READ_PARAMETER / STATE_CONTROL / SAVE_PARAMETERS / SET_MODE。
  */
-OmRet_e p1010b_request_sync(P1010BDriver_s *driver, const P1010BRequest_s *request, P1010BResponse_s *response);
+OmRet p1010b_request_sync(P1010BDriver *driver, const P1010BRequest *request, P1010BResponse *response);
 
 /* -------------------------------------------------------------------------- */
 /* Behavior API                                                                */
@@ -639,7 +639,7 @@ OmRet_e p1010b_request_sync(P1010BDriver_s *driver, const P1010BRequest_s *reque
  * @param response 可选输出响应（可传 `NULL`）
  * @return `OM_OK` 成功，其他值表示失败原因
  */
-OmRet_e p1010b_disable(P1010BDriver_s *driver, uint32_t timeout_ms, P1010BResponse_s *response);
+OmRet p1010b_disable(P1010BDriver *driver, uint32_t timeout_ms, P1010BResponse *response);
 
 /**
  * @brief 使能电机（构造+执行一体，同步）
@@ -648,7 +648,7 @@ OmRet_e p1010b_disable(P1010BDriver_s *driver, uint32_t timeout_ms, P1010BRespon
  * @param response 可选输出响应（可传 `NULL`）
  * @return `OM_OK` 成功，其他值表示失败原因
  */
-OmRet_e p1010b_enable(P1010BDriver_s *driver, uint32_t timeout_ms, P1010BResponse_s *response);
+OmRet p1010b_enable(P1010BDriver *driver, uint32_t timeout_ms, P1010BResponse *response);
 
 /**
  * @brief 设置工作模式（构造+执行一体，同步）
@@ -658,7 +658,7 @@ OmRet_e p1010b_enable(P1010BDriver_s *driver, uint32_t timeout_ms, P1010BRespons
  * @param response 可选输出响应（可传 `NULL`）
  * @return `OM_OK` 成功，其他值表示失败原因
  */
-OmRet_e p1010b_set_mode(P1010BDriver_s *driver, P1010BMode_e mode, uint32_t timeout_ms, P1010BResponse_s *response);
+OmRet p1010b_set_mode(P1010BDriver *driver, P1010BMode mode, uint32_t timeout_ms, P1010BResponse *response);
 
 /**
  * @brief 设置主动上报配置（构造+执行一体，同步）
@@ -668,7 +668,7 @@ OmRet_e p1010b_set_mode(P1010BDriver_s *driver, P1010BMode_e mode, uint32_t time
  * @param response 可选输出响应（可传 `NULL`）
  * @return `OM_OK` 成功，其他值表示失败原因
  */
-OmRet_e p1010b_set_active_report(P1010BDriver_s *driver, const P1010BActiveReportConfig_s *config, uint32_t timeout_ms, P1010BResponse_s *response);
+OmRet p1010b_set_active_report(P1010BDriver *driver, const P1010BActiveReportConfig *config, uint32_t timeout_ms, P1010BResponse *response);
 
 /**
  * @brief 主动查询指定 4 槽数据（构造+执行一体，同步）
@@ -681,9 +681,9 @@ OmRet_e p1010b_set_active_report(P1010BDriver_s *driver, const P1010BActiveRepor
  * @param response 可选输出响应（可传 `NULL`）
  * @return `OM_OK` 成功，其他值表示失败原因
  */
-OmRet_e p1010b_active_query_slots(P1010BDriver_s *driver, P1010BReportDataType_e slot0, P1010BReportDataType_e slot1,
-                                    P1010BReportDataType_e slot2, P1010BReportDataType_e slot3, uint32_t timeout_ms,
-                                    P1010BResponse_s *response);
+OmRet p1010b_active_query_slots(P1010BDriver *driver, P1010BReportDataType slot0, P1010BReportDataType slot1,
+                                    P1010BReportDataType slot2, P1010BReportDataType slot3, uint32_t timeout_ms,
+                                    P1010BResponse *response);
 
 /**
  * @brief 写参数（构造+执行一体，同步）
@@ -694,8 +694,8 @@ OmRet_e p1010b_active_query_slots(P1010BDriver_s *driver, P1010BReportDataType_e
  * @param response 可选输出响应（可传 `NULL`）
  * @return `OM_OK` 成功，其他值表示失败原因
  */
-OmRet_e p1010b_write_parameter(P1010BDriver_s *driver, uint8_t parameter_id, int32_t parameter_value, uint32_t timeout_ms,
-                                 P1010BResponse_s *response);
+OmRet p1010b_write_parameter(P1010BDriver *driver, uint8_t parameter_id, int32_t parameter_value, uint32_t timeout_ms,
+                                 P1010BResponse *response);
 
 /**
  * @brief 读参数（构造+执行一体，同步）
@@ -705,7 +705,7 @@ OmRet_e p1010b_write_parameter(P1010BDriver_s *driver, uint8_t parameter_id, int
  * @param response 可选输出响应（可传 `NULL`）
  * @return `OM_OK` 成功，其他值表示失败原因
  */
-OmRet_e p1010b_read_parameter(P1010BDriver_s *driver, uint8_t parameter_id, uint32_t timeout_ms, P1010BResponse_s *response);
+OmRet p1010b_read_parameter(P1010BDriver *driver, uint8_t parameter_id, uint32_t timeout_ms, P1010BResponse *response);
 
 /**
  * @brief 保存参数（构造+执行一体，同步）
@@ -716,7 +716,7 @@ OmRet_e p1010b_read_parameter(P1010BDriver_s *driver, uint8_t parameter_id, uint
  * @return `OM_OK` 成功，其他值表示失败原因
  * @note 根据规格书，当前保存数据中仅绝对零位可选。
  */
-OmRet_e p1010b_save_parameters(P1010BDriver_s *driver, bool set_absolute_zero, uint32_t timeout_ms, P1010BResponse_s *response);
+OmRet p1010b_save_parameters(P1010BDriver *driver, bool set_absolute_zero, uint32_t timeout_ms, P1010BResponse *response);
 
 /**
  * @brief 下发目标值（构造+执行一体，异步）
@@ -724,14 +724,14 @@ OmRet_e p1010b_save_parameters(P1010BDriver_s *driver, bool set_absolute_zero, u
  * @param target_value 语义化目标值
  * @return `OM_OK` 成功，其他值表示失败原因
  */
-OmRet_e p1010b_set_target(P1010BDriver_s *driver, float target_value);
+OmRet p1010b_set_target(P1010BDriver *driver, float target_value);
 
 /**
  * @brief 软件复位（构造+执行一体，异步）
  * @param driver 驱动实例
  * @return `OM_OK` 成功，其他值表示失败原因
  */
-OmRet_e p1010b_software_reset(P1010BDriver_s *driver);
+OmRet p1010b_software_reset(P1010BDriver *driver);
 
 /* -------------------------------------------------------------------------- */
 /* Request helper API                                                          */
@@ -743,9 +743,9 @@ OmRet_e p1010b_software_reset(P1010BDriver_s *driver);
  * @param flags 请求标志（SYNC/ASYNC，传 0 使用默认模式）
  * @return 初始化后的请求对象
  */
-static inline P1010BRequest_s p1010b_request_make(P1010BCommand_e command, uint8_t flags)
+static inline P1010BRequest p1010b_request_make(P1010BCommand command, uint8_t flags)
 {
-    return (P1010BRequest_s){
+    return (P1010BRequest){
         .command   = command,
         .flags     = flags,
         .timeoutMs = 0U,
@@ -758,9 +758,9 @@ static inline P1010BRequest_s p1010b_request_make(P1010BCommand_e command, uint8
  * @return 已填充的 `P1010B_COMMAND_STATE_CONTROL` 同步请求对象
  * @note 该构造器固定 `flags=SYNC`，建议配合 `p1010b_request_sync()` 使用。
  */
-static inline P1010BRequest_s p1010b_req_state_control(uint8_t state_command)
+static inline P1010BRequest p1010b_req_state_control(uint8_t state_command)
 {
-    P1010BRequest_s request           = p1010b_request_make(P1010B_COMMAND_STATE_CONTROL, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
+    P1010BRequest request           = p1010b_request_make(P1010B_COMMAND_STATE_CONTROL, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
     request.args.stateControl.command = state_command;
     return request;
 }
@@ -769,7 +769,7 @@ static inline P1010BRequest_s p1010b_req_state_control(uint8_t state_command)
  * @brief 构造使能同步请求
  * @return 已填充的 `P1010B_COMMAND_STATE_CONTROL` 同步请求对象（ENABLE）
  */
-static inline P1010BRequest_s p1010b_req_enable(void)
+static inline P1010BRequest p1010b_req_enable(void)
 {
     return p1010b_req_state_control(P1010B_STATE_CMD_ENABLE);
 }
@@ -778,20 +778,20 @@ static inline P1010BRequest_s p1010b_req_enable(void)
  * @brief 构造失能同步请求
  * @return 已填充的 `P1010B_COMMAND_STATE_CONTROL` 同步请求对象（DISABLE）
  */
-static inline P1010BRequest_s p1010b_req_disable(void)
+static inline P1010BRequest p1010b_req_disable(void)
 {
     return p1010b_req_state_control(P1010B_STATE_CMD_DISABLE);
 }
 
 /**
  * @brief 构造模式设置同步请求
- * @param mode 目标工作模式（`P1010BMode_e`）
+ * @param mode 目标工作模式（`P1010BMode`）
  * @return 已填充的 `P1010B_COMMAND_SET_MODE` 同步请求对象
  * @note 该请求最终映射为写参数 `P1010B_PARAM_WORK_MODE`。
  */
-static inline P1010BRequest_s p1010b_req_set_mode(P1010BMode_e mode)
+static inline P1010BRequest p1010b_req_set_mode(P1010BMode mode)
 {
-    P1010BRequest_s request   = p1010b_request_make(P1010B_COMMAND_SET_MODE, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
+    P1010BRequest request   = p1010b_request_make(P1010B_COMMAND_SET_MODE, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
     request.args.setMode.mode = mode;
     return request;
 }
@@ -804,9 +804,9 @@ static inline P1010BRequest_s p1010b_req_set_mode(P1010BMode_e mode)
  * - 该构造器固定 `flags=SYNC`；
  * - 若 `config==NULL`，`args` 保持零值，执行时通常会因 `periodMs==0` 被守卫拒绝。
  */
-static inline P1010BRequest_s p1010b_req_set_active_report(const P1010BActiveReportConfig_s *config)
+static inline P1010BRequest p1010b_req_set_active_report(const P1010BActiveReportConfig *config)
 {
-    P1010BRequest_s request = p1010b_request_make(P1010B_COMMAND_SET_ACTIVE_REPORT, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
+    P1010BRequest request = p1010b_request_make(P1010B_COMMAND_SET_ACTIVE_REPORT, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
     if (config != NULL) {
         request.args.setActiveReport.config = *config;
     }
@@ -821,9 +821,9 @@ static inline P1010BRequest_s p1010b_req_set_active_report(const P1010BActiveRep
  * - 该构造器固定 `flags=ASYNC`，建议配合 `p1010b_submit()` 使用；
  * - 驱动会按当前模式对应的目标缩放缓存自动换算为协议原始量。
  */
-static inline P1010BRequest_s p1010b_req_set_target(float target_value)
+static inline P1010BRequest p1010b_req_set_target(float target_value)
 {
-    P1010BRequest_s request            = p1010b_request_make(P1010B_COMMAND_SET_TARGET, (uint8_t)P1010B_REQUEST_FLAG_ASYNC);
+    P1010BRequest request            = p1010b_request_make(P1010B_COMMAND_SET_TARGET, (uint8_t)P1010B_REQUEST_FLAG_ASYNC);
     request.args.setTarget.targetValue = target_value;
     return request;
 }
@@ -836,10 +836,10 @@ static inline P1010BRequest_s p1010b_req_set_target(float target_value)
  * @param slot3 槽位 3 类型
  * @return 已填充的 `P1010B_COMMAND_ACTIVE_QUERY` 同步请求对象
  */
-static inline P1010BRequest_s p1010b_req_active_query_slots(P1010BReportDataType_e slot0, P1010BReportDataType_e slot1,
-                                                            P1010BReportDataType_e slot2, P1010BReportDataType_e slot3)
+static inline P1010BRequest p1010b_req_active_query_slots(P1010BReportDataType slot0, P1010BReportDataType slot1,
+                                                            P1010BReportDataType slot2, P1010BReportDataType slot3)
 {
-    P1010BRequest_s request                   = p1010b_request_make(P1010B_COMMAND_ACTIVE_QUERY, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
+    P1010BRequest request                   = p1010b_request_make(P1010B_COMMAND_ACTIVE_QUERY, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
     request.args.activeQuery.dataTypeSlots[0] = (uint8_t)slot0;
     request.args.activeQuery.dataTypeSlots[1] = (uint8_t)slot1;
     request.args.activeQuery.dataTypeSlots[2] = (uint8_t)slot2;
@@ -853,9 +853,9 @@ static inline P1010BRequest_s p1010b_req_active_query_slots(P1010BReportDataType
  * @param parameter_value 参数值
  * @return 已填充的 `P1010B_COMMAND_WRITE_PARAMETER` 同步请求对象
  */
-static inline P1010BRequest_s p1010b_req_write_parameter(uint8_t parameter_id, int32_t parameter_value)
+static inline P1010BRequest p1010b_req_write_parameter(uint8_t parameter_id, int32_t parameter_value)
 {
-    P1010BRequest_s request                    = p1010b_request_make(P1010B_COMMAND_WRITE_PARAMETER, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
+    P1010BRequest request                    = p1010b_request_make(P1010B_COMMAND_WRITE_PARAMETER, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
     request.args.writeParameter.parameterId    = parameter_id;
     request.args.writeParameter.parameterValue = parameter_value;
     return request;
@@ -866,9 +866,9 @@ static inline P1010BRequest_s p1010b_req_write_parameter(uint8_t parameter_id, i
  * @param parameter_id 参数 ID
  * @return 已填充的 `P1010B_COMMAND_READ_PARAMETER` 同步请求对象
  */
-static inline P1010BRequest_s p1010b_req_read_parameter(uint8_t parameter_id)
+static inline P1010BRequest p1010b_req_read_parameter(uint8_t parameter_id)
 {
-    P1010BRequest_s request                = p1010b_request_make(P1010B_COMMAND_READ_PARAMETER, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
+    P1010BRequest request                = p1010b_request_make(P1010B_COMMAND_READ_PARAMETER, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
     request.args.readParameter.parameterId = parameter_id;
     return request;
 }
@@ -881,9 +881,9 @@ static inline P1010BRequest_s p1010b_req_read_parameter(uint8_t parameter_id)
  * - `saveParameters` 采用“命令 + 数据”双层模型；
  * - 根据规格书，当前保存数据中仅绝对零位可选。
  */
-static inline P1010BRequest_s p1010b_req_save_parameters(bool set_absolute_zero)
+static inline P1010BRequest p1010b_req_save_parameters(bool set_absolute_zero)
 {
-    P1010BRequest_s request               = p1010b_request_make(P1010B_COMMAND_SAVE_PARAMETERS, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
+    P1010BRequest request               = p1010b_request_make(P1010B_COMMAND_SAVE_PARAMETERS, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
     request.args.saveParameters.command   = set_absolute_zero ? P1010B_SAVE_PARAM_CMD_SET_ABSOLUTE_ZERO : P1010B_SAVE_PARAM_CMD_SAVE;
     request.args.saveParameters.data.absoluteZero = set_absolute_zero;
     for (uint8_t index = 0U; index < P1010B_SAVE_PARAM_RESERVED_BYTES; index++) {
@@ -896,7 +896,7 @@ static inline P1010BRequest_s p1010b_req_save_parameters(bool set_absolute_zero)
  * @brief 构造软件复位异步请求
  * @return 已填充的 `P1010B_COMMAND_SOFTWARE_RESET` 异步请求对象
  */
-static inline P1010BRequest_s p1010b_req_software_reset(void)
+static inline P1010BRequest p1010b_req_software_reset(void)
 {
     return p1010b_request_make(P1010B_COMMAND_SOFTWARE_RESET, (uint8_t)P1010B_REQUEST_FLAG_ASYNC);
 }
@@ -907,9 +907,9 @@ static inline P1010BRequest_s p1010b_req_software_reset(void)
  * @param period_ms 上报周期（ms）
  * @return 已填充的 `P1010B_COMMAND_SET_ACTIVE_REPORT` 同步请求对象
  */
-static inline P1010BRequest_s p1010b_req_set_active_report_basic(bool enable, uint8_t period_ms)
+static inline P1010BRequest p1010b_req_set_active_report_basic(bool enable, uint8_t period_ms)
 {
-    P1010BActiveReportConfig_s config = {
+    P1010BActiveReportConfig config = {
         .enable        = enable,
         .periodMs      = period_ms,
         .dataTypeSlots = {
@@ -926,7 +926,7 @@ static inline P1010BRequest_s p1010b_req_set_active_report_basic(bool enable, ui
  * @brief 构造主动查询基础同步请求（速度/IQ/电压/绝对位置）
  * @return 已填充的 `P1010B_COMMAND_ACTIVE_QUERY` 同步请求对象
  */
-static inline P1010BRequest_s p1010b_req_active_query_basic(void)
+static inline P1010BRequest p1010b_req_active_query_basic(void)
 {
     return p1010b_req_active_query_slots(P1010B_REPORT_DATA_SPEED_RPM, P1010B_REPORT_DATA_IQ_AMPERE,
                                          P1010B_REPORT_DATA_BUS_VOLTAGE, P1010B_REPORT_DATA_ABSOLUTE_POSITION);
@@ -937,7 +937,7 @@ static inline P1010BRequest_s p1010b_req_active_query_basic(void)
  * @param enable 是否启用心跳
  * @return 已填充的 `P1010B_COMMAND_WRITE_PARAMETER` 同步请求对象
  */
-static inline P1010BRequest_s p1010b_req_set_heartbeat_enable(bool enable)
+static inline P1010BRequest p1010b_req_set_heartbeat_enable(bool enable)
 {
     return p1010b_req_write_parameter(P1010B_PARAM_HEARTBEAT_ENABLE, enable ? 1 : 0);
 }
@@ -947,7 +947,7 @@ static inline P1010BRequest_s p1010b_req_set_heartbeat_enable(bool enable)
  * @param period_ms 心跳周期（ms）
  * @return 已填充的 `P1010B_COMMAND_WRITE_PARAMETER` 同步请求对象
  */
-static inline P1010BRequest_s p1010b_req_set_heartbeat_time_ms(uint32_t period_ms)
+static inline P1010BRequest p1010b_req_set_heartbeat_time_ms(uint32_t period_ms)
 {
     return p1010b_req_write_parameter(P1010B_PARAM_HEARTBEAT_TIME, (int32_t)period_ms);
 }
@@ -957,7 +957,7 @@ static inline P1010BRequest_s p1010b_req_set_heartbeat_time_ms(uint32_t period_m
  * @param mask 故障屏蔽位
  * @return 已填充的 `P1010B_COMMAND_WRITE_PARAMETER` 同步请求对象
  */
-static inline P1010BRequest_s p1010b_req_set_fault_mask(uint32_t mask)
+static inline P1010BRequest p1010b_req_set_fault_mask(uint32_t mask)
 {
     return p1010b_req_write_parameter(P1010B_PARAM_FAULT_MASK, (int32_t)mask);
 }
@@ -967,7 +967,7 @@ static inline P1010BRequest_s p1010b_req_set_fault_mask(uint32_t mask)
  * @param mode 参数值
  * @return 已填充的 `P1010B_COMMAND_WRITE_PARAMETER` 同步请求对象
  */
-static inline P1010BRequest_s p1010b_req_set_can_baud_mode(uint32_t mode)
+static inline P1010BRequest p1010b_req_set_can_baud_mode(uint32_t mode)
 {
     return p1010b_req_write_parameter(P1010B_PARAM_CAN_BAUD_MODE, (int32_t)mode);
 }
@@ -978,7 +978,7 @@ static inline P1010BRequest_s p1010b_req_set_can_baud_mode(uint32_t mode)
  * @param timeout_ms 超时时间（ms）
  * @return 回填了 `timeoutMs` 的请求对象
  */
-static inline P1010BRequest_s p1010b_req_with_timeout(P1010BRequest_s request, uint32_t timeout_ms)
+static inline P1010BRequest p1010b_req_with_timeout(P1010BRequest request, uint32_t timeout_ms)
 {
     request.timeoutMs = timeout_ms;
     return request;
@@ -993,37 +993,37 @@ static inline P1010BRequest_s p1010b_req_with_timeout(P1010BRequest_s request, u
  * @param driver 驱动实例
  * @return 非空返回反馈快照地址；参数非法返回 `NULL`
  */
-const P1010BFeedback_s *p1010b_get_feedback(const P1010BDriver_s *driver);
+const P1010BFeedback *p1010b_get_feedback(const P1010BDriver *driver);
 /**
  * @brief 获取最近故障快照
  * @param driver 驱动实例
  * @return 非空返回故障快照地址；参数非法返回 `NULL`
  */
-const P1010BFaultState_s *p1010b_get_fault_state(const P1010BDriver_s *driver);
+const P1010BFaultState *p1010b_get_fault_state(const P1010BDriver *driver);
 /**
  * @brief 获取当前状态
  * @param driver 驱动实例
  * @return 当前状态；参数非法返回 `P1010B_STATE_DISABLED`
  */
-P1010BState_e p1010b_get_state(const P1010BDriver_s *driver);
+P1010BState p1010b_get_state(const P1010BDriver *driver);
 /**
  * @brief 获取最近拒绝原因
  * @param driver 驱动实例
  * @return 最近拒绝原因；参数非法返回 `P1010B_REJECT_NONE`
  */
-P1010BRejectReason_e p1010b_get_last_reject_reason(const P1010BDriver_s *driver);
+P1010BRejectReason p1010b_get_last_reject_reason(const P1010BDriver *driver);
 /**
  * @brief 获取在线状态
  * @param driver 驱动实例
  * @return `true` 在线；`false` 离线或参数非法
  */
-bool p1010b_is_online(const P1010BDriver_s *driver);
+bool p1010b_is_online(const P1010BDriver *driver);
 /**
  * @brief 获取线程解析格式丢弃计数（非标准帧或 DLC!=8）
  * @param bus 总线上下文
  * @return 丢弃计数；参数非法返回 `0`
  */
-uint32_t p1010b_get_rx_drop_count(const P1010BBus_s *bus);
+uint32_t p1010b_get_rx_drop_count(const P1010BBus *bus);
 
 #ifdef __cplusplus
 }
