@@ -24,11 +24,11 @@ body:
     validations:
       required: true
 
-  - type: dropdown
+  - type: checkboxes
     id: module
     attributes:
       label: 关联的框架模块
-      description: 该文档属于框架的哪一个层级或模块？
+      description: 该文档属于框架的哪一个层级或模块？建议至少勾选 1 项（可多选）。
       options:
         - label: BSP层 (BSP)
         - label: 驱动层 (Driver)
@@ -38,8 +38,6 @@ body:
         - label: 构建与脚本层 (构建系统、脚本、环境变量等)
         - label: 文档与说明层 (文档、注释等)
         - label: 其他层 (未归类)
-    validations:
-      required: true
 
   - type: textarea
     id: current_status
