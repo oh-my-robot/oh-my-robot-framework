@@ -3,7 +3,7 @@
 #include <string.h>
 
 /* CANFd鎶ユ枃瀹瑰櫒 */
-typedef struct CanFdMsgContainer  CanFdMsgContainer;
+typedef struct CanFdMsgContainer CanFdMsgContainer;
 typedef struct CanFdMsgContainer
 {
     CanMsgList listNode;
@@ -19,7 +19,7 @@ static void *canfd_msgbuffer_alloc(ListHead *free_list_head, uint32_t msg_num)
     memset(msg_buffer, 0, size);
 
     // Add all CAN FD message containers into the free list.
-    CanFdMsgContainer* msg_list = (CanFdMsgContainer*)msg_buffer;
+    CanFdMsgContainer *msg_list = (CanFdMsgContainer *)msg_buffer;
     for (size_t i = 0; i < msg_num; i++)
     {
         INIT_LIST_HEAD(&msg_list[i].listNode.fifoListNode);
@@ -34,7 +34,7 @@ static CanAdapterInterface can_fd_adapter_interface = {
     .msgbufferAlloc = canfd_msgbuffer_alloc,
 };
 
-CanAdapterInterface* hal_can_get_canfd_adapter_interface(void)
+CanAdapterInterface *hal_can_get_canfd_adapter_interface(void)
 {
     return &can_fd_adapter_interface;
 }

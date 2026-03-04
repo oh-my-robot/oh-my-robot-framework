@@ -6,9 +6,9 @@
 #define SERIAL_IS_O_BLCK_RX(dev) (device_get_oparams(dev) & SERIAL_O_BLCK_RX)
 #define SERIAL_IS_O_NBLCK_RX(dev) (device_get_oparams(dev) & SERIAL_O_NBLCK_RX)
 /************************** PRIVATE FUNCTION *********************************************************/
-static OmRet serial_ctrl(Device* dev, size_t cmd, void *arg);
+static OmRet serial_ctrl(Device *dev, size_t cmd, void *arg);
 
-static void serial_fifo_set_wait_reason(SerialFifo* fifo, SerialWaitWakeReason reason)
+static void serial_fifo_set_wait_reason(SerialFifo *fifo, SerialWaitWakeReason reason)
 {
     if (!fifo)
         return;
@@ -17,7 +17,7 @@ static void serial_fifo_set_wait_reason(SerialFifo* fifo, SerialWaitWakeReason r
     osal_irq_unlock_task();
 }
 
-static SerialWaitWakeReason serial_fifo_get_and_clear_wait_reason(SerialFifo* fifo)
+static SerialWaitWakeReason serial_fifo_get_and_clear_wait_reason(SerialFifo *fifo)
 {
     SerialWaitWakeReason reason = SERIAL_WAIT_WAKE_NONE;
 
@@ -31,7 +31,7 @@ static SerialWaitWakeReason serial_fifo_get_and_clear_wait_reason(SerialFifo* fi
     return reason;
 }
 
-static OmRet serial_wait_completion_abortable(Device* dev, SerialFifo* fifo, uint32_t timeout_ms)
+static OmRet serial_wait_completion_abortable(Device *dev, SerialFifo *fifo, uint32_t timeout_ms)
 {
     OmRet wait_ret;
     SerialWaitWakeReason wake_reason;
@@ -56,10 +56,10 @@ static OmRet serial_wait_completion_abortable(Device* dev, SerialFifo* fifo, uin
     return OM_OK;
 }
 
-static void serial_abort_blocking_waiters(HalSerial* serial, SerialWaitWakeReason reason)
+static void serial_abort_blocking_waiters(HalSerial *serial, SerialWaitWakeReason reason)
 {
-    SerialFifo* tx_fifo;
-    SerialFifo* rx_fifo;
+    SerialFifo *tx_fifo;
+    SerialFifo *rx_fifo;
 
     if (!serial)
         return;
@@ -90,10 +90,10 @@ static void serial_abort_blocking_waiters(HalSerial* serial, SerialWaitWakeReaso
     }
 }
 /* 无 FIFO 情况下的 TX 函数*/
-static size_t serial_tx_poll(Device* dev, void *data, size_t len)
+static size_t serial_tx_poll(Device *dev, void *data, size_t len)
 {
     size_t length;
-    HalSerial* serial = (HalSerial*)dev;
+    HalSerial *serial = (HalSerial *)dev;
     uint8_t *tx_data = (uint8_t *)data;
     if (device_check_status(dev, DEV_STATUS_BUSY_TX))
     {
@@ -112,11 +112,11 @@ static size_t serial_tx_poll(Device* dev, void *data, size_t len)
     return length;
 }
 
-static size_t serial_rx_poll(Device* dev, uint8_t *buf, size_t len)
+static size_t serial_rx_poll(Device *dev, uint8_t *buf, size_t len)
 {
     size_t length;
     OmRet ret = OM_ERROR;
-    HalSerial* serial = (HalSerial*)dev;
+    HalSerial *serial = (HalSerial *)dev;
     if (device_check_status(dev, DEV_STATUS_BUSY_RX))
     {
         // TODO: log txbusy
@@ -144,10 +144,10 @@ static size_t serial_rx_poll(Device* dev, uint8_t *buf, size_t len)
  * @return size_t 实际发送长度
  * @note   调用者需自行确保 data 的内存安全和数据完整
  */
-static size_t serial_tx_block(Device* dev, void *data, size_t len)
+static size_t serial_tx_block(Device *dev, void *data, size_t len)
 {
-    HalSerial* serial;
-    SerialFifo* tx_fifo;
+    HalSerial *serial;
+    SerialFifo *tx_fifo;
     OmRet wait_ret;
     size_t tx_start_len;
     size_t txlen;
@@ -155,7 +155,7 @@ static size_t serial_tx_block(Device* dev, void *data, size_t len)
     void *tx_linear_buf = 0; // 串口线性缓存区
     size_t sended = 0;       // 已经发送的长度
 
-    serial = (HalSerial*)dev;
+    serial = (HalSerial *)dev;
     tx_fifo = serial_get_txfifo(serial);
 
     // 理论上对于串口，对于阻塞发送来说不应该出现BUSY_TX 的情况
@@ -207,16 +207,16 @@ static size_t serial_tx_block(Device* dev, void *data, size_t len)
 }
 
 /* 串口非阻塞发送*/
-static size_t serial_tx_nonblock(Device* dev, void *data, size_t len)
+static size_t serial_tx_nonblock(Device *dev, void *data, size_t len)
 {
-    HalSerial* serial;
-    SerialFifo* tx_fifo;
+    HalSerial *serial;
+    SerialFifo *tx_fifo;
     size_t tx_len;
     size_t tx_start_len;
     size_t sended = 0;
     void *tx_ptr = NULL;
 
-    serial = (HalSerial*)dev;
+    serial = (HalSerial *)dev;
     tx_fifo = serial_get_txfifo(serial);
     sended = ringbuf_in(&tx_fifo->rb, data, len);
 
@@ -243,16 +243,16 @@ static size_t serial_tx_nonblock(Device* dev, void *data, size_t len)
     return sended;
 }
 
-static size_t serial_rx_block(Device* dev, void *buf, size_t len)
+static size_t serial_rx_block(Device *dev, void *buf, size_t len)
 {
-    HalSerial* serial;
-    SerialFifo* rx_fifo;
+    HalSerial *serial;
+    SerialFifo *rx_fifo;
     OmRet wait_ret;
     size_t rd_remain;      // 剩余未读取的长度
     size_t rd_len;         // 本轮读取的长度，真实反应硬件实际接收字节数，也就是考虑rxfifo可能溢出的情况
     size_t rd_from_rb = 0; // 应用层通过read接口获得的总长度，也就是不包括接收过程中rxfifo可能溢出的情况
 
-    serial = (HalSerial*)dev;
+    serial = (HalSerial *)dev;
     rx_fifo = serial_get_rxfifo(serial);
     device_set_status(dev, DEV_STATUS_BUSY_RX);
     rd_len = ringbuf_len(&rx_fifo->rb);
@@ -312,13 +312,13 @@ static size_t serial_rx_block(Device* dev, void *buf, size_t len)
     return rd_from_rb;
 }
 
-static size_t serial_rx_nonblock(Device* dev, void *buf, size_t len)
+static size_t serial_rx_nonblock(Device *dev, void *buf, size_t len)
 {
-    HalSerial* serial;
-    SerialFifo* rx_fifo;
+    HalSerial *serial;
+    SerialFifo *rx_fifo;
     size_t rd_len;
 
-    serial = (HalSerial*)dev;
+    serial = (HalSerial *)dev;
     rx_fifo = serial_get_rxfifo(serial);
 
     if (ringbuf_len(&rx_fifo->rb) >= len)
@@ -328,7 +328,7 @@ static size_t serial_rx_nonblock(Device* dev, void *buf, size_t len)
     return rd_len;
 }
 
-static OmRet serial_set_cfg(HalSerial* serial, SerialCfg* cfg)
+static OmRet serial_set_cfg(HalSerial *serial, SerialCfg *cfg)
 {
     OmRet ret;
 
@@ -346,7 +346,7 @@ static OmRet serial_set_cfg(HalSerial* serial, SerialCfg* cfg)
 }
 
 // TODO: 待实现
-static OmRet serial_flush(HalSerial* serial, uint32_t fifo_selector)
+static OmRet serial_flush(HalSerial *serial, uint32_t fifo_selector)
 {
     switch (fifo_selector)
     {
@@ -364,13 +364,13 @@ static OmRet serial_flush(HalSerial* serial, uint32_t fifo_selector)
     return OM_OK;
 }
 
-static OmRet serial_tx_enable(Device* dev)
+static OmRet serial_tx_enable(Device *dev)
 {
-    HalSerial* serial;
-    SerialFifo* tx_fifo;
+    HalSerial *serial;
+    SerialFifo *tx_fifo;
     size_t ctrl_arg = 0;
 
-    serial = (HalSerial*)dev;
+    serial = (HalSerial *)dev;
     tx_fifo = serial_get_txfifo(serial);
     // 无缓冲
     if (serial->cfg.txBufSize == 0)
@@ -389,7 +389,7 @@ static OmRet serial_tx_enable(Device* dev)
         if (serial->cfg.txBufSize < SERIAL_MIN_TX_BUFSZ) // TODO: log
             serial->cfg.txBufSize = SERIAL_MIN_TX_BUFSZ;
 
-        tx_fifo = (SerialFifo*)osal_malloc(sizeof(SerialFifo));
+        tx_fifo = (SerialFifo *)osal_malloc(sizeof(SerialFifo));
         if (!tx_fifo)
             return OM_ERROR_MEMORY;
         if (!ringbuf_alloc(&tx_fifo->rb, sizeof(uint8_t), serial->cfg.txBufSize, osal_malloc) || !tx_fifo->rb.buf)
@@ -416,15 +416,15 @@ static OmRet serial_tx_enable(Device* dev)
     return OM_OK;
 }
 
-static OmRet serial_rx_enable(Device* dev)
+static OmRet serial_rx_enable(Device *dev)
 {
-    HalSerial* serial;
-    SerialFifo* rx_fifo;
+    HalSerial *serial;
+    SerialFifo *rx_fifo;
     uint32_t ctrl_arg;
 
     ctrl_arg = device_get_regparams(dev) & DEVICE_REG_RXTYPE_MASK;
 
-    serial = (HalSerial*)dev;
+    serial = (HalSerial *)dev;
     rx_fifo = serial_get_rxfifo(serial);
 
     if (serial->cfg.rxBufSize == 0)
@@ -438,7 +438,7 @@ static OmRet serial_rx_enable(Device* dev)
         if (serial->cfg.rxBufSize < SERIAL_MIN_RX_BUFSZ)
             serial->cfg.rxBufSize = SERIAL_MIN_RX_BUFSZ;
 
-        rx_fifo = (SerialFifo*)osal_malloc(sizeof(SerialFifo));
+        rx_fifo = (SerialFifo *)osal_malloc(sizeof(SerialFifo));
         if (!rx_fifo)
             return OM_ERROR_MEMORY;
         if (!ringbuf_alloc(&rx_fifo->rb, sizeof(uint8_t), serial->cfg.rxBufSize, osal_malloc) || !rx_fifo->rb.buf)
@@ -463,9 +463,9 @@ static OmRet serial_rx_enable(Device* dev)
 
 /******************************************* DEVICE INTERFACE
  * ********************************************/
-static OmRet serial_init(Device* dev)
+static OmRet serial_init(Device *dev)
 {
-    HalSerial* serial = (HalSerial*)dev;
+    HalSerial *serial = (HalSerial *)dev;
     if (!serial || !serial->interface || !serial->interface->configure)
         return OM_ERROR_PARAM;
     serial->priv.txFifo = NULL;
@@ -473,9 +473,9 @@ static OmRet serial_init(Device* dev)
     return serial->interface->configure(serial, &serial->cfg);
 }
 
-static OmRet serial_open(Device* dev, uint32_t otype)
+static OmRet serial_open(Device *dev, uint32_t otype)
 {
-    HalSerial* serial = (HalSerial*)dev;
+    HalSerial *serial = (HalSerial *)dev;
     OmRet ret;
     if (!serial || !serial->interface || !serial->interface->control)
         return OM_ERROR_PARAM;
@@ -497,10 +497,10 @@ static OmRet serial_open(Device* dev, uint32_t otype)
     return OM_OK;
 }
 
-static OmRet serial_ctrl(Device* dev, size_t cmd, void *arg)
+static OmRet serial_ctrl(Device *dev, size_t cmd, void *arg)
 {
     OmRet ret;
-    HalSerial* serial = (HalSerial*)dev;
+    HalSerial *serial = (HalSerial *)dev;
     if (!serial || !serial->interface || !serial->interface->control) // TODO: assert
         return OM_ERROR_PARAM;
     ret = OM_OK;
@@ -513,13 +513,13 @@ static OmRet serial_ctrl(Device* dev, size_t cmd, void *arg)
     break;
 
     case SERIAL_CMD_SET_CFG: {
-        SerialCfg* cfg;
+        SerialCfg *cfg;
         if (!arg)
         {
             ret = OM_ERROR_PARAM;
             break;
         }
-        cfg = (SerialCfg*)arg;
+        cfg = (SerialCfg *)arg;
         ret = serial_set_cfg(serial, cfg);
     }
     break;
@@ -561,14 +561,14 @@ static OmRet serial_ctrl(Device* dev, size_t cmd, void *arg)
     return ret;
 }
 
-static size_t serial_write(Device* dev, void *pos, void *data, size_t len)
+static size_t serial_write(Device *dev, void *pos, void *data, size_t len)
 {
-    SerialFifo* txfifo;
-    HalSerial* serial;
+    SerialFifo *txfifo;
+    HalSerial *serial;
     uint32_t oparams;
     size_t ret_len = 0;
     oparams = device_get_oparams(dev);
-    serial = (HalSerial*)dev;
+    serial = (HalSerial *)dev;
     txfifo = serial_get_txfifo(serial);
 
     if (serial->cfg.txBufSize == 0 || ((device_get_regparams(dev) & DEVICE_REG_TXTYPE_MASK) == DEVICE_REG_POLL_TX))
@@ -600,12 +600,12 @@ static size_t serial_write(Device* dev, void *pos, void *data, size_t len)
     return ret_len;
 }
 
-static size_t serial_read(Device* dev, void *pos, void *buf, size_t len)
+static size_t serial_read(Device *dev, void *pos, void *buf, size_t len)
 {
-    HalSerial* serial;
-    SerialFifo* rx_fifo;
+    HalSerial *serial;
+    SerialFifo *rx_fifo;
     size_t recv_len = 0;
-    serial = (HalSerial*)dev;
+    serial = (HalSerial *)dev;
     rx_fifo = serial_get_rxfifo(serial);
     if (serial->cfg.rxBufSize == 0 || ((device_get_regparams(dev) & DEVICE_REG_RXTYPE_MASK) == DEVICE_REG_POLL_RX))
     {
@@ -634,7 +634,7 @@ static DevInterface serial_interface = {
 };
 
 /******************************************* HW API *********************************************/
-OmRet serial_register(HalSerial* serial, char *name, void *handle, uint32_t regparams)
+OmRet serial_register(HalSerial *serial, char *name, void *handle, uint32_t regparams)
 {
     if (!serial || !name)
         return OM_ERROR_PARAM;
@@ -645,7 +645,7 @@ OmRet serial_register(HalSerial* serial, char *name, void *handle, uint32_t regp
 }
 
 // 串口中断服务函数，优化方向：采用类似Linux的方法，将中断分为上下部的异步处理，上部为硬中断，快进快出，负责记录状态；下部为工作队列，负责处理数据和业务逻辑
-OmRet serial_hw_isr(HalSerial* serial, SerialEvent event, void *arg, size_t arg_size)
+OmRet serial_hw_isr(HalSerial *serial, SerialEvent event, void *arg, size_t arg_size)
 {
     if (!serial || !serial->interface ||
         (!device_check_status(&serial->parent, DEV_STATUS_OPENED) || !device_check_status(&serial->parent, DEV_STATUS_INITED) ||
@@ -659,7 +659,7 @@ OmRet serial_hw_isr(HalSerial* serial, SerialEvent event, void *arg, size_t arg_
     case SERIAL_EVENT_INT_RXDONE: /* 中断接收完成 */
     case SERIAL_EVENT_DMA_RXDONE: /* DMA接收完成 */
     {
-        SerialFifo* rx_fifo;
+        SerialFifo *rx_fifo;
         size_t rx_len;   // 本次接收实际写入 rb 的数据长度
         size_t data_len; // rb 数据总长度
         if (!arg || arg_size == 0)
@@ -697,7 +697,7 @@ OmRet serial_hw_isr(HalSerial* serial, SerialEvent event, void *arg, size_t arg_
     case SERIAL_EVENT_INT_TXDONE: /* 中断发送完*/
     case SERIAL_EVENT_DMA_TXDONE: /* 发送完*/
     {
-        SerialFifo* tx_fifo;
+        SerialFifo *tx_fifo;
         size_t liner_size;
         void *tx_buf;
         if (arg_size == 0)

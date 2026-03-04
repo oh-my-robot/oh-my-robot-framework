@@ -4,9 +4,9 @@
 
 static LIST_HEAD(g_dev_list);
 
-Device* device_find(char *name)
+Device *device_find(char *name)
 {
-    Device* dev_pos = NULL;
+    Device *dev_pos = NULL;
     if (!name)
         return NULL;
 
@@ -23,7 +23,7 @@ Device* device_find(char *name)
     return NULL;
 }
 
-OmRet device_register(Device* dev, char *name, uint32_t regparams)
+OmRet device_register(Device *dev, char *name, uint32_t regparams)
 {
     if (!dev || !name)
         return OM_ERROR_PARAM;
@@ -52,7 +52,7 @@ OmRet device_register(Device* dev, char *name, uint32_t regparams)
     return OM_OK;
 }
 
-OmRet device_init(Device* dev)
+OmRet device_init(Device *dev)
 {
     OmRet ret = OM_OK;
     if (!dev || !dev->interface)
@@ -80,7 +80,7 @@ OmRet device_init(Device* dev)
     return ret;
 }
 
-OmRet device_open(Device* dev, uint32_t oparams)
+OmRet device_open(Device *dev, uint32_t oparams)
 {
     if (!dev || !dev->interface)
         return OM_ERROR_PARAM;
@@ -114,7 +114,7 @@ OmRet device_open(Device* dev, uint32_t oparams)
     return OM_OK;
 }
 
-size_t device_read(Device* dev, void *pos, void *data, size_t len)
+size_t device_read(Device *dev, void *pos, void *data, size_t len)
 {
     if (!dev || !dev->interface || !data || len == 0)
         return 0;
@@ -127,7 +127,7 @@ size_t device_read(Device* dev, void *pos, void *data, size_t len)
     return 0;
 }
 
-size_t device_write(Device* dev, void *pos, void *data, size_t len)
+size_t device_write(Device *dev, void *pos, void *data, size_t len)
 {
     if (!dev || !dev->interface || !data || len == 0)
         return 0;
@@ -140,7 +140,7 @@ size_t device_write(Device* dev, void *pos, void *data, size_t len)
     return 0;
 }
 
-OmRet device_ctrl(Device* dev, size_t cmd, void *args)
+OmRet device_ctrl(Device *dev, size_t cmd, void *args)
 {
     if (!dev || !dev->interface)
         return OM_ERROR_PARAM;
@@ -153,7 +153,7 @@ OmRet device_ctrl(Device* dev, size_t cmd, void *args)
     return OM_ERROR;
 }
 
-OmRet device_close(Device* dev)
+OmRet device_close(Device *dev)
 {
     OmRet ret = OM_OK;
     if (!dev || !dev->interface || !dev->interface->close)

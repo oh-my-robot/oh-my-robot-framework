@@ -9,13 +9,13 @@
  * 4) 电机 ID、目标转速、PID 参数、控制模式均支持宏配置。
  */
 
+#include "core/algorithm/controller/pid.h"
+#include "core/om_cpu.h"
 #include "core/om_def.h"
 #include "drivers/motor/vendors/direct_drive/P1010B.h"
 #include "drivers/peripheral/can/pal_can_dev.h"
 #include "osal/osal_thread.h"
 #include "osal/osal_time.h"
-#include "core/om_cpu.h"
-#include "core/algorithm/controller/pid.h"
 #include <stdint.h>
 
 /* -------------------------------------------------------------------------- */
@@ -35,28 +35,28 @@
 #define P1010B_TEST_SPEED_PID_KP (0.45f)
 #define P1010B_TEST_SPEED_PID_KI (0.06f)
 #define P1010B_TEST_SPEED_PID_KD (0.0f)
-#define P1010B_TEST_PID_OUT_MIN  (-75.0f)
-#define P1010B_TEST_PID_OUT_MAX  (75.0f)
+#define P1010B_TEST_PID_OUT_MIN (-75.0f)
+#define P1010B_TEST_PID_OUT_MAX (75.0f)
 
-#define P1010B_TEST_LOOP_PERIOD_MS   (2U)
-#define P1010B_TEST_RETRY_DELAY_MS   (50U)
-#define P1010B_TEST_THREAD_PRIORITY  (6U)
-#define P1010B_TEST_THREAD_STACK     (1024U)
+#define P1010B_TEST_LOOP_PERIOD_MS (2U)
+#define P1010B_TEST_RETRY_DELAY_MS (50U)
+#define P1010B_TEST_THREAD_PRIORITY (6U)
+#define P1010B_TEST_THREAD_STACK (1024U)
 
 #if (P1010B_TEST_CONTROL_MODE != P1010B_TEST_MODE_CURRENT) && (P1010B_TEST_CONTROL_MODE != P1010B_TEST_MODE_VOLTAGE)
 #error "P1010B_TEST_CONTROL_MODE 仅支持 P1010B_TEST_MODE_CURRENT 或 P1010B_TEST_MODE_VOLTAGE"
 #endif
 
 /* PID 数组索引：便于调试器按连续内存块观察与在线修改。 */
-#define P1010B_PID_GAIN_KP_INDEX            (0U)
-#define P1010B_PID_GAIN_KI_INDEX            (1U)
-#define P1010B_PID_GAIN_KD_INDEX            (2U)
-#define P1010B_PID_GAIN_COUNT               (3U)
-#define P1010B_PID_OUTPUT_LIMIT_MIN_INDEX   (0U)
-#define P1010B_PID_OUTPUT_LIMIT_MAX_INDEX   (1U)
-#define P1010B_PID_OUTPUT_LIMIT_COUNT       (2U)
-#define P1010B_FLOAT_COMPARE_EPSILON        (1e-6f)
-#define P1010B_TEST_SOFTSTART_STEP_RPM      (1.0f)
+#define P1010B_PID_GAIN_KP_INDEX (0U)
+#define P1010B_PID_GAIN_KI_INDEX (1U)
+#define P1010B_PID_GAIN_KD_INDEX (2U)
+#define P1010B_PID_GAIN_COUNT (3U)
+#define P1010B_PID_OUTPUT_LIMIT_MIN_INDEX (0U)
+#define P1010B_PID_OUTPUT_LIMIT_MAX_INDEX (1U)
+#define P1010B_PID_OUTPUT_LIMIT_COUNT (2U)
+#define P1010B_FLOAT_COMPARE_EPSILON (1e-6f)
+#define P1010B_TEST_SOFTSTART_STEP_RPM (1.0f)
 
 /* -------------------------------------------------------------------------- */
 /* 测试节点定义                              */
@@ -116,20 +116,20 @@ typedef struct
 } P1010BDebugRuntimeBlock;
 
 #define P1010B_SPEED_LOOP_NODE_INIT(_motorId, _mode, _targetRpm, _kp, _ki, _kd, _outMin, _outMax) \
-    {                                                                                                 \
-        .motorId = (_motorId),                                                                        \
-        .mode = (_mode),                                                                              \
-        .speedTargetRpm = (_targetRpm),                                                               \
-        .speedPidConfig = {(_kp), (_ki), (_kd), (_outMin), (_outMax)},                               \
+    {                                                                                             \
+        .motorId = (_motorId),                                                                    \
+        .mode = (_mode),                                                                          \
+        .speedTargetRpm = (_targetRpm),                                                           \
+        .speedPidConfig = {(_kp), (_ki), (_kd), (_outMin), (_outMax)},                            \
     }
 
 /* -------------------------------------------------------------------------- */
 /* 全局对象                                                                   */
 /* -------------------------------------------------------------------------- */
 
-static Device* g_can_device = NULL;
+static Device *g_can_device = NULL;
 static P1010BBus g_p1010b_bus;
-static OsalThread* g_speed_loop_thread = NULL;
+static OsalThread *g_speed_loop_thread = NULL;
 
 static P1010BSpeedLoopNode g_motor_node = P1010B_SPEED_LOOP_NODE_INIT(
     P1010B_TEST_MOTOR_ID,
@@ -262,7 +262,7 @@ static OmRet p1010b_sample_init_bus_and_motor(void)
     {
         return awlf_ret;
     }
-    
+
     awlf_ret = p1010b_register(&g_p1010b_bus, &g_motor_node.handle, &driver_config);
     if (awlf_ret != OM_OK)
     {
@@ -419,7 +419,7 @@ static OmRet p1010b_sample_sync_debug_tuning(P1010BSpeedLoopNode *node)
 }
 
 static void p1010b_sample_update_debug_observer(P1010BSpeedLoopNode *node, float speed_command_rpm, float speed_feedback_rpm,
-                                                 float pid_output, OmRet loop_ret)
+                                                float pid_output, OmRet loop_ret)
 {
     if (node == NULL)
     {

@@ -5,7 +5,7 @@
 
 #define IS_NUM_POWER_OF_TWO(x) ((x) && !(((x) & ((x) - 1U))))
 
-bool ringbuf_init(Ringbuf* rb, uint8_t *buff, unsigned int item_size, unsigned int item_count)
+bool ringbuf_init(Ringbuf *rb, uint8_t *buff, unsigned int item_size, unsigned int item_count)
 {
     if ((rb == NULL) || (buff == NULL) || (item_size == 0U) || (item_count == 0U))
         return false;
@@ -25,7 +25,7 @@ bool ringbuf_init(Ringbuf* rb, uint8_t *buff, unsigned int item_size, unsigned i
     return true;
 }
 
-bool ringbuf_alloc(Ringbuf* rb, unsigned int item_size, unsigned int item_count, void *(pmalloc)(size_t))
+bool ringbuf_alloc(Ringbuf *rb, unsigned int item_size, unsigned int item_count, void *(pmalloc)(size_t))
 {
     unsigned int item_buf_size;
 
@@ -49,7 +49,7 @@ bool ringbuf_alloc(Ringbuf* rb, unsigned int item_size, unsigned int item_count,
     return true;
 }
 
-void free_ringbuf(Ringbuf* rb, void (*pfree)(void *))
+void free_ringbuf(Ringbuf *rb, void (*pfree)(void *))
 {
     if ((rb == NULL) || (rb->buf == NULL))
         return;
@@ -62,7 +62,7 @@ void free_ringbuf(Ringbuf* rb, void (*pfree)(void *))
     rb->buf = NULL;
 }
 
-static void ringbuf_copy_in(Ringbuf* rb, const void *src, unsigned int len, unsigned int off)
+static void ringbuf_copy_in(Ringbuf *rb, const void *src, unsigned int len, unsigned int off)
 {
     unsigned int size = rb->mask + 1U;
     unsigned int esize = rb->esize;
@@ -82,7 +82,7 @@ static void ringbuf_copy_in(Ringbuf* rb, const void *src, unsigned int len, unsi
     memcpy(rb->buf, (const unsigned char *)src + copy_len, len - copy_len);
 }
 
-unsigned int ringbuf_in(Ringbuf* rb, const void *buf, unsigned int item_count)
+unsigned int ringbuf_in(Ringbuf *rb, const void *buf, unsigned int item_count)
 {
     unsigned int write_pos;
     unsigned int read_pos;
@@ -102,7 +102,7 @@ unsigned int ringbuf_in(Ringbuf* rb, const void *buf, unsigned int item_count)
     return item_count;
 }
 
-static void ringbuf_copy_out(Ringbuf* rb, void *dst, unsigned int len, unsigned int off)
+static void ringbuf_copy_out(Ringbuf *rb, void *dst, unsigned int len, unsigned int off)
 {
     unsigned int size = rb->mask + 1U;
     unsigned int esize = rb->esize;
@@ -122,7 +122,7 @@ static void ringbuf_copy_out(Ringbuf* rb, void *dst, unsigned int len, unsigned 
     memcpy((unsigned char *)dst + copy_len, rb->buf, len - copy_len);
 }
 
-unsigned int ringbuf_out(Ringbuf* rb, void *buf, unsigned int item_count)
+unsigned int ringbuf_out(Ringbuf *rb, void *buf, unsigned int item_count)
 {
     unsigned int read_pos;
 
@@ -134,7 +134,7 @@ unsigned int ringbuf_out(Ringbuf* rb, void *buf, unsigned int item_count)
     return item_count;
 }
 
-unsigned int ringbuf_out_peek(Ringbuf* rb, void *buf, unsigned int len)
+unsigned int ringbuf_out_peek(Ringbuf *rb, void *buf, unsigned int len)
 {
     unsigned int write_pos;
     unsigned int read_pos;
@@ -151,7 +151,7 @@ unsigned int ringbuf_out_peek(Ringbuf* rb, void *buf, unsigned int len)
     return len;
 }
 
-unsigned int ringbuf_get_item_linear_space(Ringbuf* rb, void **dest)
+unsigned int ringbuf_get_item_linear_space(Ringbuf *rb, void **dest)
 {
     unsigned int write_pos;
     unsigned int read_pos;
@@ -180,7 +180,7 @@ unsigned int ringbuf_get_item_linear_space(Ringbuf* rb, void **dest)
     return linear_size;
 }
 
-unsigned int ringbuf_get_avail_linear_size(Ringbuf* rb, void **dest)
+unsigned int ringbuf_get_avail_linear_size(Ringbuf *rb, void **dest)
 {
     unsigned int write_pos;
     unsigned int read_pos;
