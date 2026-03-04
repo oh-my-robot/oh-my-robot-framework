@@ -16,16 +16,16 @@ typedef struct
     volatile uint32_t total;
     volatile uint32_t failed;
     volatile uint32_t done;
-} osal_mutex_test_result_s;
+} OsalMutexTestResult;
 
-static OsalMutex_t g_mutex = NULL;
-static OsalSem_t g_owner_ready_sem = NULL;
-static OsalSem_t g_owner_done_sem = NULL;
+static OsalMutex* g_mutex = NULL;
+static OsalSem* g_owner_ready_sem = NULL;
+static OsalSem* g_owner_done_sem = NULL;
 
-static OsalThread_t g_test_thread = NULL;
-static OsalThread_t g_owner_thread = NULL;
+static OsalThread* g_test_thread = NULL;
+static OsalThread* g_owner_thread = NULL;
 
-static osal_mutex_test_result_s g_mutex_result = {0u, 0u, 0u};
+static OsalMutexTestResult g_mutex_result = {0u, 0u, 0u};
 
 /**
  * @brief 绠€鍗曟柇瑷€璁℃暟鍣?
@@ -72,7 +72,7 @@ static void osal_mutex_owner_thread_entry(void* arg)
  */
 static void osal_mutex_test_thread_entry(void* arg)
 {
-    OsalThreadAttr_s owner_attr = {
+    OsalThreadAttr owner_attr = {
         "osal_mutex_owner",
         512u * OSAL_STACK_WORD_BYTES,
         2u,
@@ -125,7 +125,7 @@ static void osal_mutex_test_thread_entry(void* arg)
  */
 int main(void)
 {
-    OsalThreadAttr_s test_attr = {
+    OsalThreadAttr test_attr = {
         "osal_mutex_test",
         768u * OSAL_STACK_WORD_BYTES,
         2u,

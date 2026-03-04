@@ -30,7 +30,7 @@ typedef struct
     volatile uint32_t fatalFailed;
     volatile uint32_t statFailed;
     volatile uint32_t done;
-} sync_completion_test_result_s;
+} SyncCompletionTestResult;
 
 enum {
     /* 骞跺彂 done 绾跨▼鏁颁笂闄愶紝鐢ㄤ簬鍒堕€犵珵浜夊帇鍔涖€?*/
@@ -77,7 +77,7 @@ typedef enum {
     COMPLETION_STRESS_WAITER_RUNNING,
     COMPLETION_STRESS_WAITER_DONE_OK,
     COMPLETION_STRESS_WAITER_DONE_ERROR
-} completion_stress_waiter_state_e;
+} CompletionStressWaiterState;
 
 typedef struct
 {
@@ -86,15 +86,15 @@ typedef struct
     volatile uint32_t targetWaitOk;
     volatile uint32_t waiterStarted;
     volatile uint32_t waiterDone;
-    volatile completion_stress_waiter_state_e waiterState;
+    volatile CompletionStressWaiterState waiterState;
     volatile uint32_t waiterWaitOk;
     volatile uint32_t waiterWaitErr;
-    volatile OmRet_e waiterLastRet;
+    volatile OmRet waiterLastRet;
     volatile uint32_t workerDone[COMPLETION_STRESS_DONE_WORKERS];
     volatile uint32_t workerDoneOk[COMPLETION_STRESS_DONE_WORKERS];
     volatile uint32_t workerDoneBusy[COMPLETION_STRESS_DONE_WORKERS];
     volatile uint32_t workerDoneErr[COMPLETION_STRESS_DONE_WORKERS];
-} completion_stress_ctx_s;
+} CompletionStressCtx;
 
 typedef struct
 {
@@ -103,43 +103,43 @@ typedef struct
     volatile uint32_t targetWaitOk;
     volatile uint32_t waiterStarted;
     volatile uint32_t waiterDone;
-    volatile completion_stress_waiter_state_e waiterState;
+    volatile CompletionStressWaiterState waiterState;
     volatile uint32_t waiterWaitOk;
     volatile uint32_t waiterWaitErr;
-    volatile OmRet_e waiterLastRet;
+    volatile OmRet waiterLastRet;
     volatile uint32_t triggerThreadDone;
     volatile uint32_t isrDoneOk;
     volatile uint32_t isrDoneBusy;
     volatile uint32_t isrDoneErr;
-} completion_isr_stress_ctx_s;
+} CompletionIsrStressCtx;
 
 typedef struct
 {
     uint32_t doneOk;
     uint32_t doneBusy;
     uint32_t doneErr;
-} completion_done_stats_s;
+} CompletionDoneStats;
 
-static Completion_s g_completion                                           = {0};
-static OsalThread_t g_test_thread                                         = NULL;
-static OsalThread_t g_waiter_thread                                       = NULL;
-static OsalThread_t g_done_thread                                         = NULL;
-static sync_completion_test_result_s g_result                              = {0u, 0u, 0u, 0u, 0u};
-static completion_stress_ctx_s g_stress                                    = {0};
-static completion_isr_stress_ctx_s g_isr_stress                            = {0};
-static OsalThread_t g_stress_waiter_thread                                = NULL;
-static OsalThread_t g_stress_done_threads[COMPLETION_STRESS_DONE_WORKERS] = {0};
+static Completion g_completion                                           = {0};
+static OsalThread* g_test_thread                                         = NULL;
+static OsalThread* g_waiter_thread                                       = NULL;
+static OsalThread* g_done_thread                                         = NULL;
+static SyncCompletionTestResult g_result                              = {0u, 0u, 0u, 0u, 0u};
+static CompletionStressCtx g_stress                                    = {0};
+static CompletionIsrStressCtx g_isr_stress                            = {0};
+static OsalThread* g_stress_waiter_thread                                = NULL;
+static OsalThread* g_stress_done_threads[COMPLETION_STRESS_DONE_WORKERS] = {0};
 #if (COMPLETION_ISR_STRESS_ENABLE != 0u)
-static OsalThread_t g_isr_stress_waiter_thread = NULL;
-static OsalThread_t g_isr_trigger_thread       = NULL;
+static OsalThread* g_isr_stress_waiter_thread = NULL;
+static OsalThread* g_isr_trigger_thread       = NULL;
 #endif
 
 static volatile uint32_t g_waiter_started   = 0u;
 static volatile uint32_t g_waiter_waiting   = 0u;
 static volatile uint32_t g_waiter_done      = 0u;
-static volatile OmRet_e g_waiter_ret      = OM_ERROR;
+static volatile OmRet g_waiter_ret      = OM_ERROR;
 static volatile uint32_t g_done_thread_done = 0u;
-static volatile OmRet_e g_done_thread_ret = OM_ERROR;
+static volatile OmRet g_done_thread_ret = OM_ERROR;
 static volatile uint32_t g_done_delay_ms    = 0u;
 static volatile uint32_t g_test_infra_abort = 0u;
 
@@ -147,9 +147,9 @@ typedef enum
 {
     COMPLETION_ASSERT_FATAL = 0,
     COMPLETION_ASSERT_STAT
-} completion_assert_level_e;
+} CompletionAssertLevel;
 
-static void completion_expect_level(int condition, completion_assert_level_e level)
+static void completion_expect_level(int condition, CompletionAssertLevel level)
 {
     g_result.total++;
     if (condition)
@@ -179,8 +179,8 @@ static void completion_expect(int condition)
  */
 static int completion_wait_flag(volatile uint32_t *flag, uint32_t timeout_ms)
 {
-    OsalTimeMs_t start_ms = osal_time_now_monotonic();
-    OsalTimeMs_t deadline_ms = start_ms + timeout_ms;
+    OsalTimeMs start_ms = osal_time_now_monotonic();
+    OsalTimeMs deadline_ms = start_ms + timeout_ms;
 
     while (*flag == 0u) {
         if (!osal_time_before(osal_time_now_monotonic(), deadline_ms))
@@ -193,10 +193,10 @@ static int completion_wait_flag(volatile uint32_t *flag, uint32_t timeout_ms)
 /**
  * @brief 绛夊緟 completion 杩涘叆鎸囧畾鐘舵€侊紙鐢ㄤ簬娑堥櫎娴嬭瘯鎻℃墜绔炴€侊級
  */
-static int completion_wait_status(volatile CompStatus_e *status, CompStatus_e expected, uint32_t timeout_ms)
+static int completion_wait_status(volatile CompStatus *status, CompStatus expected, uint32_t timeout_ms)
 {
-    OsalTimeMs_t start_ms = osal_time_now_monotonic();
-    OsalTimeMs_t deadline_ms = start_ms + timeout_ms;
+    OsalTimeMs start_ms = osal_time_now_monotonic();
+    OsalTimeMs deadline_ms = start_ms + timeout_ms;
 
     while (*status != expected) {
         if (!osal_time_before(osal_time_now_monotonic(), deadline_ms))
@@ -211,16 +211,16 @@ static int completion_wait_status(volatile CompStatus_e *status, CompStatus_e ex
  * @param waiter_done waiter 閫€鍑烘爣蹇? * @param timeout_ms 鏀跺熬涓婇檺锛堟绉掞級
  * @param force_done_stats 闈?NULL 鏃剁粺璁℃敹灏鹃樁娈?done 杩斿洖鍊? */
 static int completion_force_wake_waiter(
-    Completion_t completion,
+    Completion* completion,
     volatile uint32_t *waiter_done,
     uint32_t timeout_ms,
-    completion_done_stats_s *force_done_stats)
+    CompletionDoneStats *force_done_stats)
 {
-    OsalTimeMs_t start_ms = osal_time_now_monotonic();
-    OsalTimeMs_t deadline_ms = start_ms + timeout_ms;
+    OsalTimeMs start_ms = osal_time_now_monotonic();
+    OsalTimeMs deadline_ms = start_ms + timeout_ms;
 
     while (*waiter_done == 0u) {
-        OmRet_e done_ret = completion_done(completion);
+        OmRet done_ret = completion_done(completion);
         if (force_done_stats) {
             if (done_ret == OM_OK)
                 force_done_stats->doneOk++;
@@ -354,8 +354,8 @@ static int completion_stress_workers_all_done(void)
  * @brief 绛夊緟鍘嬪姏娴嬭瘯 worker 鍏ㄩ儴閫€鍑? */
 static int completion_stress_wait_workers_done(uint32_t timeout_ms)
 {
-    OsalTimeMs_t start_ms = osal_time_now_monotonic();
-    OsalTimeMs_t deadline_ms = start_ms + timeout_ms;
+    OsalTimeMs start_ms = osal_time_now_monotonic();
+    OsalTimeMs deadline_ms = start_ms + timeout_ms;
 
     while (!completion_stress_workers_all_done()) {
         if (!osal_time_before(osal_time_now_monotonic(), deadline_ms))
@@ -412,7 +412,7 @@ static void completion_isr_stress_reset_ctx(void)
 /**
  * @brief 灏?done 杩斿洖鐮佽鍏?ISR 涓撻」缁熻
  * @param done_ret `completion_done` 杩斿洖鍊? */
-static void completion_isr_stress_count_done_ret(OmRet_e done_ret)
+static void completion_isr_stress_count_done_ret(OmRet done_ret)
 {
     if (done_ret == OM_OK)
         g_isr_stress.isrDoneOk++;
@@ -427,7 +427,7 @@ static void completion_isr_stress_count_done_ret(OmRet_e done_ret)
  */
 static void completion_isr_stress_waiter_thread_entry(void *arg)
 {
-    Completion_t completion = (Completion_t)arg;
+    Completion* completion = (Completion*)arg;
 
     if (!completion) {
         g_isr_stress.waiterLastRet = OM_ERROR_PARAM;
@@ -444,7 +444,7 @@ static void completion_isr_stress_waiter_thread_entry(void *arg)
         if (g_isr_stress.stop != 0u)
             break;
 
-        OmRet_e wait_ret = completion_wait(completion, OM_WAIT_FOREVER);
+        OmRet wait_ret = completion_wait(completion, OM_WAIT_FOREVER);
         if (wait_ret == OM_OK) {
             g_isr_stress.waiterWaitOk++;
             continue;
@@ -519,7 +519,7 @@ static void completion_done_thread_entry(void *arg)
  * @brief 鍘嬪姏娴嬭瘯绛夊緟绾跨▼锛氬惊鐜秷璐?one-shot 瀹屾垚鎬? */
 static void completion_stress_waiter_thread_entry(void *arg)
 {
-    Completion_t completion = (Completion_t)arg;
+    Completion* completion = (Completion*)arg;
 
     if (!completion) {
         g_stress.waiterLastRet = OM_ERROR_PARAM;
@@ -536,7 +536,7 @@ static void completion_stress_waiter_thread_entry(void *arg)
         if (g_stress.stop != 0u)
             break;
 
-        OmRet_e wait_ret = completion_wait(completion, OM_WAIT_FOREVER);
+        OmRet wait_ret = completion_wait(completion, OM_WAIT_FOREVER);
         if (wait_ret == OM_OK) {
             g_stress.waiterWaitOk++;
             continue;
@@ -577,7 +577,7 @@ static void completion_stress_done_thread_entry(void *arg)
         (void)osal_sleep_ms(1u);
 
     while (g_stress.stop == 0u) {
-        OmRet_e done_ret = completion_done(&g_completion);
+        OmRet done_ret = completion_done(&g_completion);
         if (done_ret == OM_OK)
             done_ok++;
         else if (done_ret == OM_ERROR_BUSY)
@@ -610,12 +610,12 @@ static void completion_run_group8_functional_case(
     int enforce_busy_gate,
     uint32_t target_wait_ok)
 {
-    OsalThreadAttr_s stress_waiter_attr = {
+    OsalThreadAttr stress_waiter_attr = {
         "sync_cpt_str_wait",
         768u * OSAL_STACK_WORD_BYTES,
         completion_priority_stress_waiter(),
     };
-    OsalThreadAttr_s stress_done_attr = {
+    OsalThreadAttr stress_done_attr = {
         "sync_cpt_str_done",
         512u * OSAL_STACK_WORD_BYTES,
         completion_priority_clamp(done_priority),
@@ -719,24 +719,24 @@ static void completion_run_group8_pressure_case(
     uint32_t pressure_window_ms,
     uint32_t min_wait_ok)
 {
-    OsalThreadAttr_s stress_waiter_attr = {
+    OsalThreadAttr stress_waiter_attr = {
         "sync_cpt_str_wait",
         768u * OSAL_STACK_WORD_BYTES,
         completion_priority_stress_waiter(),
     };
-    OsalThreadAttr_s stress_done_attr = {
+    OsalThreadAttr stress_done_attr = {
         "sync_cpt_str_done",
         512u * OSAL_STACK_WORD_BYTES,
         completion_priority_clamp(done_priority),
     };
-    OsalTimeMs_t deadline_ms          = 0u;
+    OsalTimeMs deadline_ms          = 0u;
     uint32_t worker_index               = 0u;
     uint32_t total_done_ok              = 0u;
     uint32_t total_done_busy            = 0u;
     uint32_t total_done_err             = 0u;
     uint32_t waiter_finished            = 0u;
     uint32_t workers_finished           = 0u;
-    completion_done_stats_s force_stats = {0u, 0u, 0u};
+    CompletionDoneStats force_stats = {0u, 0u, 0u};
 
     if ((done_worker_count == 0u) || (done_worker_count > COMPLETION_STRESS_DONE_WORKERS))
         done_worker_count = COMPLETION_STRESS_DONE_WORKERS;
@@ -817,23 +817,23 @@ static void completion_run_group8_pressure_case(
  */
 static void completion_test_thread_entry(void *arg)
 {
-    OsalThreadAttr_s waiter_attr = {
+    OsalThreadAttr waiter_attr = {
         "sync_cpt_waiter",
         512u * OSAL_STACK_WORD_BYTES,
         2u,
     };
-    OsalThreadAttr_s done_attr = {
+    OsalThreadAttr done_attr = {
         "sync_cpt_done",
         512u * OSAL_STACK_WORD_BYTES,
         2u,
     };
 #if (COMPLETION_ISR_STRESS_ENABLE != 0u)
-    OsalThreadAttr_s isr_waiter_attr = {
+    OsalThreadAttr isr_waiter_attr = {
         "sync_cpt_isr_wait",
         768u * OSAL_STACK_WORD_BYTES,
         completion_priority_stress_waiter(),
     };
-    OsalThreadAttr_s isr_trigger_attr = {
+    OsalThreadAttr isr_trigger_attr = {
         "sync_cpt_isr_trig",
         512u * OSAL_STACK_WORD_BYTES,
         completion_priority_isr_trigger(),
@@ -845,8 +845,8 @@ static void completion_test_thread_entry(void *arg)
     uint32_t isr_total_done_ok              = 0u;
     uint32_t isr_total_done_busy            = 0u;
     uint32_t isr_total_done_err             = 0u;
-    completion_done_stats_s isr_force_stats = {0u, 0u, 0u};
-    OsalTimeMs_t isr_deadline_ms          = 0u;
+    CompletionDoneStats isr_force_stats = {0u, 0u, 0u};
+    OsalTimeMs isr_deadline_ms          = 0u;
 #endif
 
     (void)arg;
@@ -1001,7 +1001,7 @@ test_finish:
  * @return 鍒涘缓娴嬭瘯绾跨▼澶辫触杩斿洖 -1锛涙垚鍔熷悗鍚姩璋冨害鍣? */
 int main(void)
 {
-    OsalThreadAttr_s test_attr = {
+    OsalThreadAttr test_attr = {
         "sync_cpt_test",
         768u * OSAL_STACK_WORD_BYTES,
         2u,

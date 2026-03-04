@@ -21,12 +21,12 @@ typedef struct
     volatile uint32_t total;
     volatile uint32_t failed;
     volatile uint32_t done;
-} osal_timer_test_result_s;
+} OsalTimerTestResult;
 
-static OsalThread_t g_test_thread = NULL;
-static OsalTimer_t g_periodic_timer = NULL;
-static OsalTimer_t g_one_shot_timer = NULL;
-static osal_timer_test_result_s g_timer_result = {0u, 0u, 0u};
+static OsalThread* g_test_thread = NULL;
+static OsalTimer* g_periodic_timer = NULL;
+static OsalTimer* g_one_shot_timer = NULL;
+static OsalTimerTestResult g_timer_result = {0u, 0u, 0u};
 static volatile uint32_t g_periodic_hits = 0u;
 static volatile uint32_t g_periodic_id_matches = 0u;
 static volatile uint32_t g_one_shot_hits = 0u;
@@ -47,7 +47,7 @@ static void osal_timer_expect(int condition)
 /**
  * @brief 鍛ㄦ湡瀹氭椂鍣ㄥ洖璋冿紙闈為樆濉烇級
  */
-static void osal_periodic_timer_cb(OsalTimer_t timer)
+static void osal_periodic_timer_cb(OsalTimer* timer)
 {
     if (osal_timer_get_id(timer) == &g_periodic_id_b)
         g_periodic_id_matches++;
@@ -57,7 +57,7 @@ static void osal_periodic_timer_cb(OsalTimer_t timer)
 /**
  * @brief 鍗曟瀹氭椂鍣ㄥ洖璋冿紙闈為樆濉烇級
  */
-static void osal_one_shot_timer_cb(OsalTimer_t timer)
+static void osal_one_shot_timer_cb(OsalTimer* timer)
 {
     (void)timer;
     g_one_shot_hits++;
@@ -79,7 +79,7 @@ static void osal_timer_test_thread_entry(void* arg)
     osal_timer_expect(osal_timer_create(&g_periodic_timer, "bad", 0u, OSAL_TIMER_PERIODIC, NULL, osal_periodic_timer_cb) ==
                       OSAL_INVALID);
     osal_timer_expect(osal_timer_create(&g_periodic_timer, "bad", 1u, OSAL_TIMER_PERIODIC, NULL, NULL) == OSAL_INVALID);
-    osal_timer_expect(osal_timer_create(&g_periodic_timer, "bad", 1u, (OsalTimerMode_e)2u, NULL, osal_periodic_timer_cb) ==
+    osal_timer_expect(osal_timer_create(&g_periodic_timer, "bad", 1u, (OsalTimerMode)2u, NULL, osal_periodic_timer_cb) ==
                       OSAL_INVALID);
 
     /* 缁?2锛氬垱寤?periodic 瀹氭椂鍣ㄤ笌 id 璇诲啓 */
@@ -147,7 +147,7 @@ static void osal_timer_test_thread_entry(void* arg)
  */
 int main(void)
 {
-    OsalThreadAttr_s test_attr = {
+    OsalThreadAttr test_attr = {
         "osal_timer_test",
         768u * OSAL_STACK_WORD_BYTES,
         2u,

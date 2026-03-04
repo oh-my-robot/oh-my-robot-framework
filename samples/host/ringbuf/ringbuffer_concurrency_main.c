@@ -1,4 +1,5 @@
 #include "core/data_struct/ringbuffer.h"
+#include "atomic/atomic_simple.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,8 +8,8 @@
 
 #ifdef _WIN32
 #include <windows.h>
-typedef HANDLE host_thread_t;
-typedef DWORD host_thread_ret_t;
+typedef HANDLE HostThread;
+typedef DWORD HostThreadRet;
 #define HOST_THREAD_CALL WINAPI
 static void host_thread_yield(void)
 {
@@ -17,8 +18,8 @@ static void host_thread_yield(void)
 #else
 #include <pthread.h>
 #include <sched.h>
-typedef pthread_t host_thread_t;
-typedef void* host_thread_ret_t;
+typedef pthread_t HostThread;
+typedef void* HostThreadRet;
 #define HOST_THREAD_CALL
 static void host_thread_yield(void)
 {
@@ -30,19 +31,19 @@ static void host_thread_yield(void)
 #define CONCURRENCY_TOTAL_ITEMS  (2000000U)
 
 typedef struct RingbufferConcurrencyContext {
-    Ringbuf_s rb;
+    Ringbuf rb;
     uint32_t totalItems;
-    om_atomic_uint_t produced;
-    om_atomic_uint_t consumed;
-    om_atomic_uint_t writeRetry;
-    om_atomic_uint_t readRetry;
-    om_atomic_uint_t errors;
-    om_atomic_uint_t stop;
-} RingbufferConcurrencyContext_s;
+    OmAtomicUint produced;
+    OmAtomicUint consumed;
+    OmAtomicUint writeRetry;
+    OmAtomicUint readRetry;
+    OmAtomicUint errors;
+    OmAtomicUint stop;
+} RingbufferConcurrencyContext;
 
 static int run_ringbuffer_basic_test(void)
 {
-    Ringbuf_s rb;
+    Ringbuf rb;
     uint32_t storage[8] = {0};
     uint32_t inData[6] = {1, 2, 3, 4, 5, 6};
     uint32_t outData[6] = {0};
@@ -80,44 +81,44 @@ static int run_ringbuffer_basic_test(void)
 }
 
 #ifdef _WIN32
-static int host_thread_create(host_thread_t* thread, LPTHREAD_START_ROUTINE entry, void* arg)
+static int host_thread_create(HostThread* thread, LPTHREAD_START_ROUTINE entry, void* arg)
 {
     *thread = CreateThread(NULL, 0, entry, arg, 0, NULL);
     return (*thread == NULL) ? -1 : 0;
 }
 
-static int host_thread_join(host_thread_t thread)
+static int host_thread_join(HostThread thread)
 {
     DWORD waitResult = WaitForSingleObject(thread, INFINITE);
     CloseHandle(thread);
     return (waitResult == WAIT_OBJECT_0) ? 0 : -1;
 }
 #else
-static int host_thread_create(host_thread_t* thread, void* (*entry)(void*), void* arg)
+static int host_thread_create(HostThread* thread, void* (*entry)(void*), void* arg)
 {
     return pthread_create(thread, NULL, entry, arg);
 }
 
-static int host_thread_join(host_thread_t thread)
+static int host_thread_join(HostThread thread)
 {
     return pthread_join(thread, NULL);
 }
 #endif
 
-static host_thread_ret_t HOST_THREAD_CALL producer_thread(void* arg)
+static HostThreadRet HOST_THREAD_CALL producer_thread(void* arg)
 {
-    RingbufferConcurrencyContext_s* ctx = (RingbufferConcurrencyContext_s*)arg;
+    RingbufferConcurrencyContext* ctx = (RingbufferConcurrencyContext*)arg;
     uint32_t value = 1;
-    while (value <= ctx->totalItems && om_load_acq(&ctx->stop) == 0)
+    while (value <= ctx->totalItems && OM_LOAD_ACQ(&ctx->stop) == 0)
     {
         if (ringbuf_in(&ctx->rb, &value, 1) == 1)
         {
-            om_inc_ar(&ctx->produced);
+            OM_INC_AR(&ctx->produced);
             value++;
             continue;
         }
 
-        om_inc_ar(&ctx->writeRetry);
+        OM_INC_AR(&ctx->writeRetry);
         host_thread_yield();
     }
 #ifndef _WIN32
@@ -127,28 +128,28 @@ static host_thread_ret_t HOST_THREAD_CALL producer_thread(void* arg)
 #endif
 }
 
-static host_thread_ret_t HOST_THREAD_CALL consumer_thread(void* arg)
+static HostThreadRet HOST_THREAD_CALL consumer_thread(void* arg)
 {
-    RingbufferConcurrencyContext_s* ctx = (RingbufferConcurrencyContext_s*)arg;
+    RingbufferConcurrencyContext* ctx = (RingbufferConcurrencyContext*)arg;
     uint32_t expected = 1;
-    while (expected <= ctx->totalItems && om_load_acq(&ctx->stop) == 0)
+    while (expected <= ctx->totalItems && OM_LOAD_ACQ(&ctx->stop) == 0)
     {
         uint32_t value = 0;
         if (ringbuf_out(&ctx->rb, &value, 1) == 1)
         {
             if (value != expected)
             {
-                om_inc_ar(&ctx->errors);
-                om_store_rel(&ctx->stop, 1);
+                OM_INC_AR(&ctx->errors);
+                OM_STORE_REL(&ctx->stop, 1);
                 break;
             }
 
-            om_inc_ar(&ctx->consumed);
+            OM_INC_AR(&ctx->consumed);
             expected++;
             continue;
         }
 
-        om_inc_ar(&ctx->readRetry);
+        OM_INC_AR(&ctx->readRetry);
         host_thread_yield();
     }
 #ifndef _WIN32
@@ -160,21 +161,21 @@ static host_thread_ret_t HOST_THREAD_CALL consumer_thread(void* arg)
 
 static int run_ringbuffer_concurrency_test(void)
 {
-    RingbufferConcurrencyContext_s ctx;
-    host_thread_t producer;
-    host_thread_t consumer;
+    RingbufferConcurrencyContext ctx;
+    HostThread producer;
+    HostThread consumer;
     double elapsedSec;
     clock_t beginTicks;
     clock_t endTicks;
 
     memset(&ctx, 0, sizeof(ctx));
     ctx.totalItems = CONCURRENCY_TOTAL_ITEMS;
-    om_store_rlx(&ctx.produced, 0);
-    om_store_rlx(&ctx.consumed, 0);
-    om_store_rlx(&ctx.writeRetry, 0);
-    om_store_rlx(&ctx.readRetry, 0);
-    om_store_rlx(&ctx.errors, 0);
-    om_store_rlx(&ctx.stop, 0);
+    OM_STORE_RLX(&ctx.produced, 0);
+    OM_STORE_RLX(&ctx.consumed, 0);
+    OM_STORE_RLX(&ctx.writeRetry, 0);
+    OM_STORE_RLX(&ctx.readRetry, 0);
+    OM_STORE_RLX(&ctx.errors, 0);
+    OM_STORE_RLX(&ctx.stop, 0);
 
     if (!ringbuf_alloc(&ctx.rb, sizeof(uint32_t), RINGBUFFER_CAPACITY, NULL))
     {
@@ -208,16 +209,16 @@ static int run_ringbuffer_concurrency_test(void)
     elapsedSec = (double)(endTicks - beginTicks) / (double)CLOCKS_PER_SEC;
 
     printf("produced=%u consumed=%u write_retry=%u read_retry=%u errors=%u elapsed=%.3fs\n",
-        om_load_acq(&ctx.produced),
-        om_load_acq(&ctx.consumed),
-        om_load_acq(&ctx.writeRetry),
-        om_load_acq(&ctx.readRetry),
-        om_load_acq(&ctx.errors),
+        OM_LOAD_ACQ(&ctx.produced),
+        OM_LOAD_ACQ(&ctx.consumed),
+        OM_LOAD_ACQ(&ctx.writeRetry),
+        OM_LOAD_ACQ(&ctx.readRetry),
+        OM_LOAD_ACQ(&ctx.errors),
         elapsedSec);
 
-    if (om_load_acq(&ctx.errors) != 0 ||
-        om_load_acq(&ctx.produced) != ctx.totalItems ||
-        om_load_acq(&ctx.consumed) != ctx.totalItems ||
+    if (OM_LOAD_ACQ(&ctx.errors) != 0 ||
+        OM_LOAD_ACQ(&ctx.produced) != ctx.totalItems ||
+        OM_LOAD_ACQ(&ctx.consumed) != ctx.totalItems ||
         !ringbuf_is_empty(&ctx.rb))
     {
         free_ringbuf(&ctx.rb, NULL);
@@ -255,4 +256,3 @@ int main(void)
 
     return 0;
 }
-

@@ -5,37 +5,37 @@
 #define CAN_MSG_BUF_LEN 8
 #define CAN_TX_MSG_BUF_LEN 1000
 
-typedef struct CanInfo* CanInfo_t;
+typedef struct CanInfo CanInfo;
 typedef struct CanInfo
 {
-    CanUserMsg_s msg[CAN_MSG_BUF_LEN];
+    CanUserMsg msg[CAN_MSG_BUF_LEN];
     uint8_t data[CAN_MSG_BUF_LEN][8];
-} OM_PACKED CanInfo_s;
+} OM_PACKED CanInfo;
 
-typedef struct CanTxInfo* CanTxInfo_t;
+typedef struct CanTxInfo CanTxInfo;
 typedef struct CanTxInfo
 {
-    CanUserMsg_s msg[CAN_TX_MSG_BUF_LEN];
+    CanUserMsg msg[CAN_TX_MSG_BUF_LEN];
     uint8_t data[CAN_TX_MSG_BUF_LEN][8];
-} OM_PACKED CanTxInfo_s;
+} OM_PACKED CanTxInfo;
 
-static void can_info_init(CanUserMsg_t msg, CanFilterHandle_t filter_handle, uint8_t* data)
+static void can_info_init(CanUserMsg* msg, CanFilterHandle filter_handle, uint8_t* data)
 {
     msg->filterHandle = filter_handle;
     msg->userBuf = data;
 }
 
-static void can_txinfo_init(CanUserMsg_t msg, uint8_t* data)
+static void can_txinfo_init(CanUserMsg* msg, uint8_t* data)
 {
     msg->filterHandle = 0;
     msg->userBuf = data;
 }
 
 uint8_t cnt = 0;
-static void can_filter_callback(Device_t dev, void* param, CanFilterHandle_t filter_handle, size_t msg_count)
+static void can_filter_callback(Device* dev, void* param, CanFilterHandle filter_handle, size_t msg_count)
 {
     (void)filter_handle;
-    CanInfo_t info = (CanInfo_t)param;
+    CanInfo* info = (CanInfo*)param;
     device_read(dev, NULL, &info->msg[cnt], msg_count);
     for (size_t i = 0; i < msg_count; i++)
     {
@@ -46,13 +46,13 @@ static void can_filter_callback(Device_t dev, void* param, CanFilterHandle_t fil
     cnt %= CAN_MSG_BUF_LEN;
 }
 
-CanInfo_s can_info = {0};
-CanTxInfo_s can_tx_info;
+CanInfo can_info = {0};
+CanTxInfo can_tx_info;
 
 void can_test_task(void* param)
 {
-    OmRet_e ret = OM_OK;
-    Device_t can = device_find("can1");
+    OmRet ret = OM_OK;
+    Device* can = device_find("can1");
     while (!can)
     {
     };
@@ -63,7 +63,7 @@ void can_test_task(void* param)
     {
     };
 
-    CanFilterAllocArg_s filter_alloc_arg = {
+    CanFilterAllocArg filter_alloc_arg = {
         .request = CAN_FILTER_REQUEST_INIT(CAN_FILTER_MODE_MASK, CAN_FILTER_ID_STD_EXT, 0x101, 0x1F0, can_filter_callback, (void*)&can_info),
     };
     ret = device_ctrl(can, CAN_CMD_FILTER_ALLOC, &filter_alloc_arg);
@@ -88,8 +88,8 @@ void can_test_task(void* param)
 
 int main(void)
 {
-    OsalThread_t task1 = NULL;
-    OsalThreadAttr_s attr = {0};
+    OsalThread* task1 = NULL;
+    OsalThreadAttr attr = {0};
     attr.name = "CanTestTask";
     attr.stackSize = 512u * OSAL_STACK_WORD_BYTES;
     attr.priority = 4;

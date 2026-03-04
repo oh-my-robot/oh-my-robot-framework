@@ -18,12 +18,12 @@ typedef struct
     volatile uint32_t total;
     volatile uint32_t failed;
     volatile uint32_t done;
-} osal_thread_test_result_s;
+} OsalThreadTestResult;
 
-static OsalThread_t g_test_thread = NULL;
-static OsalThread_t g_worker_thread = NULL;
+static OsalThread* g_test_thread = NULL;
+static OsalThread* g_worker_thread = NULL;
 static volatile uint32_t g_worker_counter = 0u;
-static osal_thread_test_result_s g_thread_result = {0u, 0u, 0u};
+static OsalThreadTestResult g_thread_result = {0u, 0u, 0u};
 
 /**
  * @brief 绠€鍗曟柇瑷€璁℃暟鍣?
@@ -56,7 +56,7 @@ static void osal_thread_worker_entry(void* arg)
  */
 static void osal_thread_test_entry(void* arg)
 {
-    OsalThreadAttr_s worker_attr = {
+    OsalThreadAttr worker_attr = {
         "osal_thread_worker",
         512u * OSAL_STACK_WORD_BYTES,
         2u,
@@ -103,7 +103,7 @@ static void osal_thread_test_entry(void* arg)
  */
 int main(void)
 {
-    OsalThreadAttr_s test_attr = {
+    OsalThreadAttr test_attr = {
         "osal_thread_test",
         768u * OSAL_STACK_WORD_BYTES,
         2u,

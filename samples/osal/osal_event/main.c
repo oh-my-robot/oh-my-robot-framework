@@ -16,12 +16,12 @@ typedef struct
     volatile uint32_t total;
     volatile uint32_t failed;
     volatile uint32_t done;
-} osal_event_test_result_s;
+} OsalEventTestResult;
 
-static OsalEventFlags_t g_event              = NULL;
-static OsalThread_t g_test_thread             = NULL;
-static OsalThread_t g_setter_thread           = NULL;
-static osal_event_test_result_s g_event_result = {0u, 0u, 0u};
+static OsalEventFlags* g_event              = NULL;
+static OsalThread* g_test_thread             = NULL;
+static OsalThread* g_setter_thread           = NULL;
+static OsalEventTestResult g_event_result = {0u, 0u, 0u};
 
 /**
  * @brief 绠€鍗曟柇瑷€璁℃暟鍣?
@@ -60,8 +60,8 @@ static void osal_event_setter_thread_entry(void *arg)
  */
 static void osal_event_test_thread_entry(void *arg)
 {
-    OsalEventFlags_t event_temp  = NULL;
-    OsalThreadAttr_s setter_attr = {
+    OsalEventFlags* event_temp  = NULL;
+    OsalThreadAttr setter_attr = {
         "osal_event_setter",
         512u * OSAL_STACK_WORD_BYTES,
         2u,
@@ -130,7 +130,7 @@ static void osal_event_test_thread_entry(void *arg)
  */
 int main(void)
 {
-    OsalThreadAttr_s test_attr = {
+    OsalThreadAttr test_attr = {
         "osal_event_test",
         768u * OSAL_STACK_WORD_BYTES,
         2u,
