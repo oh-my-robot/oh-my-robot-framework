@@ -1,7 +1,7 @@
 # OM 架构参考手册
 
 ## 0. 说明
-- 本文基于当前仓库 `oh-my-robot/` 目录源码与公开头文件生成。
+- 本文基于当前仓库 [`oh-my-robot/`](../../) 目录源码与公开头文件生成。
 - 内外部划分规则（方案A）：
   - 外部宏/API：公开头文件中的宏/类型/函数（排除头文件保护宏）。
   - 内部宏：头文件保护宏，以及以 `_` 或 `__` 开头的宏。
@@ -25,8 +25,8 @@
 - `第三方库与外部实现（FreeRTOS/CMSIS/HAL 等）`
 
 ### 入口文件
-- `oh-my-robot/platform/osal/freertos/FreeRTOS`
-- `oh-my-robot/platform/bsp/vendor`
+- [`oh-my-robot/platform/osal/freertos/FreeRTOS`](../../platform/osal/freertos/FreeRTOS)
+- [`oh-my-robot/platform/bsp/vendor`](../../platform/bsp/vendor)
 
 ### 对外 API 列表
 - 无公开 C 头文件 API。
@@ -47,14 +47,14 @@
 - `BSP 构建入口与装配脚本`
 
 ### 入口文件
-- `oh-my-robot/platform/bsp/bsp.lua`
-- `oh-my-robot/platform/bsp/arch.lua`
-- `oh-my-robot/platform/bsp/components.lua`
-- `oh-my-robot/platform/bsp/data_loader.lua`
-- `oh-my-robot/platform/bsp/assets.lua`
-- `oh-my-robot/platform/bsp/inputs.lua`
-- `oh-my-robot/platform/bsp/boards`
-- `oh-my-robot/platform/bsp/data`
+- [`oh-my-robot/platform/bsp/bsp.lua`](../../platform/bsp/bsp.lua)
+- [`oh-my-robot/platform/bsp/arch.lua`](../../platform/bsp/arch.lua)
+- [`oh-my-robot/platform/bsp/components.lua`](../../platform/bsp/components.lua)
+- [`oh-my-robot/platform/bsp/data_loader.lua`](../../platform/bsp/data_loader.lua)
+- [`oh-my-robot/platform/bsp/assets.lua`](../../platform/bsp/assets.lua)
+- [`oh-my-robot/platform/bsp/inputs.lua`](../../platform/bsp/inputs.lua)
+- [`oh-my-robot/platform/bsp/boards`](../../platform/bsp/boards)
+- [`oh-my-robot/platform/bsp/data`](../../platform/bsp/data)
 
 ### 对外 API 列表
 - 无公开 C 头文件 API。
@@ -74,10 +74,10 @@
 - `sync 加速后端`
 
 ### 入口文件
-- `oh-my-robot/platform/osal/xmake.lua`
-- `oh-my-robot/platform/osal/freertos`
-- `oh-my-robot/platform/sync/xmake.lua`
-- `oh-my-robot/platform/sync/freertos`
+- [`oh-my-robot/platform/osal/xmake.lua`](../../platform/osal/xmake.lua)
+- [`oh-my-robot/platform/osal/freertos`](../../platform/osal/freertos)
+- [`oh-my-robot/platform/sync/xmake.lua`](../../platform/sync/xmake.lua)
+- [`oh-my-robot/platform/sync/freertos`](../../platform/sync/freertos)
 
 ### 对外 API 列表
 - 无公开 C 头文件 API。
@@ -102,29 +102,29 @@
 
 ### 入口文件
 - `oh-my-robot/lib/include/awlib.h`
-- `oh-my-robot/lib/include/core/om_compiler.h`
-- `oh-my-robot/lib/include/core/om_config.h`
-- `oh-my-robot/lib/include/core/om_def.h`
-- `oh-my-robot/lib/include/core/om_interrupt.h`
-- `oh-my-robot/lib/include/core/om_cpu.h`
+- [`oh-my-robot/lib/include/core/om_compiler.h`](../../lib/include/core/om_compiler.h)
+- [`oh-my-robot/lib/include/core/om_config.h`](../../lib/include/core/om_config.h)
+- [`oh-my-robot/lib/include/core/om_def.h`](../../lib/include/core/om_def.h)
+- [`oh-my-robot/lib/include/core/om_interrupt.h`](../../lib/include/core/om_interrupt.h)
+- [`oh-my-robot/lib/include/core/om_cpu.h`](../../lib/include/core/om_cpu.h)
 - `oh-my-robot/lib/include/core/algorithm/om_algorithm.h`
-- `oh-my-robot/lib/include/core/algorithm/controller/pid.h`
-- `oh-my-robot/lib/include/core/algorithm/protocol/crc.h`
+- [`oh-my-robot/lib/include/core/algorithm/controller/pid.h`](../../lib/include/core/algorithm/controller/pid.h)
+- [`oh-my-robot/lib/include/core/algorithm/protocol/crc.h`](../../lib/include/core/algorithm/protocol/crc.h)
 - `oh-my-robot/lib/include/core/data_struct/om_data_struct.h`
-- `oh-my-robot/lib/include/core/data_struct/avltree.h`
-- `oh-my-robot/lib/include/core/data_struct/corelist.h`
-- `oh-my-robot/lib/include/core/data_struct/ringbuffer.h`
-- `oh-my-robot/lib/include/atomic/atomic.h`
-- `oh-my-robot/lib/include/atomic/atomic_simple.h`
-- `oh-my-robot/lib/include/atomic/atomic_base.h`
+- [`oh-my-robot/lib/include/core/data_struct/avltree.h`](../../lib/include/core/data_struct/avltree.h)
+- [`oh-my-robot/lib/include/core/data_struct/corelist.h`](../../lib/include/core/data_struct/corelist.h)
+- [`oh-my-robot/lib/include/core/data_struct/ringbuffer.h`](../../lib/include/core/data_struct/ringbuffer.h)
+- [`oh-my-robot/lib/include/atomic/atomic.h`](../../lib/include/atomic/atomic.h)
+- [`oh-my-robot/lib/include/atomic/atomic_simple.h`](../../lib/include/atomic/atomic_simple.h)
+- [`oh-my-robot/lib/include/atomic/atomic_base.h`](../../lib/include/atomic/atomic_base.h)
 - `oh-my-robot/lib/include/atomic/om_atomic_gcc.h`
 - `oh-my-robot/lib/include/atomic/om_atomic_msvc.h`
 - `oh-my-robot/lib/include/atomic/om_atomic_ac5.h`
 - `oh-my-robot/lib/include/port/port_compiler.h`
-- `oh-my-robot/lib/include/port/om_port_hw.h`
+- [`oh-my-robot/lib/include/port/om_port_hw.h`](../../lib/include/port/om_port_hw.h)
 
 ### 对外 API 列表
-#### `oh-my-robot/lib/include/atomic/atomic.h`
+#### [`oh-my-robot/lib/include/atomic/atomic.h`](../../lib/include/atomic/atomic.h)
 - 外部宏
   - `om_load`
   - `om_store`
@@ -177,7 +177,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/include/atomic/atomic_base.h`
+#### [`oh-my-robot/lib/include/atomic/atomic_base.h`](../../lib/include/atomic/atomic_base.h)
 - 外部宏
   - `AW_USE_STDATOMIC`
   - `AW_MO_RELAXED`
@@ -280,7 +280,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/include/atomic/atomic_simple.h`
+#### [`oh-my-robot/lib/include/atomic/atomic_simple.h`](../../lib/include/atomic/atomic_simple.h)
 - 外部宏
   - `om_load_acq`
   - `om_load_rlx`
@@ -363,7 +363,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/include/core/algorithm/controller/pid.h`
+#### [`oh-my-robot/lib/include/core/algorithm/controller/pid.h`](../../lib/include/core/algorithm/controller/pid.h)
 - 外部宏
   - 无
 - 内部宏
@@ -390,7 +390,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/include/core/algorithm/protocol/crc.h`
+#### [`oh-my-robot/lib/include/core/algorithm/protocol/crc.h`](../../lib/include/core/algorithm/protocol/crc.h)
 - 外部宏
   - `CRC8_SZ`
   - `CRC16_SZ`
@@ -408,7 +408,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/include/core/om_compiler.h`
+#### [`oh-my-robot/lib/include/core/om_compiler.h`](../../lib/include/core/om_compiler.h)
 - 外部宏
   - 无
 - 内部宏
@@ -422,7 +422,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/include/core/om_config.h`
+#### [`oh-my-robot/lib/include/core/om_config.h`](../../lib/include/core/om_config.h)
 - 外部宏
   - 无
 - 内部宏
@@ -440,7 +440,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/include/core/om_cpu.h`
+#### [`oh-my-robot/lib/include/core/om_cpu.h`](../../lib/include/core/om_cpu.h)
 - 外部宏
   - `OM_CPU_ERRHANDLER`
 - 内部宏
@@ -473,7 +473,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/include/core/om_def.h`
+#### [`oh-my-robot/lib/include/core/om_def.h`](../../lib/include/core/om_def.h)
 - 外部宏
   - `OM_NULL`
   - `OM_WAIT_FOREVER`
@@ -542,7 +542,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/include/core/om_interrupt.h`
+#### [`oh-my-robot/lib/include/core/om_interrupt.h`](../../lib/include/core/om_interrupt.h)
 - 外部宏
   - `om_hw_enable_interrupt_force`
   - `om_hw_disable_interrupt_force`
@@ -560,7 +560,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/include/core/data_struct/avltree.h`
+#### [`oh-my-robot/lib/include/core/data_struct/avltree.h`](../../lib/include/core/data_struct/avltree.h)
 - 外部宏
   - 无
 - 内部宏
@@ -588,7 +588,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/include/core/data_struct/corelist.h`
+#### [`oh-my-robot/lib/include/core/data_struct/corelist.h`](../../lib/include/core/data_struct/corelist.h)
 - 外部宏
   - `NULL`
   - `LIST_POISON1`
@@ -615,7 +615,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/include/core/data_struct/ringbuffer.h`
+#### [`oh-my-robot/lib/include/core/data_struct/ringbuffer.h`](../../lib/include/core/data_struct/ringbuffer.h)
 - 外部宏
   - `smp_rmb`
   - `smp_wmb`
@@ -658,7 +658,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/include/port/om_port_hw.h`
+#### [`oh-my-robot/lib/include/port/om_port_hw.h`](../../lib/include/port/om_port_hw.h)
 - 外部宏
   - `PORT_PRIMASK_ENABLED`
   - `PORT_PRIMASK_DISABLED`
@@ -695,20 +695,20 @@
 - `端口选择`
 
 ### 入口文件
-- `oh-my-robot/lib/osal/include/osal/osal.h`
-- `oh-my-robot/lib/osal/include/osal/osal_core.h`
-- `oh-my-robot/lib/osal/include/osal/osal_thread.h`
-- `oh-my-robot/lib/osal/include/osal/osal_time.h`
-- `oh-my-robot/lib/osal/include/osal/osal_event.h`
-- `oh-my-robot/lib/osal/include/osal/osal_timer.h`
-- `oh-my-robot/lib/osal/include/osal/osal_mutex.h`
-- `oh-my-robot/lib/osal/include/osal/osal_sem.h`
-- `oh-my-robot/lib/osal/include/osal/osal_queue.h`
-- `oh-my-robot/lib/osal/include/osal/osal_config.h`
-- `oh-my-robot/lib/osal/include/osal/osal_port.h`
+- [`oh-my-robot/lib/osal/include/osal/osal.h`](../../lib/osal/include/osal/osal.h)
+- [`oh-my-robot/lib/osal/include/osal/osal_core.h`](../../lib/osal/include/osal/osal_core.h)
+- [`oh-my-robot/lib/osal/include/osal/osal_thread.h`](../../lib/osal/include/osal/osal_thread.h)
+- [`oh-my-robot/lib/osal/include/osal/osal_time.h`](../../lib/osal/include/osal/osal_time.h)
+- [`oh-my-robot/lib/osal/include/osal/osal_event.h`](../../lib/osal/include/osal/osal_event.h)
+- [`oh-my-robot/lib/osal/include/osal/osal_timer.h`](../../lib/osal/include/osal/osal_timer.h)
+- [`oh-my-robot/lib/osal/include/osal/osal_mutex.h`](../../lib/osal/include/osal/osal_mutex.h)
+- [`oh-my-robot/lib/osal/include/osal/osal_sem.h`](../../lib/osal/include/osal/osal_sem.h)
+- [`oh-my-robot/lib/osal/include/osal/osal_queue.h`](../../lib/osal/include/osal/osal_queue.h)
+- [`oh-my-robot/lib/osal/include/osal/osal_config.h`](../../lib/osal/include/osal/osal_config.h)
+- [`oh-my-robot/lib/osal/include/osal/osal_port.h`](../../lib/osal/include/osal/osal_port.h)
 
 ### 对外 API 列表
-#### `oh-my-robot/lib/osal/include/osal/osal.h`
+#### [`oh-my-robot/lib/osal/include/osal/osal.h`](../../lib/osal/include/osal/osal.h)
 - 外部宏
   - 无
 - 内部宏
@@ -722,7 +722,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/osal/include/osal/osal_config.h`
+#### [`oh-my-robot/lib/osal/include/osal/osal_config.h`](../../lib/osal/include/osal/osal_config.h)
 - 外部宏
   - `OSAL_WAIT_FOREVER`
   - `OSAL_STACK_WORD_BYTES`
@@ -740,7 +740,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/osal/include/osal/osal_core.h`
+#### [`oh-my-robot/lib/osal/include/osal/osal_core.h`](../../lib/osal/include/osal/osal_core.h)
 - 外部宏
   - `OSAL_OK`
   - `OSAL_ERR`
@@ -768,7 +768,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/osal/include/osal/osal_event.h`
+#### [`oh-my-robot/lib/osal/include/osal/osal_event.h`](../../lib/osal/include/osal/osal_event.h)
 - 外部宏
   - `OSAL_EVENT_OPT_WAIT_ALL`
   - `OSAL_EVENT_OPT_NO_CLEAR`
@@ -788,7 +788,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/osal/include/osal/osal_mutex.h`
+#### [`oh-my-robot/lib/osal/include/osal/osal_mutex.h`](../../lib/osal/include/osal/osal_mutex.h)
 - 外部宏
   - 无
 - 内部宏
@@ -805,7 +805,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/osal/include/osal/osal_port.h`
+#### [`oh-my-robot/lib/osal/include/osal/osal_port.h`](../../lib/osal/include/osal/osal_port.h)
 - 外部宏
   - `OSAL_PORT_FREERTOS`
   - `OSAL_PORT_POSIX`
@@ -821,7 +821,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/osal/include/osal/osal_queue.h`
+#### [`oh-my-robot/lib/osal/include/osal/osal_queue.h`](../../lib/osal/include/osal/osal_queue.h)
 - 外部宏
   - 无
 - 内部宏
@@ -845,7 +845,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/osal/include/osal/osal_sem.h`
+#### [`oh-my-robot/lib/osal/include/osal/osal_sem.h`](../../lib/osal/include/osal/osal_sem.h)
 - 外部宏
   - 无
 - 内部宏
@@ -863,7 +863,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/osal/include/osal/osal_thread.h`
+#### [`oh-my-robot/lib/osal/include/osal/osal_thread.h`](../../lib/osal/include/osal/osal_thread.h)
 - 外部宏
   - 无
 - 内部宏
@@ -884,7 +884,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/osal/include/osal/osal_time.h`
+#### [`oh-my-robot/lib/osal/include/osal/osal_time.h`](../../lib/osal/include/osal/osal_time.h)
 - 外部宏
   - `OSAL_MS_PER_SEC`
   - `OSAL_US_PER_MS`
@@ -908,7 +908,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/osal/include/osal/osal_timer.h`
+#### [`oh-my-robot/lib/osal/include/osal/osal_timer.h`](../../lib/osal/include/osal/osal_timer.h)
 - 外部宏
   - 无
 - 内部宏
@@ -942,10 +942,10 @@
 - `completion（one-shot 同步语义）`
 
 ### 入口文件
-- `oh-my-robot/lib/sync/include/sync/completion.h`
+- [`oh-my-robot/lib/sync/include/sync/completion.h`](../../lib/sync/include/sync/completion.h)
 
 ### 对外 API 列表
-#### `oh-my-robot/lib/sync/include/sync/completion.h`
+#### [`oh-my-robot/lib/sync/include/sync/completion.h`](../../lib/sync/include/sync/completion.h)
 - 外部宏
   - 无
 - 内部宏
@@ -983,17 +983,17 @@
 - `厂商驱动（DJI）`
 
 ### 入口文件
-- `oh-my-robot/lib/drivers/include/drivers/model/device.h`
-- `oh-my-robot/lib/drivers/include/drivers/peripheral/pal_dev.h`
-- `oh-my-robot/lib/drivers/include/drivers/peripheral/can/pal_can_dev.h`
-- `oh-my-robot/lib/drivers/include/drivers/peripheral/serial/pal_serial_dev.h`
-- `oh-my-robot/lib/drivers/include/drivers/motor/motor.h`
-- `oh-my-robot/lib/drivers/include/drivers/motor/motor_drv.h`
-- `oh-my-robot/lib/drivers/include/drivers/motor/vendors/dji/dji_motor_conf.h`
-- `oh-my-robot/lib/drivers/include/drivers/motor/vendors/dji/dji_motor_drv.h`
+- [`oh-my-robot/lib/drivers/include/drivers/model/device.h`](../../lib/drivers/include/drivers/model/device.h)
+- [`oh-my-robot/lib/drivers/include/drivers/peripheral/pal_dev.h`](../../lib/drivers/include/drivers/peripheral/pal_dev.h)
+- [`oh-my-robot/lib/drivers/include/drivers/peripheral/can/pal_can_dev.h`](../../lib/drivers/include/drivers/peripheral/can/pal_can_dev.h)
+- [`oh-my-robot/lib/drivers/include/drivers/peripheral/serial/pal_serial_dev.h`](../../lib/drivers/include/drivers/peripheral/serial/pal_serial_dev.h)
+- [`oh-my-robot/lib/drivers/include/drivers/motor/motor.h`](../../lib/drivers/include/drivers/motor/motor.h)
+- [`oh-my-robot/lib/drivers/include/drivers/motor/motor_drv.h`](../../lib/drivers/include/drivers/motor/motor_drv.h)
+- [`oh-my-robot/lib/drivers/include/drivers/motor/vendors/dji/dji_motor_conf.h`](../../lib/drivers/include/drivers/motor/vendors/dji/dji_motor_conf.h)
+- [`oh-my-robot/lib/drivers/include/drivers/motor/vendors/dji/dji_motor_drv.h`](../../lib/drivers/include/drivers/motor/vendors/dji/dji_motor_drv.h)
 
 ### 对外 API 列表
-#### `oh-my-robot/lib/drivers/include/drivers/model/device.h`
+#### [`oh-my-robot/lib/drivers/include/drivers/model/device.h`](../../lib/drivers/include/drivers/model/device.h)
 - 外部宏
   - 无
 - 内部宏
@@ -1034,7 +1034,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/drivers/include/drivers/motor/motor.h`
+#### [`oh-my-robot/lib/drivers/include/drivers/motor/motor.h`](../../lib/drivers/include/drivers/motor/motor.h)
 - 外部宏
   - 无
 - 内部宏
@@ -1048,7 +1048,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/drivers/include/drivers/motor/motor_drv.h`
+#### [`oh-my-robot/lib/drivers/include/drivers/motor/motor_drv.h`](../../lib/drivers/include/drivers/motor/motor_drv.h)
 - 外部宏
   - 无
 - 内部宏
@@ -1062,7 +1062,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/drivers/include/drivers/motor/vendors/dji/dji_motor_conf.h`
+#### [`oh-my-robot/lib/drivers/include/drivers/motor/vendors/dji/dji_motor_conf.h`](../../lib/drivers/include/drivers/motor/vendors/dji/dji_motor_conf.h)
 - 外部宏
   - `DJI_MOTOR_RX_ID_MIN`
   - `DJI_MOTOR_RX_ID_MAX`
@@ -1079,7 +1079,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/drivers/include/drivers/motor/vendors/dji/dji_motor_drv.h`
+#### [`oh-my-robot/lib/drivers/include/drivers/motor/vendors/dji/dji_motor_drv.h`](../../lib/drivers/include/drivers/motor/vendors/dji/dji_motor_drv.h)
 - 外部宏
   - `DJI_RX_ID_START`
   - `DJI_RX_ID_END`
@@ -1111,7 +1111,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/drivers/include/drivers/peripheral/can/pal_can_dev.h`
+#### [`oh-my-robot/lib/drivers/include/drivers/peripheral/can/pal_can_dev.h`](../../lib/drivers/include/drivers/peripheral/can/pal_can_dev.h)
 - 外部宏
   - `CAN_TX_MODE_UNOVERWRTING`
   - `CAN_TX_MODE_OVERWRITING`
@@ -1182,7 +1182,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/drivers/include/drivers/peripheral/pal_dev.h`
+#### [`oh-my-robot/lib/drivers/include/drivers/peripheral/pal_dev.h`](../../lib/drivers/include/drivers/peripheral/pal_dev.h)
 - 外部宏
   - 无
 - 内部宏
@@ -1196,7 +1196,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/drivers/include/drivers/peripheral/serial/pal_serial_dev.h`
+#### [`oh-my-robot/lib/drivers/include/drivers/peripheral/serial/pal_serial_dev.h`](../../lib/drivers/include/drivers/peripheral/serial/pal_serial_dev.h)
 - 外部宏
   - `SERIAL_O_BLCK_RX`
   - `SERIAL_O_BLCK_TX`
@@ -1264,10 +1264,10 @@
 - `log`
 
 ### 入口文件
-- `oh-my-robot/lib/services/include/services/services.h`
+- [`oh-my-robot/lib/services/include/services/services.h`](../../lib/services/include/services/services.h)
 
 ### 对外 API 列表
-#### `oh-my-robot/lib/services/include/services/services.h`
+#### [`oh-my-robot/lib/services/include/services/services.h`](../../lib/services/include/services/services.h)
 - 外部宏
   - 无
 - 内部宏
@@ -1299,11 +1299,11 @@
 - `supercap`
 
 ### 入口文件
-- `oh-my-robot/lib/systems/include/systems/systems.h`
-- `oh-my-robot/lib/systems/include/systems/supercap/supercap.h`
+- [`oh-my-robot/lib/systems/include/systems/systems.h`](../../lib/systems/include/systems/systems.h)
+- [`oh-my-robot/lib/systems/include/systems/supercap/supercap.h`](../../lib/systems/include/systems/supercap/supercap.h)
 
 ### 对外 API 列表
-#### `oh-my-robot/lib/systems/include/systems/supercap/supercap.h`
+#### [`oh-my-robot/lib/systems/include/systems/supercap/supercap.h`](../../lib/systems/include/systems/supercap/supercap.h)
 - 外部宏
   - 无
 - 内部宏
@@ -1317,7 +1317,7 @@
 - 内部函数
   - 无
 
-#### `oh-my-robot/lib/systems/include/systems/systems.h`
+#### [`oh-my-robot/lib/systems/include/systems/systems.h`](../../lib/systems/include/systems/systems.h)
 - 外部宏
   - 无
 - 内部宏

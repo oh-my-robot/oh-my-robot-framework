@@ -9,11 +9,12 @@
  * 4) 电机 ID、目标转速、PID 参数、控制模式均支持宏配置。
  */
 
+#include "core/om_def.h"
 #include "drivers/motor/vendors/direct_drive/P1010B.h"
 #include "drivers/peripheral/can/pal_can_dev.h"
 #include "osal/osal_thread.h"
 #include "osal/osal_time.h"
-#include "core/aw_cpu.h"
+#include "core/om_cpu.h"
 #include "core/algorithm/controller/pid.h"
 #include <stdint.h>
 
@@ -110,7 +111,7 @@ typedef struct
     volatile float pidOutput;
     volatile uint8_t activeMode;
     volatile uint8_t online;
-    volatile AwlfRet_e lastLoopRet;
+    volatile OmRet_e lastLoopRet;
     volatile P1010BRejectReason_e lastRejectReason;
 } P1010BDebugRuntimeBlock_s;
 
@@ -126,11 +127,11 @@ typedef struct
 /* 全局对象                                                                   */
 /* -------------------------------------------------------------------------- */
 
-static Device_t g_canDevice = NULL;
-static P1010BBus_s g_p1010bBus;
-static osal_thread_t g_speedLoopThread = NULL;
+static Device_t g_can_device = NULL;
+static P1010BBus_s g_p1010b_bus;
+static OsalThread_t g_speed_loop_thread = NULL;
 
-static P1010BSpeedLoopNode_s g_motorNode = P1010B_SPEED_LOOP_NODE_INIT(
+static P1010BSpeedLoopNode_s g_motor_node = P1010B_SPEED_LOOP_NODE_INIT(
     P1010B_TEST_MOTOR_ID,
     P1010B_TEST_CONTROL_MODE,
     P1010B_TEST_TARGET_SPEED_RPM,
@@ -177,21 +178,21 @@ static float p1010b_sample_absf(float value)
     return value;
 }
 
-static float p1010b_sample_ramp_to_target(float currentValue, float targetValue, float maxStep)
+static float p1010b_sample_ramp_to_target(float current_value, float target_value, float max_step)
 {
-    if (maxStep <= 0.0f)
+    if (max_step <= 0.0f)
     {
-        return targetValue;
+        return target_value;
     }
-    if (currentValue < (targetValue - maxStep))
+    if (current_value < (target_value - max_step))
     {
-        return currentValue + maxStep;
+        return current_value + max_step;
     }
-    if (currentValue > (targetValue + maxStep))
+    if (current_value > (target_value + max_step))
     {
-        return currentValue - maxStep;
+        return current_value - max_step;
     }
-    return targetValue;
+    return target_value;
 }
 
 static uint8_t p1010b_sample_is_float_changed(float lhs, float rhs)
@@ -199,13 +200,13 @@ static uint8_t p1010b_sample_is_float_changed(float lhs, float rhs)
     return (p1010b_sample_absf(lhs - rhs) > P1010B_FLOAT_COMPARE_EPSILON) ? 1U : 0U;
 }
 
-static uint8_t p1010b_sample_is_supported_control_mode(uint8_t controlMode)
+static uint8_t p1010b_sample_is_supported_control_mode(uint8_t control_mode)
 {
-    if (controlMode == (uint8_t)P1010B_MODE_CURRENT)
+    if (control_mode == (uint8_t)P1010B_MODE_CURRENT)
     {
         return 1U;
     }
-    if (controlMode == (uint8_t)P1010B_MODE_OPEN_LOOP)
+    if (control_mode == (uint8_t)P1010B_MODE_OPEN_LOOP)
     {
         return 1U;
     }
@@ -214,68 +215,68 @@ static uint8_t p1010b_sample_is_supported_control_mode(uint8_t controlMode)
 
 static void p1010b_sample_release_resources(void)
 {
-    if (g_p1010bBus.filterAllocated)
+    if (g_p1010b_bus.filterAllocated)
     {
-        (void)p1010b_bus_deinit(&g_p1010bBus);
+        (void)p1010b_bus_deinit(&g_p1010b_bus);
     }
 
-    if (g_canDevice != NULL)
+    if (g_can_device != NULL)
     {
-        (void)device_close(g_canDevice);
-        g_canDevice = NULL;
+        (void)device_close(g_can_device);
+        g_can_device = NULL;
     }
 }
 
-static AwlfRet_e p1010b_sample_init_bus_and_motor(void)
+static OmRet_e p1010b_sample_init_bus_and_motor(void)
 {
-    AwlfRet_e awlfRet;
-    P1010BConfig_s driverConfig = P1010B_DEFAULT_CONFIG(P1010B_TEST_MOTOR_ID);
+    OmRet_e awlf_ret;
+    P1010BConfig_s driver_config = P1010B_DEFAULT_CONFIG(P1010B_TEST_MOTOR_ID);
 
-    driverConfig.defaultMode = P1010B_TEST_CONTROL_MODE;
-    driverConfig.activeReport.enable = false;
+    driver_config.defaultMode = P1010B_TEST_CONTROL_MODE;
+    driver_config.activeReport.enable = false;
 
-    g_canDevice = device_find((char *)P1010B_TEST_CAN_NAME);
-    if (g_canDevice == NULL)
+    g_can_device = device_find((char *)P1010B_TEST_CAN_NAME);
+    if (g_can_device == NULL)
     {
-        return AWLF_ERROR_NULL;
+        return OM_ERROR_NULL;
     }
 
-    awlfRet = device_open(g_canDevice, CAN_O_INT_RX | CAN_O_INT_TX);
-    if (awlfRet != AWLF_OK)
+    awlf_ret = device_open(g_can_device, CAN_O_INT_RX | CAN_O_INT_TX);
+    if (awlf_ret != OM_OK)
     {
-        return awlfRet;
+        return awlf_ret;
     }
 
-    awlfRet = p1010b_bus_init(&g_p1010bBus, g_canDevice);
-    if (awlfRet != AWLF_OK)
+    awlf_ret = p1010b_bus_init(&g_p1010b_bus, g_can_device);
+    if (awlf_ret != OM_OK)
     {
-        return awlfRet;
+        return awlf_ret;
     }
 
     /*
      * 当前驱动不会在 register 自动下发主动上报配置。
      * 仍建议先启动 CAN，再执行后续控制序列，避免首批同步事务丢帧。
      */
-    awlfRet = device_ctrl(g_canDevice, CAN_CMD_START, NULL);
-    if (awlfRet != AWLF_OK)
+    awlf_ret = device_ctrl(g_can_device, CAN_CMD_START, NULL);
+    if (awlf_ret != OM_OK)
     {
-        return awlfRet;
+        return awlf_ret;
     }
     
-    awlfRet = p1010b_register(&g_p1010bBus, &g_motorNode.handle, &driverConfig);
-    if (awlfRet != AWLF_OK)
+    awlf_ret = p1010b_register(&g_p1010b_bus, &g_motor_node.handle, &driver_config);
+    if (awlf_ret != OM_OK)
     {
-        return awlfRet;
+        return awlf_ret;
     }
 
-    return AWLF_OK;
+    return OM_OK;
 }
 
-static AwlfRet_e p1010b_sample_init_speed_pid(P1010BSpeedLoopNode_s *node)
+static OmRet_e p1010b_sample_init_speed_pid(P1010BSpeedLoopNode_s *node)
 {
     if (node == NULL)
     {
-        return AWLF_ERROR_PARAM;
+        return OM_ERROR_PARAM;
     }
 
     if (!pid_init(&node->speedPid,
@@ -284,48 +285,48 @@ static AwlfRet_e p1010b_sample_init_speed_pid(P1010BSpeedLoopNode_s *node)
                   node->speedPidConfig.ki,
                   node->speedPidConfig.kd))
     {
-        return AWLF_ERROR;
+        return OM_ERROR_PARAM;
     }
 
     pid_set_output_limit(&node->speedPid, node->speedPidConfig.outputMin, node->speedPidConfig.outputMax);
-    return AWLF_OK;
+    return OM_OK;
 }
 
-static AwlfRet_e p1010b_sample_prepare_motor(P1010BSpeedLoopNode_s *node)
+static OmRet_e p1010b_sample_prepare_motor(P1010BSpeedLoopNode_s *node)
 {
-    AwlfRet_e awlfRet;
+    OmRet_e awlf_ret;
     P1010BResponse_s response = {0};
 
     if (node == NULL)
     {
-        return AWLF_ERROR_PARAM;
+        return OM_ERROR_PARAM;
     }
 
-    awlfRet = p1010b_disable(&node->handle, 0U, &response);
-    if (awlfRet != AWLF_OK)
+    awlf_ret = p1010b_disable(&node->handle, 0U, &response);
+    if (awlf_ret != OM_OK)
     {
-        return awlfRet;
+        return awlf_ret;
     }
 
-    awlfRet = p1010b_set_mode(&node->handle, node->mode, 0U, &response);
-    if (awlfRet != AWLF_OK)
+    awlf_ret = p1010b_set_mode(&node->handle, node->mode, 0U, &response);
+    if (awlf_ret != OM_OK)
     {
-        return awlfRet;
+        return awlf_ret;
     }
 
-    awlfRet = p1010b_set_active_report(&node->handle, &node->handle.runtime.activeReport, 0U, &response);
-    if (awlfRet != AWLF_OK)
+    awlf_ret = p1010b_set_active_report(&node->handle, &node->handle.runtime.activeReport, 0U, &response);
+    if (awlf_ret != OM_OK)
     {
-        return awlfRet;
+        return awlf_ret;
     }
 
-    awlfRet = p1010b_enable(&node->handle, 0U, &response);
-    if (awlfRet != AWLF_OK)
+    awlf_ret = p1010b_enable(&node->handle, 0U, &response);
+    if (awlf_ret != OM_OK)
     {
-        return awlfRet;
+        return awlf_ret;
     }
 
-    return AWLF_OK;
+    return OM_OK;
 }
 
 /**
@@ -335,90 +336,90 @@ static AwlfRet_e p1010b_sample_prepare_motor(P1010BSpeedLoopNode_s *node)
  * - PID 参数或输出限幅变化后重建 PID；
  * - 模式变化后执行一次 disable->set_mode->enable。
  */
-static AwlfRet_e p1010b_sample_sync_debug_tuning(P1010BSpeedLoopNode_s *node)
+static OmRet_e p1010b_sample_sync_debug_tuning(P1010BSpeedLoopNode_s *node)
 {
-    uint8_t requestedMode;
-    float requestedKp;
-    float requestedKi;
-    float requestedKd;
-    float requestedOutMin;
-    float requestedOutMax;
-    uint8_t needReloadPid = 0U;
-    uint8_t needSwitchMode = 0U;
+    uint8_t requested_mode;
+    float requested_kp;
+    float requested_ki;
+    float requested_kd;
+    float requested_out_min;
+    float requested_out_max;
+    uint8_t need_reload_pid = 0U;
+    uint8_t need_switch_mode = 0U;
 
     if (node == NULL)
     {
-        return AWLF_ERROR_PARAM;
+        return OM_ERROR_PARAM;
     }
 
     node->speedTargetRpm = g_p1010b_debug_tune_block.speedTargetRpm;
 
-    requestedMode = g_p1010b_debug_tune_block.controlMode;
-    if (p1010b_sample_is_supported_control_mode(requestedMode) &&
-        (requestedMode != (uint8_t)node->mode))
+    requested_mode = g_p1010b_debug_tune_block.controlMode;
+    if (p1010b_sample_is_supported_control_mode(requested_mode) &&
+        (requested_mode != (uint8_t)node->mode))
     {
-        node->mode = (P1010BMode_e)requestedMode;
-        needSwitchMode = 1U;
+        node->mode = (P1010BMode_e)requested_mode;
+        need_switch_mode = 1U;
     }
 
-    requestedKp = g_p1010b_debug_tune_block.speedPidGain[P1010B_PID_GAIN_KP_INDEX];
-    requestedKi = g_p1010b_debug_tune_block.speedPidGain[P1010B_PID_GAIN_KI_INDEX];
-    requestedKd = g_p1010b_debug_tune_block.speedPidGain[P1010B_PID_GAIN_KD_INDEX];
-    requestedOutMin = g_p1010b_debug_tune_block.speedPidOutputLimit[P1010B_PID_OUTPUT_LIMIT_MIN_INDEX];
-    requestedOutMax = g_p1010b_debug_tune_block.speedPidOutputLimit[P1010B_PID_OUTPUT_LIMIT_MAX_INDEX];
+    requested_kp = g_p1010b_debug_tune_block.speedPidGain[P1010B_PID_GAIN_KP_INDEX];
+    requested_ki = g_p1010b_debug_tune_block.speedPidGain[P1010B_PID_GAIN_KI_INDEX];
+    requested_kd = g_p1010b_debug_tune_block.speedPidGain[P1010B_PID_GAIN_KD_INDEX];
+    requested_out_min = g_p1010b_debug_tune_block.speedPidOutputLimit[P1010B_PID_OUTPUT_LIMIT_MIN_INDEX];
+    requested_out_max = g_p1010b_debug_tune_block.speedPidOutputLimit[P1010B_PID_OUTPUT_LIMIT_MAX_INDEX];
 
-    if (requestedOutMin < requestedOutMax)
+    if (requested_out_min < requested_out_max)
     {
-        if (p1010b_sample_is_float_changed(node->speedPidConfig.kp, requestedKp))
+        if (p1010b_sample_is_float_changed(node->speedPidConfig.kp, requested_kp))
         {
-            node->speedPidConfig.kp = requestedKp;
-            needReloadPid = 1U;
+            node->speedPidConfig.kp = requested_kp;
+            need_reload_pid = 1U;
         }
-        if (p1010b_sample_is_float_changed(node->speedPidConfig.ki, requestedKi))
+        if (p1010b_sample_is_float_changed(node->speedPidConfig.ki, requested_ki))
         {
-            node->speedPidConfig.ki = requestedKi;
-            needReloadPid = 1U;
+            node->speedPidConfig.ki = requested_ki;
+            need_reload_pid = 1U;
         }
-        if (p1010b_sample_is_float_changed(node->speedPidConfig.kd, requestedKd))
+        if (p1010b_sample_is_float_changed(node->speedPidConfig.kd, requested_kd))
         {
-            node->speedPidConfig.kd = requestedKd;
-            needReloadPid = 1U;
+            node->speedPidConfig.kd = requested_kd;
+            need_reload_pid = 1U;
         }
-        if (p1010b_sample_is_float_changed(node->speedPidConfig.outputMin, requestedOutMin))
+        if (p1010b_sample_is_float_changed(node->speedPidConfig.outputMin, requested_out_min))
         {
-            node->speedPidConfig.outputMin = requestedOutMin;
-            needReloadPid = 1U;
+            node->speedPidConfig.outputMin = requested_out_min;
+            need_reload_pid = 1U;
         }
-        if (p1010b_sample_is_float_changed(node->speedPidConfig.outputMax, requestedOutMax))
+        if (p1010b_sample_is_float_changed(node->speedPidConfig.outputMax, requested_out_max))
         {
-            node->speedPidConfig.outputMax = requestedOutMax;
-            needReloadPid = 1U;
-        }
-    }
-
-    if (needReloadPid != 0U)
-    {
-        AwlfRet_e awlfRet = p1010b_sample_init_speed_pid(node);
-        if (awlfRet != AWLF_OK)
-        {
-            return awlfRet;
+            node->speedPidConfig.outputMax = requested_out_max;
+            need_reload_pid = 1U;
         }
     }
 
-    if (needSwitchMode != 0U)
+    if (need_reload_pid != 0U)
     {
-        AwlfRet_e awlfRet = p1010b_sample_prepare_motor(node);
-        if (awlfRet != AWLF_OK)
+        OmRet_e awlf_ret = p1010b_sample_init_speed_pid(node);
+        if (awlf_ret != OM_OK)
         {
-            return awlfRet;
+            return awlf_ret;
         }
     }
 
-    return AWLF_OK;
+    if (need_switch_mode != 0U)
+    {
+        OmRet_e awlf_ret = p1010b_sample_prepare_motor(node);
+        if (awlf_ret != OM_OK)
+        {
+            return awlf_ret;
+        }
+    }
+
+    return OM_OK;
 }
 
-static void p1010b_sample_update_debug_observer(P1010BSpeedLoopNode_s *node, float speedCommandRpm, float speedFeedbackRpm,
-                                                 float pidOutput, AwlfRet_e loopRet)
+static void p1010b_sample_update_debug_observer(P1010BSpeedLoopNode_s *node, float speed_command_rpm, float speed_feedback_rpm,
+                                                 float pid_output, OmRet_e loop_ret)
 {
     if (node == NULL)
     {
@@ -426,12 +427,12 @@ static void p1010b_sample_update_debug_observer(P1010BSpeedLoopNode_s *node, flo
     }
 
     g_p1010b_debug_runtime_block.speedTargetRpm = node->speedTargetRpm;
-    g_p1010b_debug_runtime_block.speedCommandRpm = speedCommandRpm;
-    g_p1010b_debug_runtime_block.speedFeedbackRpm = speedFeedbackRpm;
-    g_p1010b_debug_runtime_block.pidOutput = pidOutput;
+    g_p1010b_debug_runtime_block.speedCommandRpm = speed_command_rpm;
+    g_p1010b_debug_runtime_block.speedFeedbackRpm = speed_feedback_rpm;
+    g_p1010b_debug_runtime_block.pidOutput = pid_output;
     g_p1010b_debug_runtime_block.activeMode = (uint8_t)node->mode;
     g_p1010b_debug_runtime_block.online = p1010b_is_online(&node->handle) ? 1U : 0U;
-    g_p1010b_debug_runtime_block.lastLoopRet = loopRet;
+    g_p1010b_debug_runtime_block.lastLoopRet = loop_ret;
     g_p1010b_debug_runtime_block.lastRejectReason = p1010b_get_last_reject_reason(&node->handle);
 }
 
@@ -441,16 +442,16 @@ static void p1010b_sample_update_debug_observer(P1010BSpeedLoopNode_s *node, flo
 
 static void p1010b_speed_loop_thread_entry(void *argument)
 {
-    osal_time_ms_t deadlineMs = 0U;
-    float speedCommandRpm = 0.0f;
-    uint8_t speedCommandInitialized = 0U;
+    OsalTimer_t deadline_ms = 0U;
+    float speed_command_rpm = 0.0f;
+    uint8_t speed_command_initialized = 0U;
 
     (void)argument;
 
     /* 上电后先完成 disable -> set_mode -> set_active_report -> enable 同步序列。 */
     for (;;)
     {
-        if (p1010b_sample_prepare_motor(&g_motorNode) == AWLF_OK)
+        if (p1010b_sample_prepare_motor(&g_motor_node) == OM_OK)
         {
             break;
         }
@@ -460,53 +461,53 @@ static void p1010b_speed_loop_thread_entry(void *argument)
     for (;;)
     {
         const P1010BFeedback_s *feedback;
-        float speedFeedbackRpm = 0.0f;
-        float pidOutput;
-        AwlfRet_e awlfRet;
-        AwlfRet_e tuneRet;
+        float speed_feedback_rpm = 0.0f;
+        float pid_output;
+        OmRet_e awlf_ret;
+        OmRet_e tune_ret;
 
-        tuneRet = p1010b_sample_sync_debug_tuning(&g_motorNode);
-        if (tuneRet != AWLF_OK)
+        tune_ret = p1010b_sample_sync_debug_tuning(&g_motor_node);
+        if (tune_ret != OM_OK)
         {
             (void)osal_sleep_ms(P1010B_TEST_RETRY_DELAY_MS);
             continue;
         }
 
-        feedback = p1010b_get_feedback(&g_motorNode.handle);
+        feedback = p1010b_get_feedback(&g_motor_node.handle);
         if (feedback != NULL)
         {
-            speedFeedbackRpm = feedback->speedRpm;
+            speed_feedback_rpm = feedback->speedRpm;
         }
 
-        if (speedCommandInitialized == 0U)
+        if (speed_command_initialized == 0U)
         {
-            speedCommandRpm = speedFeedbackRpm;
-            speedCommandInitialized = 1U;
+            speed_command_rpm = speed_feedback_rpm;
+            speed_command_initialized = 1U;
         }
 
-        speedCommandRpm = p1010b_sample_ramp_to_target(speedCommandRpm, g_motorNode.speedTargetRpm, P1010B_TEST_SOFTSTART_STEP_RPM);
+        speed_command_rpm = p1010b_sample_ramp_to_target(speed_command_rpm, g_motor_node.speedTargetRpm, P1010B_TEST_SOFTSTART_STEP_RPM);
 
         /* PID 输出单位由控制模式决定：电流模式=安培，电压模式=伏特。 */
-        pidOutput = pid_compute(
-            &g_motorNode.speedPid,
-            speedCommandRpm,
-            speedFeedbackRpm,
+        pid_output = pid_compute(
+            &g_motor_node.speedPid,
+            speed_command_rpm,
+            speed_feedback_rpm,
             p1010b_sample_time_s());
 
-        awlfRet = p1010b_set_target(&g_motorNode.handle, pidOutput);
+        awlf_ret = p1010b_set_target(&g_motor_node.handle, pid_output);
         p1010b_sample_update_debug_observer(
-            &g_motorNode,
-            speedCommandRpm,
-            speedFeedbackRpm,
-            pidOutput,
-            awlfRet);
-        if (awlfRet != AWLF_OK)
+            &g_motor_node,
+            speed_command_rpm,
+            speed_feedback_rpm,
+            pid_output,
+            awlf_ret);
+        if (awlf_ret != OM_OK)
         {
             (void)osal_sleep_ms(P1010B_TEST_RETRY_DELAY_MS);
             continue;
         }
 
-        if (osal_delay_until(&deadlineMs, P1010B_TEST_LOOP_PERIOD_MS, NULL) != OSAL_OK)
+        if (osal_delay_until(&deadline_ms, P1010B_TEST_LOOP_PERIOD_MS, NULL) != OSAL_OK)
         {
             (void)osal_sleep_ms(P1010B_TEST_LOOP_PERIOD_MS);
         }
@@ -519,33 +520,33 @@ static void p1010b_speed_loop_thread_entry(void *argument)
 
 int main(void)
 {
-    AwlfRet_e awlfRet;
-    osal_status_t osalRet;
-    osal_thread_attr_t speedLoopThreadAttr = {0};
+    OmRet_e awlf_ret;
+    OsalStatus_t osal_ret;
+    OsalThreadAttr_s speed_loop_thread_attr = {0};
 
-    aw_board_init();
-    aw_core_init();
+    om_board_init();
+    om_core_init();
 
-    awlfRet = p1010b_sample_init_bus_and_motor();
-    if (awlfRet != AWLF_OK)
+    awlf_ret = p1010b_sample_init_bus_and_motor();
+    if (awlf_ret != OM_OK)
     {
         p1010b_sample_release_resources();
         return -1;
     }
 
-    awlfRet = p1010b_sample_init_speed_pid(&g_motorNode);
-    if (awlfRet != AWLF_OK)
+    awlf_ret = p1010b_sample_init_speed_pid(&g_motor_node);
+    if (awlf_ret != OM_OK)
     {
         p1010b_sample_release_resources();
         return -1;
     }
 
-    speedLoopThreadAttr.name = "p1010b_speed";
-    speedLoopThreadAttr.priority = P1010B_TEST_THREAD_PRIORITY;
-    speedLoopThreadAttr.stack_size = P1010B_TEST_THREAD_STACK;
+    speed_loop_thread_attr.name = "p1010b_speed";
+    speed_loop_thread_attr.priority = P1010B_TEST_THREAD_PRIORITY;
+    speed_loop_thread_attr.stackSize = P1010B_TEST_THREAD_STACK;
 
-    osalRet = osal_thread_create(&g_speedLoopThread, &speedLoopThreadAttr, p1010b_speed_loop_thread_entry, NULL);
-    if (osalRet != OSAL_OK)
+    osal_ret = osal_thread_create(&g_speed_loop_thread, &speed_loop_thread_attr, p1010b_speed_loop_thread_entry, NULL);
+    if (osal_ret != OSAL_OK)
     {
         p1010b_sample_release_resources();
         return -1;

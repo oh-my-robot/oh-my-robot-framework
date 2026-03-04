@@ -1,4 +1,4 @@
-name: ✨ 开发新功能 / 模块
+name: ✨ 开发新功能 / 模块 / 文档等
 description: 申请开发新的驱动、系统机制、数据结构或上层服务
 title: "feat: [模块名] "
 labels: ["enhancement"]
@@ -22,6 +22,9 @@ body:
         - label: 系统层 (OSAL, Sync, Async, Middleware, Service)
         - label: 逻辑层 (通用数据结构, 通用算法库等)
         - label: 应用层 (Sample 演示，应用层)
+        - label: 构建与脚本层 (构建系统、脚本、环境变量等)
+        - label: 其他层 (未归类)
+      required: true
   - type: textarea
     id: acceptance
     attributes:

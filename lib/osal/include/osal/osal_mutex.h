@@ -1,4 +1,4 @@
-﻿#ifndef OM_OSAL_MUTEX_H
+#ifndef OM_OSAL_MUTEX_H
 #define OM_OSAL_MUTEX_H
 
 #include <stdint.h>
@@ -8,41 +8,40 @@
 typedef struct OsalMutexHandle_s* OsalMutex_t;
 
 /**
- * @brief 鍒涘缓浜掓枼閿侊紙绾跨▼涓婁笅鏂囷級
- * @param mutex 杈撳嚭浜掓枼閿佸彞鏌?
- * @return `OSAL_OK` 鎴愬姛锛涘け璐ヨ繑鍥?`OSAL_INVALID/OSAL_NO_RESOURCE`
- * @note 绂佹鍦?ISR 涓皟鐢ㄣ€?
+ * @brief 创建互斥锁（线程上下文）
+ * @param mutex 输出互斥锁句
+ * @return `OSAL_OK` 成功；失败返`OSAL_INVALID/OSAL_NO_RESOURCE`
+ * @note 禁止ISR 中调用
  */
 OsalStatus_t osal_mutex_create(OsalMutex_t* mutex);
 
 /**
- * @brief 鍒犻櫎浜掓枼閿侊紙绾跨▼涓婁笅鏂囷級
- * @param mutex 浜掓枼閿佸彞鏌?
- * @return `OSAL_OK` 鎴愬姛锛涘け璐ヨ繑鍥?`OSAL_INVALID`
- * @note 绂佹鍦?ISR 涓皟鐢ㄣ€?
- * @note 涓ユ牸鍓嶇疆鏉′欢锛氳皟鐢ㄦ柟闇€纭繚鏃犲苟鍙戣闂拰鏃犵瓑寰呰€呫€?
+ * @brief 删除互斥锁（线程上下文）
+ * @param mutex 互斥锁句
+ * @return `OSAL_OK` 成功；失败返`OSAL_INVALID`
+ * @note 禁止ISR 中调用
+ * @note 严格前置条件：调用方需确保无并发访问和无等待者
  */
 OsalStatus_t osal_mutex_delete(OsalMutex_t mutex);
 
 /**
- * @brief 鍔犻攣锛堢嚎绋嬩笂涓嬫枃锛岄潪閫掑綊璇箟锛?
- * @param mutex 浜掓枼閿佸彞鏌?
- * @param timeout_ms 瓒呮椂鏃堕棿锛坢s锛夛紝鍙敤 OSAL_WAIT_FOREVER
- * @return `OSAL_OK` 鎴愬姛锛涘け璐ヨ繑鍥?`OSAL_WOULD_BLOCK/OSAL_TIMEOUT/OSAL_INVALID/OSAL_INTERNAL`
- * @note 绂佹鍦?ISR 涓皟鐢ㄣ€?
- * @note v1.0 涓嶆敮鎸侀€掑綊 mutex锛涘悓绾跨▼閲嶅鍔犻攣鎸夎秴鏃惰鍒欒繑鍥?`OSAL_WOULD_BLOCK/OSAL_TIMEOUT`锛堟垨鏃犻檺绛夊緟锛夈€?
+ * @brief 加锁（线程上下文，非递归语义）
+ * @param mutex 互斥锁句
+ * @param timeout_ms 超时时间（ms），可用 OSAL_WAIT_FOREVER
+ * @return `OSAL_OK` 成功；失败返`OSAL_WOULD_BLOCK/OSAL_TIMEOUT/OSAL_INVALID/OSAL_INTERNAL`
+ * @note 禁止ISR 中调用
+ * @note v1.0 不支持递归 mutex；同线程重复加锁按超时规则返`OSAL_WOULD_BLOCK/OSAL_TIMEOUT`（或无限等待）
  */
 OsalStatus_t osal_mutex_lock(OsalMutex_t mutex, uint32_t timeout_ms);
 
 /**
- * @brief 瑙ｉ攣锛堢嚎绋嬩笂涓嬫枃锛?
- * @param mutex 浜掓枼閿佸彞鏌?
- * @return `OSAL_OK` 鎴愬姛锛涘け璐ヨ繑鍥?`OSAL_INVALID`
- * @note 绂佹鍦?ISR 涓皟鐢ㄣ€?
- * @note 闈?owner 瑙ｉ攣杩斿洖 `OSAL_INVALID`銆?
- * @note 浜掓枼閿佸簲閬垮厤璺ㄧ嚎绋嬮噴鏀撅紱浠呮寔鏈夐攣鐨勭嚎绋嬪彲鎵ц瑙ｉ攣銆?
+ * @brief 解锁（线程上下文）
+ * @param mutex 互斥锁句
+ * @return `OSAL_OK` 成功；失败返`OSAL_INVALID`
+ * @note 禁止ISR 中调用
+ * @note 非 owner 解锁返回 `OSAL_INVALID`
+ * @note 互斥锁应避免跨线程释放；仅持有锁的线程可执行解锁
  */
 OsalStatus_t osal_mutex_unlock(OsalMutex_t mutex);
 
 #endif
-

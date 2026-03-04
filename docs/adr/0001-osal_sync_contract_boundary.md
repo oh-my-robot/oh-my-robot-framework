@@ -20,4 +20,4 @@
 - `OSAL` 的接口演进必须保证机制语义不回退。
 - `SYNC` 需要参考实现和一致性测试，禁止平台私有实现改变语义。
 - 业务层不得依赖 `OSAL` 未承诺行为（公平性、唤醒顺序、性能特征）。
-- 相关规范引用路径统一为 `docs/architecture/layer_dependency_spec.md`。
+- 相关规范引用路径统一为 [`docs/architecture/layer_dependency_spec.md`](../architecture/layer_dependency_spec.md)。

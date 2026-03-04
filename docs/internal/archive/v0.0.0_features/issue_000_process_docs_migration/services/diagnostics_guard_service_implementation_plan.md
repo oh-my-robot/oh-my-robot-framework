@@ -2,7 +2,7 @@
 
 ## 1. 背景与目标
 
-基于 `docs/adr/0008-diagnostics_guard_service_semantic_freeze.md`，本文给出 OM 守护服务的实现级方案，目标是在不破坏现有分层与接口兼容性的前提下，落地统一在线监测能力。
+基于 [`docs/adr/0008-diagnostics_guard_service_semantic_freeze.md`](../../../../../adr/0008-diagnostics_guard_service_semantic_freeze.md)，本文给出 OM 守护服务的实现级方案，目标是在不破坏现有分层与接口兼容性的前提下，落地统一在线监测能力。
 
 实现目标：
 
@@ -29,9 +29,9 @@
 
 ## 3. 依赖与边界
 
-1. 依赖边界遵循 `oh-my-robot/docs/architecture/layer_dependency_spec.md`。
+1. 依赖边界遵循 [`oh-my-robot/docs/architecture/layer_dependency_spec.md`](../../../../../architecture/layer_dependency_spec.md)。
 2. 守护控制面位于 `lib/services/diagnostics`，不反向依赖 `drivers(core)`。
-3. 执行面依赖 `lib/async` 抽象能力，不直接依赖具体队列实现。
+3. 执行面依赖 [`lib/async`](../../../../../../lib/async) 抽象能力，不直接依赖具体队列实现。
 4. 驱动适配层负责桥接事件，守护核心不感知驱动私有结构。
 5. `systems` 负责恢复策略与业务动作编排。
 

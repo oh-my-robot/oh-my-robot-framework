@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file osal_time.h
  * @brief OSAL 时间原语接口（32 位毫秒合同）
  * @details
@@ -106,7 +106,7 @@ OsalStatus_t osal_sleep_ms(OsalTimeMs_t sleep_ms);
  * - 首次调用传入 `*deadline_cursor_ms = 0`，接口内部初始化为 `now + period_ms`。
  * - 后续调用应原样回传该变量，不需要手动计算“下一次唤醒时间”。
  * - 每次调用返回前，接口内部都会将游标推进一个周期（`+period_ms`）。
- * @param period_ms 周期（ms）
+ * @param period_ms 周期（ms））
  * @param missed_periods 输出本次调用前已过期的周期数量，可为 `NULL`
  * @return `OSAL_OK` 成功；`OSAL_INVALID` 参数或上下文非法
  * @note 仅允许在线程上下文调用。

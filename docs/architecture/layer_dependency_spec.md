@@ -5,42 +5,42 @@
 - 允许在关键路径做端口级性能优化，但不污染公共 API
 
 ## 规范来源约束（强制）
-- 本文档 `oh-my-robot/docs/architecture/layer_dependency_spec.md` 是全仓“分层与依赖方向”的唯一总规范源。
+- 本文档 [`oh-my-robot/docs/architecture/layer_dependency_spec.md`](layer_dependency_spec.md) 是全仓“分层与依赖方向”的唯一总规范源。
 - 其他文档（OSAL/SYNC、services、drivers、build）只能做专项补充，必须引用本文，不得重新定义总依赖矩阵。
 
 ## 名词与层级
 ### 1) `third_party/`（外部依赖）
 - 含义：第三方代码（FreeRTOS、CMSIS、HAL 等）
-- 规则：禁止业务逻辑直接修改；如需扩展，优先在 `lib/`/`bsp/` 做封装
+- 规则：禁止业务逻辑直接修改；如需扩展，优先在 [`lib/`](../../lib/)/`bsp/` 做封装
 - 约束：通过平台自包含的受控接口层统一管理 include 与依赖，避免分散配置
 - 边界：公共头文件不得直接暴露 third_party 类型/宏；如需对外暴露，必须通过封装或句柄隔离
 
 ### 2) `bsp/`（板级支持）
 - 含义：芯片板卡初始化、外设底层配置、与具体 MCU 强耦合
 - 边界：仅处理板级硬件初始化、时钟/引脚/外设物理连接与启动文件；不承担 OSAL 端口或业务语义
-- 可依赖：`lib/include/core`、`lib/drivers`（通过 PAL 接口）、`third_party`
-- 禁止依赖：`lib/osal`、`lib/include/sync`、`lib/services`、`lib/systems`（避免 OS/业务语义下沉到 BSP）
-### 3) `platform/`（端口与平台适配）
+- 可依赖：[`lib/include/core`](../../lib/include/core)、[`lib/drivers`](../../lib/drivers)（通过 PAL 接口）、`third_party`
+- 禁止依赖：[`lib/osal`](../../lib/osal)、`lib/include/sync`、[`lib/services`](../../lib/services)、[`lib/systems`](../../lib/systems)（避免 OS/业务语义下沉到 BSP）
+### 3) [`platform/`](../../platform/)（端口与平台适配）
 - 含义：OSAL 端口与平台族适配实现
 - 边界：包含 OSAL 端口、架构/工具链/ABI 适配与 RTOS 绑定；不包含板级初始化与外设物理连接
-- 可依赖：`lib/include/core`、`third_party`（通过平台内 third_party 接口层）
-- 禁止依赖：`lib/services`、`lib/systems`
+- 可依赖：[`lib/include/core`](../../lib/include/core)、`third_party`（通过平台内 third_party 接口层）
+- 禁止依赖：[`lib/services`](../../lib/services)、[`lib/systems`](../../lib/systems)
 
-### 4) `lib/include/core` + `lib/source/core`（基础能力层）
+### 4) [`lib/include/core`](../../lib/include/core) + [`lib/source/core`](../../lib/source/core)（基础能力层）
 - 含义：基础类型/错误码/通用宏、平台无关的轻量工具与配置定义
 - 边界：不包含 OS、设备驱动、业务语义；不持有端口或板级细节
 - 可依赖：必要的 `third_party`（需封装在实现或内部头）
 - 禁止依赖：`osal/sync/drivers/services/systems/bsp/platform`
 
-### 5) `lib/osal/`（操作系统抽象层：最小原语集）
+### 5) [`lib/osal/`](../../lib/osal/)（操作系统抽象层：最小原语集）
 - 含义：对 RTOS/系统调用做最小可移植抽象（线程/互斥/信号量/队列/时间/定时器事件对象等）
 - 规则：
   - OSAL 只定义“端口必须实现”的最小原语
   - OSAL 不承诺更高层语义（例如 completion、消息总线等）
-- 可依赖：`lib/include/core`
-- 说明：端口实现放在 `platform/` 中，避免 OSAL 公共接口混杂
+- 可依赖：[`lib/include/core`](../../lib/include/core)
+- 说明：端口实现放在 [`platform/`](../../platform/) 中，避免 OSAL 公共接口混杂
 
-### 6) `lib/include/sync` + `lib/sync/src`（同步语义层：组合原语）
+### 6) `lib/include/sync` + [`lib/sync/src`](../../lib/sync/src)（同步语义层：组合原语）
 - 含义：基于 OSAL 原语组合出的同步抽象（例如 completion、barrier 等）
 - 规则：
   - 对外 API 不暴露具体 RTOS 类型
@@ -48,31 +48,31 @@
   - 可选加速实现必须满足“同任务跨模块可复用”约束；不满足则禁止作为正式后端
   - completion 当前固定为 reference 实现（基于 OSAL 原语），不提供 notify 后端
 
-### 7) `lib/services`（通用服务）
+### 7) [`lib/services`](../../lib/services)（通用服务）
 - 含义：可复用服务组件（log、config、comm、fs、diagnostics 等）
 - `comm`（服务层）含义：跨线程跨模块的通信语义（消息请求响应/发布订阅等），而非基础同步原语
-- 可依赖：`lib/osal`、`lib/include/core`、`lib/include/sync`
-- 禁止直接依赖：`lib/drivers`（由实现侧适配层解耦，避免服务层绑定具体总线实现）
-### 8) `lib/drivers`（驱动与 PAL）
+- 可依赖：[`lib/osal`](../../lib/osal)、[`lib/include/core`](../../lib/include/core)、`lib/include/sync`
+- 禁止直接依赖：[`lib/drivers`](../../lib/drivers)（由实现侧适配层解耦，避免服务层绑定具体总线实现）
+### 8) [`lib/drivers`](../../lib/drivers)（驱动与 PAL）
 - 含义：设备模型、外设驱动、平台适配层（PAL），面向可复用/可移植
 - 边界：驱动层应保持硬件无关抽象；板级差异通过 PAL 接口交由 `bsp`/`platform` 处理
-- 可依赖：`lib/include/core`、`lib/include/sync`、`lib/osal`、必要的 `third_party`（尽量通过 BSP 或 port 封装）
-- 禁止依赖：`lib/services`、`lib/systems`
+- 可依赖：[`lib/include/core`](../../lib/include/core)、`lib/include/sync`、[`lib/osal`](../../lib/osal)、必要的 `third_party`（尽量通过 BSP 或 port 封装）
+- 禁止依赖：[`lib/services`](../../lib/services)、[`lib/systems`](../../lib/systems)
 - 规则：禁止直接 include `bsp/` 头文件
 
 ### 8.1) `comm adapter`（实现侧适配层，强约束）
 - 含义：位于实现端的胶水层，用于把具体总线实现（CAN/UART）接入 `services/comm`。
 - 推荐位置：`lib/drivers/src/peripheral/<bus>/comm_adapter_*.c`（按总线分目录）。
-- 允许依赖：`lib/drivers` + `lib/services/comm` 公共抽象。
+- 允许依赖：[`lib/drivers`](../../lib/drivers) + `lib/services/comm` 公共抽象。
 - 约束：
   - `services/comm core` 不得依赖具体 adapter 实现文件。
   - `drivers` 核心路径不得反向依赖 adapter 实现。
   - adapter 仅承担接入与注册，不承载业务协议语义。
 
-### 9) `lib/systems`（系统模块/业务子系统）
+### 9) [`lib/systems`](../../lib/systems)（系统模块/业务子系统）
 - 含义：机器人系统级模块（chassis/gimbal/robot 等），业务语义明确
-- 可依赖：`lib/services`、`lib/drivers`、`lib/include/sync`、`lib/osal`
-- 说明：可直接依赖 `lib/drivers`（驱动层视为硬件无关抽象），必要时可绕过 services
+- 可依赖：[`lib/services`](../../lib/services)、[`lib/drivers`](../../lib/drivers)、`lib/include/sync`、[`lib/osal`](../../lib/osal)
+- 说明：可直接依赖 [`lib/drivers`](../../lib/drivers)（驱动层视为硬件无关抽象），必要时可绕过 services
 
 ### 10) `test/`（测试应用）
 - 含义：验证某个模块接口的最小应用

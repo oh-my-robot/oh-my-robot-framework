@@ -53,7 +53,7 @@
 
 ### 3.2 强制落位与命名
 
-1. 目录：`docs/adr/`
+1. 目录：[`docs/adr/`](../adr/)
 2. 文件命名：`[四位流水号]-[snake_case_slug].md`
 3. 示例：`0001-osal_mutex_design.md`
 
@@ -81,7 +81,7 @@
 
 ### 4.2 操作要求
 
-1. 扫描 `docs/internal/active/` 下已完成 Issue 目录。
+1. 扫描 [`docs/internal/active/`](../internal/active/) 下已完成 Issue 目录。
 2. 将目录整体迁移到：`docs/internal/archive/[版本号]_features/`
 3. 迁移必须使用 `git mv`，保留历史追踪。
 

@@ -43,12 +43,12 @@
 
 1. **目录结构最终定版**
     - `osal/include/osal`
-    - `platform/osal/freertos`
+    - [`platform/osal/freertos`](../../../../../../platform/osal/freertos)
     - `platform/osal/linux`
     - `sync/include/sync`
-    - `lib/sync/src`（reference）
-    - `platform/sync/freertos`
-    - `platform/sync/linux`
+    - [`lib/sync/src`](../../../../../../lib/sync/src)（reference）
+    - [`platform/sync/freertos`](../../../../../../platform/sync/freertos)
+    - [`platform/sync/linux`](../../../../../../platform/sync/linux)
 2. **公共头文件边界锁死**
     - OSAL / SYNC 公共头文件中：
         - ❌ 不出现 OS 原生类型

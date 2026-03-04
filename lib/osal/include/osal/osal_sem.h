@@ -1,4 +1,4 @@
-﻿#ifndef OM_OSAL_SEM_H
+#ifndef OM_OSAL_SEM_H
 #define OM_OSAL_SEM_H
 
 #include <stdint.h>
@@ -8,70 +8,69 @@
 typedef struct OsalSemHandle_s* OsalSem_t;
 
 /**
- * @brief 鍒涘缓淇″彿閲忥紙绾跨▼涓婁笅鏂囷級
- * @param sem 杈撳嚭淇″彿閲忓彞鏌?
- * @param max_count 鏈€澶ц鏁?
- * @param init_count 鍒濆璁℃暟
- * @return `OSAL_OK` 鎴愬姛锛涘け璐ヨ繑鍥?`OSAL_INVALID/OSAL_NO_RESOURCE`
- * @note 绂佹鍦?ISR 涓皟鐢ㄣ€?
+ * @brief 创建信号量（线程上下文）
+ * @param sem 输出信号量句
+ * @param max_count 最大计数
+ * @param init_count 初始计数
+ * @return `OSAL_OK` 成功；失败返`OSAL_INVALID/OSAL_NO_RESOURCE`
+ * @note 禁止ISR 中调用
  */
 OsalStatus_t osal_sem_create(OsalSem_t* sem, uint32_t max_count, uint32_t init_count);
 
 /**
- * @brief 鍒犻櫎淇″彿閲忥紙绾跨▼涓婁笅鏂囷級
- * @param sem 淇″彿閲忓彞鏌?
- * @return `OSAL_OK` 鎴愬姛锛涘け璐ヨ繑鍥?`OSAL_INVALID`
- * @note 绂佹鍦?ISR 涓皟鐢ㄣ€?
- * @note 涓ユ牸鍓嶇疆鏉′欢锛氳皟鐢ㄦ柟闇€纭繚鏃犲苟鍙戣闂拰鏃犵瓑寰呰€呫€?
+ * @brief 删除信号量（线程上下文）
+ * @param sem 信号量句
+ * @return `OSAL_OK` 成功；失败返`OSAL_INVALID`
+ * @note 禁止ISR 中调用
+ * @note 严格前置条件：调用方需确保无并发访问和无等待者
  */
 OsalStatus_t osal_sem_delete(OsalSem_t sem);
 
 /**
- * @brief 绛夊緟淇″彿閲忥紙绾跨▼涓婁笅鏂囷級
- * @param sem 淇″彿閲忓彞鏌?
- * @param timeout_ms 瓒呮椂鏃堕棿锛坢s锛夛紝鍙敤 OSAL_WAIT_FOREVER
- * @return `OSAL_OK` 鎴愬姛锛涘け璐ヨ繑鍥?`OSAL_WOULD_BLOCK/OSAL_TIMEOUT/OSAL_INVALID/OSAL_INTERNAL`
- * @note 绂佹鍦?ISR 涓皟鐢ㄣ€?
+ * @brief 等待信号量（线程上下文）
+ * @param sem 信号量句
+ * @param timeout_ms 超时时间（ms），可用 OSAL_WAIT_FOREVER
+ * @return `OSAL_OK` 成功；失败返`OSAL_WOULD_BLOCK/OSAL_TIMEOUT/OSAL_INVALID/OSAL_INTERNAL`
+ * @note 禁止ISR 中调用
  */
 OsalStatus_t osal_sem_wait(OsalSem_t sem, uint32_t timeout_ms);
 
 /**
- * @brief 閲婃斁淇″彿閲忥紙绾跨▼涓婁笅鏂囷級
- * @param sem 淇″彿閲忓彞鏌?
- * @return `OSAL_OK` 鎴愬姛锛涘け璐ヨ繑鍥?`OSAL_INVALID/OSAL_NO_RESOURCE`
- * @note 绂佹鍦?ISR 涓皟鐢ㄣ€?
- * @note 褰撹鏁板凡婊℃椂杩斿洖 `OSAL_NO_RESOURCE`锛堥潪闃诲澶辫触锛夈€?
+ * @brief 释放信号量（线程上下文）
+ * @param sem 信号量句
+ * @return `OSAL_OK` 成功；失败返`OSAL_INVALID/OSAL_NO_RESOURCE`
+ * @note 禁止ISR 中调用
+ * @note 当计数已满时返回 `OSAL_NO_RESOURCE`（非阻塞失败）
  */
 OsalStatus_t osal_sem_post(OsalSem_t sem);
 
 /**
- * @brief 閲婃斁淇″彿閲忥紙ISR 涓婁笅鏂囷級
- * @param sem 淇″彿閲忓彞鏌?
- * @return `OSAL_OK` 鎴愬姛锛涘け璐ヨ繑鍥?`OSAL_INVALID/OSAL_NO_RESOURCE`
- * @note 绂佹鍦ㄧ嚎绋嬩笂涓嬫枃璋冪敤銆?
- * @note 褰撹鏁板凡婊℃椂杩斿洖 `OSAL_NO_RESOURCE`锛堥潪闃诲澶辫触锛夈€?
+ * @brief 释放信号量（ISR 上下文）
+ * @param sem 信号量句
+ * @return `OSAL_OK` 成功；失败返`OSAL_INVALID/OSAL_NO_RESOURCE`
+ * @note 禁止在线程上下文调用
+ * @note 当计数已满时返回 `OSAL_NO_RESOURCE`（非阻塞失败）
  */
 OsalStatus_t osal_sem_post_from_isr(OsalSem_t sem);
 
 /**
- * @brief 鑾峰彇淇″彿閲忓綋鍓嶈鏁帮紙绾跨▼涓婁笅鏂囷級
- * @param sem 淇″彿閲忓彞鏌?
- * @param out_count 杈撳嚭璁℃暟
- * @return `OSAL_OK` 鎴愬姛锛涘け璐ヨ繑鍥?`OSAL_INVALID`
- * @note 绂佹鍦?ISR 涓皟鐢ㄣ€?
- * @note 璇ユ帴鍙ｄ粎鐢ㄤ簬瑙傛祴锛屼笉浣滀负鍒犻櫎瀹夊叏鎬х殑鍏呭垎鏉′欢銆?
+ * @brief 获取信号量当前计数（线程上下文）
+ * @param sem 信号量句
+ * @param out_count 输出计数
+ * @return `OSAL_OK` 成功；失败返`OSAL_INVALID`
+ * @note 禁止ISR 中调用
+ * @note 该接口仅用于观测，不作为删除安全性的充分条件
  */
 OsalStatus_t osal_sem_get_count(OsalSem_t sem, uint32_t* out_count);
 
 /**
- * @brief 鑾峰彇淇″彿閲忓綋鍓嶈鏁帮紙ISR 涓婁笅鏂囷級
- * @param sem 淇″彿閲忓彞鏌?
- * @param out_count 杈撳嚭璁℃暟
- * @return `OSAL_OK` 鎴愬姛锛涘け璐ヨ繑鍥?`OSAL_INVALID`
- * @note 绂佹鍦ㄧ嚎绋嬩笂涓嬫枃璋冪敤銆?
- * @note 璇ユ帴鍙ｄ粎鐢ㄤ簬瑙傛祴锛屼笉浣滀负鍒犻櫎瀹夊叏鎬х殑鍏呭垎鏉′欢銆?
+ * @brief 获取信号量当前计数（ISR 上下文）
+ * @param sem 信号量句
+ * @param out_count 输出计数
+ * @return `OSAL_OK` 成功；失败返`OSAL_INVALID`
+ * @note 禁止在线程上下文调用
+ * @note 该接口仅用于观测，不作为删除安全性的充分条件
  */
 OsalStatus_t osal_sem_get_count_from_isr(OsalSem_t sem, uint32_t* out_count);
 
 #endif
-

@@ -1,84 +1,244 @@
 # Git 协作规范
 
-## 1. 分支架构与职责
+## 1. 目的与基本原则
+
+1. 保持提交历史线性、整洁，降低审查成本，提升 `git bisect`（二分查找） 可用性。
+2. 以派生工作流（Forking Workflow）保障官方仓库安全。
+3. 当 `feature/*` 或 `fix/*` 落后 `upstream/integration` 时，严禁 `git merge` 同步上游，必须使用 `git rebase`；`hotfix/*` 的同步基线为 `upstream/main`。
+
+## 2. 分支架构与职责
 
 1. `main`：稳定主干，仅允许通过 PR 合入。
-2. `integration`：日常集成联调主线，仅接收 `feature/*` 合入。
+2. `integration`：日常集成联调主线，接收 `feature/*`、`fix/*` 合入，并接收 `hotfix/*` 回灌。
 3. `feature/*`：功能开发分支，按任务目标拆分。
-4. `hotfix/*`：紧急修复分支，从 `main` 切出并双向回灌 `integration`。
+4. `hotfix/*`：紧急修复分支，从 `main`（或对应发布 Tag）切出，先合入 `main`，再回灌 `integration`。
+5. `fix/*`：常规缺陷修复分支，从 `integration` 切出并回合到 `integration`。
 
-## 2. 合并策略
+## 3. 远端仓库管理与派生工作流（Forking Workflow）
+
+### 3.1 `upstream`（上游中央库）
+
+1. 指向团队官方中央仓库。
+2. 对普通开发者默认只读，仅用于“向下同步”。
+3. 核心动作：`git fetch upstream`。
+
+### 3.2 `origin`（个人派生库）
+
+1. 指向开发者个人 Fork。
+2. 开发者具备读写权限，仅用于“向上备份与提交流转”。
+3. 核心动作：`git push origin <feature-branch>`。
+
+### 3.3 初始环境配置（必做）
+
+```bash
+# 1) 克隆个人派生库（默认远端名为 origin）
+git clone https://github.com/<your-username>/oh-my-robot-framework.git
+cd oh-my-robot-framework
+
+# 2) 添加官方仓库为 upstream
+git remote add upstream https://github.com/oh-my-robot/oh-my-robot-framework.git
+
+# 3) 验证远端配置
+git remote -v
+```
+
+## 4. 分支同步与变基（Rebase）标准规范
+
+### 4.1 强制规定
+
+1. `feature/*` 与 `fix/*` 落后 `upstream/integration` 时，必须 `rebase`；`hotfix/*` 落后 `upstream/main` 时，必须 `rebase`；统一禁止 `merge` 同步上游。
+2. 冲突恢复流程中禁止执行 `git commit`。
+3. 变基重写历史后，推送必须使用 `--force-with-lease`。
+
+### 4.2 标准变基工作流
+
+#### 4.2.1 更新上游追踪分支
+
+```bash
+git fetch upstream
+```
+
+#### 4.2.2 执行变基
+
+```bash
+git rebase upstream/integration
+```
+
+`hotfix/*` 分支执行变基时，将基线替换为 `upstream/main`。
+
+#### 4.2.3 冲突处理
+
+```bash
+git add <冲突文件路径>
+git rebase --continue
+```
+
+重复执行“解决冲突 -> `git add` -> `git rebase --continue`”直到变基完成。
+
+#### 4.2.4 推送变更到个人派生库
+
+```bash
+git push origin <当前特性分支名> --force-with-lease
+```
+
+## 5. 标准任务流转 SOP（从 Issue 到 PR）
+
+### 阶段一：云端任务发布与认领（Web 端）
+
+1. 所有开发任务必须始于官方仓库 `upstream` 的 Issue，严禁“无 Issue 开发”。
+2. Issue 标题规范以 `.github/ISSUE_TEMPLATE/feature_request.yml` 的 `title` 字段为唯一事实来源，本文不再重复定义格式。
+3. 重大架构改动可先进行讨论，但进入开发前必须补开 Issue。
+4. 任务开始前必须设置 `Assignees` 为自己，并补齐对应 `Label`。
+
+### 阶段二：本地环境起步（CLI）
+
+1. 严禁直接在本地已有分支上开工，必须基于 `upstream/integration` 切出专属分支。
+2. 分支命名格式：`feature/<issue编号>-<简短英文描述>`，必须包含 Issue 编号。
+3. 缺陷修复任务的 `fix/*` 与 `hotfix/*` 命名和流转规则，见第 6.1 节。
+
+```bash
+# 1) 从官方仓库同步最新 integration
+git fetch upstream
+
+# 2) 基于官方 integration 切出任务分支
+git checkout -b feature/15-osal-mutex upstream/integration
+```
+
+### 阶段三：开发与原子提交（本地分支）
+
+1. 在专属 `feature/*` 分支开发，遵循 `.clang-format` 与 `.clang-tidy` 规范。
+2. 过程推演文档按文档治理规范放入：
+   `docs/internal/active/issue_015_osal_mutex/`
+3. 每条 Commit 必须包含 Issue 编号锚点 `(#15)`，以保证 Git 历史可追溯。
+
+```bash
+git commit -m "feat(osal): 新增互斥锁抽象接口与基础数据结构 (#15)"
+git commit -m "docs(osal): 补充互斥锁使用场景推演草稿 (#15)"
+```
+
+### 阶段四：变基与推送到个人派生库（CLI）
+
+1. 同步上游时严禁 `git merge upstream/integration`，必须使用 `git rebase upstream/integration`。
+2. 变基冲突处理中严禁执行 `git commit`，仅允许 `git add` + `git rebase --continue`。
+
+```bash
+# 1) 再次同步官方最新状态
+git fetch upstream
+
+# 2) 变基防冲突，保持线性历史
+git rebase upstream/integration
+
+# 3) 推送到个人派生库（origin）
+git push origin feature/15-osal-mutex --force-with-lease
+```
+
+### 阶段五：跨库 PR 与自动闭环（Web 端）
+
+1. PR 来源：`origin/feature/15-osal-mutex`。
+2. PR 目标：`upstream/integration`。
+3. 若目标为 `integration`，PR 描述必须使用关联指令：`Refs #15`（不关闭 Issue）。
+4. 仅在合并到 `main` 的 PR 中使用关闭指令：`Fixes #15`，由平台自动关闭对应 Issue。
+
+### SOP 执行检查清单
+
+1. 是否先在 `upstream` 创建并认领了 Issue。
+2. 分支名是否为 `feature/<id>-<slug>` 且包含 Issue 编号。
+3. 是否所有提交都带 `(#<id>)` 锚点。
+4. 提交 PR 前是否已 `rebase upstream/integration`。
+5. PR 描述是否按目标分支使用正确关键字：`Refs #<id>`（到 `integration`）/`Fixes #<id>`（到 `main`）。
+
+## 6. 合并策略
 
 1. `feature/* -> integration`：建议 `Squash and merge`，压缩开发噪音提交。
-2. `integration -> main`：建议 `Create a merge commit`，保留发布汇合节点。
-3. `hotfix/* -> main/integration`：保持修复提交可追溯。
+2. `fix/* -> integration`：缺陷修复默认只合入 `integration`，随计划版本发布。
+3. `integration -> main`：建议 `Create a merge commit`，保留发布汇合节点。
+4. `hotfix/* -> main` 后必须回灌 `integration`，保持修复提交可追溯。
 
-## 3. 任务驱动原则
+### 6.1 缺陷修复工作流（Fix vs Hotfix）
 
-1. 分支必须绑定具体 Issue 或明确任务目标。
+1. 场景界定：
+   - `Fix`：日常开发/测试阶段发现的问题，不影响已发布稳定版本可用性。
+   - `Hotfix`：已发布到 `main`（或已交付标签版本）中的阻断性缺陷。
+2. 分支切出与命名：
+   - `Fix`：从 `integration` 切出，命名 `fix/<issue编号>-<简短描述>`。
+   - `Hotfix`：从 `main`（或对应发布 Tag）切出，命名 `hotfix/<issue编号>-<简短描述>`。
+3. 合并终点：
+   - `Fix`：仅合入 `integration`。
+   - `Hotfix`：必须先合入 `main`，随后回灌 `integration`。
+4. 开发纪律：
+   - `Fix` 允许必要的小范围优化，但不得跨主题扩改。
+   - `Hotfix` 仅允许最小化修复，严禁夹带新功能或无关重构。
+5. 发布节奏：
+   - `Fix`：合入 `integration` 后，随下一个计划版本统一发布。
+   - `Hotfix`：合入 `main` 后按 Patch 紧急发布，并回灌 `integration`（详见 `docs/process/git_version_release_spec.md`）。
+
+## 7. 强制推送与纪律红线
+
+1. 仅允许在个人开发分支（`feature/*`、`fix/*`、`hotfix/*`）且未合并前执行强推。
+2. 严禁对 `integration` 与 `main` 执行任何形式的强推。
+3. 严禁执行 `git push upstream`。
+4. 本地 `integration` 和 `main` 视为只读镜像，禁止在其上 `commit` 或 `merge` 开发内容。
+
+## 8. 任务驱动原则
+
+1. 分支必须绑定具体 Issue，严禁“无 Issue 开发”。
 2. 禁止按系统层级拆分“半成品分支”互相阻塞。
 3. 单个 `feature/*` 应形成可编译、可验证的纵向切片。
+4. 分支命名统一使用 `feature/<issue编号>-<slug>`。
 
-## 4. 标准开发流程（SOP）
+## 9. 原子提交规范（Atomic Commit）
 
-1. 认领任务并确认验收标准。
-2. 基于最新 `integration` 拉取 `feature/*`。
-3. 本地完成开发、构建与验证。
-4. 按提交规范提交并推送。
-5. 发起到 `integration` 的 PR，并填写完整描述与验证证据。
-
-## 5. 原子提交规范（Atomic Commit）
-
-### 5.1 核心原则
+### 9.1 核心原则
 
 1. 一件事，一个提交包。
 2. 每个提交必须是独立、完整、职责单一的逻辑单元。
 3. 历史应可用于 `git bisect` 与精确回滚。
 
-### 5.2 三大铁律
+### 9.2 三大铁律
 
-1. 职责绝对单一（Single Responsibility）
-2. 随时可编译（Always Buildable）
-3. 杜绝夹带私货（No Sneaky Changes）
+1. 职责绝对单一（Single Responsibility）。
+2. 随时可编译（Always Buildable）。
+3. 杜绝夹带私货（No Sneaky Changes）。
 
-### 5.3 具体约束
+### 9.3 具体约束
 
 1. 严禁“大杂烩”提交：修复 Bug、新增功能、重构、格式化必须物理隔离。
 2. 任意历史提交切入后，工程都应可编译通过，不得制造“断层提交”。
-3. 若修改了跨层公共接口（例如头文件签名），所有调用方必须在同一提交内同步闭环。
+3. 若修改跨层公共接口（例如头文件签名），所有调用方必须在同一提交内同步闭环。
 4. 业务逻辑提交不得夹带无关注释、空行或排版调整。
 5. 纯格式改动必须独立为 `style` 提交。
 
-### 5.4 示例
+### 9.4 示例
 
-1. 不合规：`fix: 修复电机 PID，顺便加 SPI 驱动并格式化 OSAL`
+1. 不合规：`fix: 修复电机 PID，顺便加 SPI 驱动并格式化 OSAL`。
 2. 合规拆分：
    1. `style(osal): 统一互斥锁模块代码缩进`
    2. `fix(algo): 修复电机速度环 PID 积分饱和问题`
    3. `feat(bsp): 新增硬件 SPI 底层驱动适配`
 
-## 6. Commit Message 命名规范
+## 10. Commit Message 命名规范
 
-格式固定为：
-
-`类型(作用域): 简短描述`
+格式固定为：`类型(作用域): 简短描述`
 
 类型约定：
 
-1. `feat`：新增核心机制、驱动或算法
-2. `fix`：修复死机、逻辑错误等 Bug
-3. `docs`：仅文档或 Doxygen 注释变更
-4. `style`：仅格式调整，不改变运行逻辑
-5. `refactor`：重构实现，不改变外部行为
-6. `chore`：构建系统、CI、脚本与基建配置
+1. `feat`：新增核心机制、驱动或算法。
+2. `fix`：修复死机、逻辑错误等 Bug。
+3. `docs`：仅文档或 Doxygen 注释变更。
+4. `style`：仅格式调整，不改变运行逻辑。
+5. `refactor`：重构实现，不改变外部行为。
+6. `chore`：构建系统、CI、脚本与基建配置。
+7. 任务提交必须追加 Issue 锚点：`(#<issue编号>)`。
 
-## 7. PR 纪律
+## 11. PR 纪律
 
 1. PR 描述必须包含范围、风险、验证结果。
-2. 需要关联 Issue 时，使用 `Fixes #<id>`。
-3. 评审后若有新增提交，需重新确认通过后再合并。
+2. PR 目标分支固定为 `upstream/integration`（除 `hotfix` 特殊流程外）。
+3. 关键字策略统一为：到 `integration` 使用 `Refs #<id>`；到 `main` 使用 `Fixes #<id>`。
+4. 全仓库不再使用 `Resolves` 关键字。
+5. 评审后若有新增提交，需重新确认通过后再合并。
 
-## 8. 本地质量门禁（提交前）
+## 12. 本地质量门禁（提交前）
 
 ```bash
 xmake format --dry-run --error

@@ -11,18 +11,18 @@
 
 ## 1. 适用范围与依据
 
-- 适用范围：`oh-my-robot/lib/drivers/include/drivers/motor` 统一模型相关文档与后续实现进度。
+- 适用范围：[`oh-my-robot/lib/drivers/include/drivers/motor`](../../../../../../lib/drivers/include/drivers/motor) 统一模型相关文档与后续实现进度。
 - 依据文档：
-  - `oh-my-robot/docs/adr/0002-motor_unified_model_top_level_spec.md`
-  - `oh-my-robot/docs/adr/0003-motor_vendor_adapter_boundary.md`
-  - `oh-my-robot/docs/adr/0004-motor_semantic_contract_index.md`
-  - `oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/motor/motor_unified_model_rnd_plan.md`
+  - [`oh-my-robot/docs/adr/0002-motor_unified_model_top_level_spec.md`](../../../../../adr/0002-motor_unified_model_top_level_spec.md)
+  - [`oh-my-robot/docs/adr/0003-motor_vendor_adapter_boundary.md`](../../../../../adr/0003-motor_vendor_adapter_boundary.md)
+  - [`oh-my-robot/docs/adr/0004-motor_semantic_contract_index.md`](../../../../../adr/0004-motor_semantic_contract_index.md)
+  - [`oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/motor/motor_unified_model_rnd_plan.md`](motor_unified_model_rnd_plan.md)
 
 ## 2. 阶段总览（按阶段原地维护）
 
 | 阶段 | 验收结论 | 当前状态 | 证据路径 | 验证状态 | 未解决问题 |
 | --- | --- | --- | --- | --- | --- |
-| Phase 0（合同与边界冻结） | 进行中 | 已启动 | `oh-my-robot/docs/adr/0002-motor_unified_model_top_level_spec.md`、`oh-my-robot/docs/adr/0003-motor_vendor_adapter_boundary.md`、`oh-my-robot/docs/adr/0004-motor_semantic_contract_index.md` | 文档已重构，待一致性复核 | 合同到实现映射样例尚未落地 |
+| Phase 0（合同与边界冻结） | 进行中 | 已启动 | [`oh-my-robot/docs/adr/0002-motor_unified_model_top_level_spec.md`](../../../../../adr/0002-motor_unified_model_top_level_spec.md)、[`oh-my-robot/docs/adr/0003-motor_vendor_adapter_boundary.md`](../../../../../adr/0003-motor_vendor_adapter_boundary.md)、[`oh-my-robot/docs/adr/0004-motor_semantic_contract_index.md`](../../../../../adr/0004-motor_semantic_contract_index.md) | 文档已重构，待一致性复核 | 合同到实现映射样例尚未落地 |
 | Phase 1（统一模型最小壳） | 待验收 | 待开始 | `oh-my-robot/lib/drivers/include/drivers/motor/core/*`、`oh-my-robot/lib/drivers/src/motor/core/*`（待创建） | 尚未执行 | 计划项未完成 |
 | Phase 2（DJI + P1010B 适配） | 待验收 | 待开始 | `oh-my-robot/lib/drivers/src/motor/vendors/*`（待适配） | 尚未执行 | 计划项未完成 |
 | Phase 3（达妙适配与参数诊断收敛） | 待验收 | 待开始 | `oh-my-robot/lib/drivers/include/drivers/motor/vendors/damiao/*` | 尚未执行 | `damiao.h` 契约缺口 |
@@ -103,7 +103,7 @@
 
 | 阶段 | 功能域 | 当前状态 | 证据路径 | 验证状态 | 未解决问题 |
 | --- | --- | --- | --- | --- | --- |
-| Phase X | 示例：调度语义 | 示例：进行中 | 示例：`oh-my-robot/lib/drivers/...` | 示例：单测通过/待补 | 示例：边界场景未覆盖 |
+| Phase X | 示例：调度语义 | 示例：进行中 | 示例：[`oh-my-robot/lib/drivers/...`](../../../../../../lib/drivers/) | 示例：单测通过/待补 | 示例：边界场景未覆盖 |
 
 ## 5. 变更记录
 

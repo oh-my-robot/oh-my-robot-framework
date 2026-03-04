@@ -1,4 +1,4 @@
-﻿#include "core/data_struct/avltree.h"
+#include "core/data_struct/avltree.h"
 #include "stdlib.h"
 #include <stdio.h>
 #include <string.h>
@@ -15,7 +15,7 @@
 
 #define MAX(a, b) (int)((a) > (b) ? (a) : (b))
 
-// 鑾峰彇鑺傜偣楂樺害
+// 获取节点高度
 #define HEIGHT(node)                                                                                                                \
     ((NULL == (node))                                                                                                               \
          ? 0                                                                                                                        \
@@ -31,13 +31,13 @@ typedef struct AvlTreePrivate avl_tree_private_t;
 
 struct AvlNode
 {
-    avl_node_t *parent;     // 鐖惰妭鐐?
-    avl_node_t *leftChild;  // 宸﹀瀛?
-    avl_node_t *rightChild; // 鍙冲瀛?
+    avl_node_t *parent;     // 父节点
+    avl_node_t *leftChild;  // 左孩子
+    avl_node_t *rightChild; // 右孩子
 
-    void *element; // 鑺傜偣淇濆瓨鐨勫厓绱?
-    int depth;     // 褰撳墠鑺傜偣鐨勯珮搴?
-    int key;       // 閿€?
+    void *element; // 节点保存的元素
+    int depth;     // 当前节点的高度
+    int key;       // 键值
 };
 
 struct AvlTreePrivate
@@ -49,11 +49,11 @@ struct AvlTreePrivate
 
 /**
  * @brief:
- *      鑾峰彇绉佹湁鎴愬憳鍙橀噺
+ *      获取私有成员变量
  * @param:
- *      tree 锛?鏍戞寚閽?
+ *      tree 树指针
  * @return:
- *      avl_tree_private_t* : 绉佹湁鎴愬憳鍙橀噺缁撴瀯浣撴寚閽?
+ *      avl_tree_private_t* : 私有成员变量结构体指针
  */
 static avl_tree_private_t *get_private_member(avl_tree_t *tree)
 {
@@ -64,10 +64,10 @@ static avl_tree_private_t *get_private_member(avl_tree_t *tree)
 
 /**
  * @brief:
- *      娣诲姞鍒扮洰鏍囪妭鐐圭殑 宸?鍙?瀛╁瓙
+ *      添加为目标节点的孩子节点
  * @param:
- *      node 锛?瑕佹坊鍔犵殑鑺傜偣
- *      p : 鐩爣鑺傜偣
+ *      node 要添加的节点
+ *      p : 目标节点
  * @return:
  *      None.
  */
@@ -88,13 +88,13 @@ static void add_to_right(avl_node_t *node, avl_node_t *p)
 
 /**
  * @brief:
- *      LL / RR / LR / RL 鍨嬫棆杞?
+ *      LL / RR / LR / RL 类型旋转
  * @param:
- *      node : 瑕佽皟鏁寸殑鑺傜偣
+ *      node : 要调整的节点
  * @return:
- *      avl_node_t* 锛?璋冩暣鍚庣殑鏍硅妭鐐癸紙姝ゆ牴鑺傜偣骞堕潪鏍戠殑鏍硅妭鐐癸紝鑰屾槸鏇挎崲琚皟鏁撮偅涓妭鐐圭殑浣嶇疆鐨勮妭鐐癸級
+ *      avl_node_t* 调整后的根节点（此根节点并非树的根节点，而是替换被调整那个节点的位置的节点）
  * @note:
- *      绠楁硶璇存槑锛氬乏宸︽棆杞?LL)
+ *      算法说明：左左旋（LL）
 
                     +---+							+---+
          node --->  | 5 |		         temp --->  | 3	|
@@ -132,7 +132,7 @@ static avl_node_t *ll(avl_node_t *node)
     temp->rightChild = node;
     node->parent = temp;
 
-    node->depth = HEIGHT(node); // 椤哄簭涓嶈兘鎹?
+    node->depth = HEIGHT(node); // 顺序不能错
     temp->depth = HEIGHT(temp);
 
     return temp;
@@ -172,11 +172,11 @@ static avl_node_t *lr(avl_node_t *node)
 
 /**
  * @brief:
- *      璋冩暣鏍?
+ *      调整
  * @param:
- *      node : 瑕佽皟鏁寸殑鑺傜偣
+ *      node : 要调整的节点
  * @return:
- *      avl_node_t* 锛?璋冩暣鍚庣殑鏍硅妭鐐癸紙姝ゆ牴鑺傜偣骞堕潪鏍戠殑鏍硅妭鐐癸紝鑰屾槸鏇挎崲琚皟鏁撮偅涓妭鐐圭殑浣嶇疆鐨勮妭鐐癸級
+ *      avl_node_t* 调整后的根节点（此根节点并非树的根节点，而是替换被调整那个节点的位置的节点）
  * @note:
  *      None.
  */
@@ -220,12 +220,12 @@ static avl_node_t *avl_tree_adjust(avl_node_t *node)
 
 /*
  * @brief:
- *      閲婃斁鑺傜偣鍐呭瓨
+ *      释放节点内存
  * @param:
- *      tree : 鏍戞寚閽?
- *      node : 瑕侀噴鏀惧唴瀛樼殑鑺傜偣
+ *      tree : 树指针
+ *      node : 要释放内存的节点
  * @return:
- *      uint8_t:    0 鎴愬姛锛?-1 澶辫触
+ *      uint8_t:    0 成功-1 失败
  */
 static uint8_t avl_tree_free_node(avl_tree_t *tree, avl_node_t *node)
 {
@@ -249,11 +249,11 @@ static uint8_t avl_tree_free_node(avl_tree_t *tree, avl_node_t *node)
 
 /*
  * @brief:
- *      鍒涘缓涓€涓妭鐐?
+ *      创建一个节点
  * @param:
- *      tree : 鏍戞寚閽?
+ *      tree : 树指针
  * @return:
- *      avl_node_t* 锛?鍒涘缓鐨勮妭鐐?
+ *      avl_node_t* 创建的节点
  */
 static avl_node_t *avl_tree_create_node(avl_tree_t *tree)
 {
@@ -274,12 +274,12 @@ static avl_node_t *avl_tree_create_node(avl_tree_t *tree)
 
 /**
  * @brief:
- *      澧炲姞鑺傜偣
+ *      增加节点
  * @param:
- *      tree : 鏍戞寚閽?
- *      node : 瑕佸鍔犵殑鑺傜偣
+ *      tree : 树指针
+ *      node : 要增加的节点
  * @return:
- *      int8_t:    -1 鏍戞寚閽堜负绌猴紝 -2 鍒涘缓鑺傜偣澶辫触锛?-3 閲嶅鎻掑叆
+ *      int8_t:    -1 树指针为空；-2 创建节点失败；-3 重复插入
  */
 static int8_t avl_tree_add(avl_tree_t *tree, void *ele)
 {
@@ -302,7 +302,7 @@ static int8_t avl_tree_add(avl_tree_t *tree, void *ele)
     if (INIT_KEY == node->key)
         node->key = key;
 
-    if (NULL == this->root) // 娣诲姞绗竴涓妭鐐?
+    if (NULL == this->root) // 添加第一个节点
     {
         node->depth = 1;
         node->leftChild = node->rightChild = node->parent = NULL;
@@ -314,7 +314,7 @@ static int8_t avl_tree_add(avl_tree_t *tree, void *ele)
 
     while (NULL != p)
     {
-        if (key < p->key) // 娣诲姞鍒板乏瀛愭爲
+        if (key < p->key) // 添加到左子树
         {
             if (NULL == p->leftChild)
             {
@@ -326,7 +326,7 @@ static int8_t avl_tree_add(avl_tree_t *tree, void *ele)
                 p = p->leftChild;
             }
         }
-        else if (key > p->key) // 娣诲姞鍒板彸瀛愭爲
+        else if (key > p->key) // 添加到右子树
         {
             if (NULL == p->rightChild)
             {
@@ -342,14 +342,14 @@ static int8_t avl_tree_add(avl_tree_t *tree, void *ele)
         {
             AVL_LOG_DEBUG("Element repetition");
             avl_tree_free_node(tree, node);
-            return -3; // 閲嶅
+            return -3; // 重复
         }
     }
 
     while (NULL != p)
     {
         p->depth = HEIGHT(p);
-        if (NULL == p->parent) // 璋冩暣鍒版牴鑺傜偣
+        if (NULL == p->parent) // 调整到根节点
         {
             this->root = avl_tree_adjust(p);
             break;
@@ -374,12 +374,12 @@ static int8_t avl_tree_add(avl_tree_t *tree, void *ele)
 
 /**
  * @brief:
- *      閫氳繃閿€兼煡鎵捐妭鐐?
+ *      通过键查找节
  * @param:
- *      tree : 鏍戞寚閽?
- *      key : 鑺傜偣鍏冪礌瀵瑰簲鐨勯敭鍊?
+ *      tree : 树指针
+ *      key : 节点元素对应的键
  * @return:
- *      avl_node_t* 锛?鏌ユ壘鍒扮殑鑺傜偣
+ *      avl_node_t* 查找到的节点
  */
 static avl_node_t *query_by_key(avl_tree_t *tree, int key)
 {
@@ -417,12 +417,12 @@ static void *avl_tree_query_by_key(avl_tree_t *tree, uint16_t key)
 
 /**
  * @brief:
- *      閫氳繃閿€煎垹闄よ妭鐐?
+ *      通过键删除节
  * @param:
- *      tree : 鏍戞寚閽?
- *      key : 鑺傜偣鍏冪礌瀵瑰簲鐨勯敭鍊?
+ *      tree : 树指针
+ *      key : 节点元素对应的键
  * @return:
- *      uint8_t:    0 鎴愬姛  -1 澶辫触
+ *      uint8_t:    0 成功  -1 失败
  */
 static uint8_t avl_tree_del_by_key(avl_tree_t *tree, int key)
 {
@@ -436,13 +436,13 @@ static uint8_t avl_tree_del_by_key(avl_tree_t *tree, int key)
 
     this->nodeCount--;
 
-    avl_node_t *p = node->parent; // 鍏堜繚瀛樺垹闄よ妭鐐圭殑鐖惰妭鐐癸紝鏂逛究鍚庨潰璋冩暣鏍?
-    avl_node_t *temp = NULL;      // 鏇挎崲 node 鑺傜偣鐨勮妭鐐?
+    avl_node_t *p = node->parent; // 先保存删除节点的父节点，方便后续调整
+    avl_node_t *temp = NULL;      // 替换 node 节点的节点
 
     /*
-        褰撹鑺傜偣瀛樺湪宸﹀瓙鏍戞垨鑰呭彸瀛愭爲鐨勬椂鍊欙紝姣旇緝涓よ竟鐨勯珮搴︼紱
-        鑻ュ乏瀛愭爲楂樺害澶т簬鍙冲瓙鏍戯紝鍒欏彇 node 鑺傜偣宸﹀瓙鏍戜腑鏈€澶х殑閭ｄ釜鑺傜偣鏉ユ浛鎹?node 鑺傜偣
-        鍚﹀垯锛屽彇 node 鑺傜偣鍙冲瓙鏍戜腑鏈€灏忕殑閭ｄ釜鑺傜偣鏉ユ浛鎹?node 鑺傜偣
+        当该节点存在左子树或者右子树的时候，比较两边的高度；
+        若左子树高度大于右子树，则取 node 节点左子树中最大的那个节点来替换 node 节点
+        否则，取 node 节点右子树中最小的那个节点来替换 node 节点
     */
     if (NULL != node->leftChild || NULL != node->rightChild)
     {
@@ -450,7 +450,7 @@ static uint8_t avl_tree_del_by_key(avl_tree_t *tree, int key)
         {
             temp = node->leftChild;
 
-            while (NULL != temp->rightChild) // 鎵惧埌 node 宸﹀瓙鏍戜腑鏈€澶х殑鑺傜偣
+            while (NULL != temp->rightChild) // 找到 node 左子树中最大的节点
             {
                 temp = temp->rightChild;
             }
@@ -509,7 +509,7 @@ static uint8_t avl_tree_del_by_key(avl_tree_t *tree, int key)
         else if (node == node->parent->rightChild)
             node->parent->rightChild = temp;
     }
-    // 濡傛灉鏄垹闄ょ殑鏍硅妭鐐癸紝闇€瑕佹洿鏂颁笅鏍硅妭鐐癸紝鍚﹀垯浼氬鑷存牴鑺傜偣涓篘ULL
+    // 如果是删除的根节点，需要更新下根节点，否则会导致根节点为NULL
     if (NULL == p)
         this->root = temp;
 
@@ -518,7 +518,7 @@ static uint8_t avl_tree_del_by_key(avl_tree_t *tree, int key)
         p->depth = HEIGHT(p);
         if (NULL == p->parent)
         {
-            // 鎵惧埌鏍硅妭鐐?
+            // 找到根节点
             this->root = avl_tree_adjust(p);
             break;
         }
@@ -542,12 +542,12 @@ static uint8_t avl_tree_del_by_key(avl_tree_t *tree, int key)
 
 /**
  * @brief:
- *      閫氳繃鍏冪礌鏌ユ壘鑺傜偣
+ *      通过元素查找节点
  * @param:
- *      tree : 鏍戞寚閽?
- *      ele : 瑕佹煡鎵剧殑鍏冪礌
+ *      tree : 树指针
+ *      ele : 要查找的元素
  * @return:
- *      avl_node_t* 锛?鏌ユ壘鍒扮殑鑺傜偣
+ *      avl_node_t* 查找到的节点
  */
 static avl_node_t *avl_tree_query_by_element(avl_tree_t *tree, void *ele)
 {
@@ -576,13 +576,13 @@ static avl_node_t *avl_tree_query_by_element(avl_tree_t *tree, void *ele)
 }
 
 /**
- * @biref:
- *      閫氳繃鍏冪礌鍒犻櫎鑺傜偣
+ * @brief:
+ *      通过元素删除节点
  * @param:
- *      tree : 鏍戞寚閽?
- *      ele : 鑺傜偣鐨勫厓绱?
+ *      tree : 树指针
+ *      ele : 节点的元素
  * @return:
- *      uint8_t:    0 鎴愬姛  -1 澶辫触
+ *      uint8_t:    0 成功  -1 失败
  */
 static uint8_t avl_tree_del_by_element(avl_tree_t *tree, void *ele)
 {
@@ -596,10 +596,10 @@ static uint8_t avl_tree_del_by_element(avl_tree_t *tree, void *ele)
 
 /**
  * @brief:
- *      鍓嶅簭閬嶅巻
+ *      前序遍历
  * @param:
- *      tree 锛?鏍戞寚閽?
- *      visit : 閬嶅巻鏃跺姣忎釜鍏冪礌鎵ц鐨勬搷浣?
+ *      tree 树指针
+ *      visit : 遍历时对每个元素执行的操作
  * @return:
  *      None.
  */
@@ -608,9 +608,9 @@ static void preorder(avl_node_t *node, void (*visit)(void *e))
     if (NULL == node)
         return;
 
-    visit(node->element);              // 璁块棶缁撶偣
-    preorder(node->leftChild, visit);  // 閬嶅巻宸﹀瓙鏍?
-    preorder(node->rightChild, visit); // 閬嶅巻鍙冲瓙鏍?
+    visit(node->element);              // 访问结点
+    preorder(node->leftChild, visit);  // 遍历左子树
+    preorder(node->rightChild, visit); // 遍历右子树
 }
 
 static void avl_tree_preorder(avl_tree_t *tree, void (*visit)(void *e))
@@ -621,11 +621,11 @@ static void avl_tree_preorder(avl_tree_t *tree, void (*visit)(void *e))
 
 /**
  * @brief:
- *      鑾峰彇鏍戣妭鐐圭殑鏁伴噺
+ *      获取树节点的数量
  * @param:
- *      tree : 鏍戞寚閽?
+ *      tree : 树指针
  * @return:
- *      uint16_t:    鏍戣妭鐐圭殑鏁伴噺
+ *      uint16_t:    树节点的数量
  */
 static uint16_t avl_tree_size(avl_tree_t *tree)
 {
@@ -635,10 +635,10 @@ static uint16_t avl_tree_size(avl_tree_t *tree)
 
 /**
  * @brief:
- *      娓呴櫎鐩爣鑺傜偣浠ュ強鍏跺叏閮ㄥ瓙鏍戝寘鍚殑鑺傜偣
+ *      清除目标节点以及其全部子树包含的节点
  * @param:
- *      tree : 鏍戞寚閽?
- *      node : 鑺傜偣鐨勫厓绱?
+ *      tree : 树指针
+ *      node : 节点的元素
  * @return:
  *      None.
  */
@@ -655,9 +655,9 @@ static void avl_tree_node_clear(avl_tree_t *tree, avl_node_t *node)
 
 /**
  * @brief:
- *      娓呴櫎鏍戠殑鍏ㄩ儴鑺傜偣
+ *      清除树的全部节点
  * @param:
- *      tree : 鏍戞寚閽?
+ *      tree : 树指针
  * @return:
  *      None.
  */
@@ -670,9 +670,9 @@ static void avl_tree_clear(avl_tree_t *tree)
 
 /**
  * @brief:
- *      閿€姣佹爲
+ *      销毁树
  * @param:
- *      tree : 鏍戞寚閽?
+ *      tree : 树指针
  * @return:
  *      None.
  */
@@ -703,17 +703,17 @@ static void avl_tree_destory(avl_tree_t *tree)
 
 /**
  * @brief:
- *      鍒涘缓涓€棰楀钩琛′簩鍙夋爲
+ *      创建一棵平衡二叉树
  * @param:
- *      element_size:       鑺傜偣淇濆瓨鍏冪礌鐨勫ぇ灏忥紝鍗曚綅瀛楄妭
- *      hash_func:          浠庤妭鐐瑰厓绱犺幏寰楅敭鍊?key 鐨勬柟娉曪紝鐢辩敤鎴锋彁渚?
- *      free_element:       鑻ヨ妭鐐瑰厓绱犱笉鍖呭惈棰濆鐨勫姩鎬佸唴瀛橈紝 姝ゅ弬鏁板彲浼?NULL锛?
- *                          鑻ヨ妭鐐瑰寘鍚殑鍏冪礌涓繕鍖呭惈棰濆鐨勫姩鎬佸唴瀛橈紝鐢ㄦ埛闇€浼犲叆姝ゅ嚱鏁颁互姝ｇ‘閲婃斁鍐呭瓨;
+ *      element_size:       节点保存元素的大小，单位字节
+ *      hash_func:          从节点元素获得键key 的方法，由用户提供
+ *      free_element:       若节点元素不包含额外的动态内存， 此参数可为 NULL
+ *                          若节点包含的元素中还包含额外的动态内存，用户需传入此函数以正确释放内存;
  * @return:
- *      avl_tree_t* : 鍒涘缓骞宠　浜屽弶鏍戠殑鎸囬拡
+ *      avl_tree_t* : 创建平衡二叉树的指针
  * @note:
- *      璇ユ爲鏈夌己闄凤紝element_size 蹇呴』鏄?鎸囬拡绫诲瀷锛屽惁鍒欎細鍑洪敊
- *      寰呭畬鍠?
+ *      该树有缺陷，element_size 必须指针类型，否则会出错
+ *      待完善
  */
 avl_tree_t *avl_tree_create(int element_size, pf_avl_hash hash_func, pf_avl_free_element free_element)
 {

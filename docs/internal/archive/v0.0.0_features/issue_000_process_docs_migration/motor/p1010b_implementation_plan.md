@@ -155,7 +155,7 @@ flowchart LR
 4. `0x34/0x35/0x36/0x37/0x38/0x39` 同步事务统一 completion 实现。
 5. ISR 路径完成协议解析、实例路由、状态更新与回调通知。
 6. `register` 不再自动开启主动反馈，改为外部显式调用。
-7. 样例更新：`oh-my-robot/samples/motor/p1010b/main.c`。
+7. 样例更新：[`oh-my-robot/samples/motor/p1010b/main.c`](../../../../../../samples/motor/p1010b/main.c)。
 
 未完成：
 1. Phase 5 六类场景的完整联调报告与缺陷闭环记录。

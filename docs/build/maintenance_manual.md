@@ -4,22 +4,22 @@
 本手册面向维护者，目标是说明 OM 构建体系的模块边界、依赖关系、数据流与扩展方式。文档内容完全基于当前仓库实现。
 
 相关文档索引：
-- `oh-my-robot/docs/build/build_tasks_manual.md`：内置任务与参数说明。
-- `oh-my-robot/docs/build/build_system_best_practices.md`：构建系统最佳工程实践。
-- `oh-my-robot/docs/build/upstream_xmake_armlink_sourcefile_nil.md`：XMake `armlink.lua` 缺陷的上游提交材料（复现、根因、建议 patch）。
+- [`oh-my-robot/docs/build/build_tasks_manual.md`](build_tasks_manual.md)：内置任务与参数说明。
+- [`oh-my-robot/docs/build/build_system_best_practices.md`](build_system_best_practices.md)：构建系统最佳工程实践。
+- [`oh-my-robot/docs/build/upstream_xmake_armlink_sourcefile_nil.md`](upstream_xmake_armlink_sourcefile_nil.md)：XMake `armlink.lua` 缺陷的上游提交材料（复现、根因、建议 patch）。
 
 ## 2. 构建系统设计方法论
-- **分层原则**：构建系统只在 `oh-my-robot/build/` 集中管理“选项、规则、工具链、共享模块”，模块级构建脚本就地维护，避免全局脚本侵入模块。
+- **分层原则**：构建系统只在 [`oh-my-robot/build/`](../../build/) 集中管理“选项、规则、工具链、共享模块”，模块级构建脚本就地维护，避免全局脚本侵入模块。
 - **单一入口**：顶层 `xmake.lua` 仅负责入口转发与目标聚合，不直接承载工具链或板级逻辑。
-- **数据/行为分离**：板级/芯片/厂商数据放在 `oh-my-robot/platform/bsp/data`，构建规则与工具链行为放在 `oh-my-robot/build`。
+- **数据/行为分离**：板级/芯片/厂商数据放在 [`oh-my-robot/platform/bsp/data`](../../platform/bsp/data)，构建规则与工具链行为放在 [`oh-my-robot/build`](../../build)。
 - **依赖方向**：模块构建脚本可以调用构建层 API（如 `oh-my-robot`、`bsp`），构建层不得硬编码模块路径或板级细节。
 - **口径边界**：构建期依赖用于约束“可见与可链接”关系，不等同于运行时调用链；运行时依赖需结合接口调用/注册路径单独审计。
-- **上移准则**：当逻辑被多个模块复用、与具体板级无关、且不依赖运行时代码时，才上移到 `oh-my-robot/build`；否则保持模块内聚。
+- **上移准则**：当逻辑被多个模块复用、与具体板级无关、且不依赖运行时代码时，才上移到 [`oh-my-robot/build`](../../build)；否则保持模块内聚。
 - **脚本域约束**：仅在脚本域使用 `import/try/raise/task.run` 等 API，描述域只做目标/规则/选项声明，避免配置期卡死或无效调用。
 
 ## 3. 构建链路全景（从配置到产物）
 1) 配置阶段：`xmake f` 读取 `board/os/toolchain/sync_accel/semihosting` 等选项。  
-2) 选项回调：`oh-my-robot/build/config/options.lua` 在 `after_check` 中写入上下文。  
+2) 选项回调：[`oh-my-robot/build/config/options.lua`](../../build/config/options.lua) 在 `after_check` 中写入上下文。  
 3) 上下文持久化：`oh-my-robot/build/modules/oh_my_robotlua` 将关键字段保存到配置缓存。  
 4) 编译数据库：通过 `plugin.compile_commands.autoupdate` 在构建后生成 `compile_commands.json` 至项目根目录。  
 5) 目标加载：`oh_my_robot.context` 注入架构与工具链参数。  
@@ -29,17 +29,17 @@
 
 ## 4. 构建入口与目录职责
 - `xmake.lua`：顶层入口，定义 `robot_project` 并挂载规则；设置官方 LTO 策略默认关闭，由 `oh_my_robot.context` 按工具链动态启用（debug/release 同口径）。
-- `oh-my-robot/xmake.lua`：OM 构建入口转发（实际入口在 `oh-my-robot/build/xmake.lua`）。
-- `oh-my-robot/build/xmake.lua`：OM 构建入口，加载配置/规则/子模块，并定义聚合目标 `tar_oh_my_robot`。
+- [`oh-my-robot/xmake.lua`](../../xmake.lua)：OM 构建入口转发（实际入口在 [`oh-my-robot/build/xmake.lua`](../../build/xmake.lua)）。
+- [`oh-my-robot/build/xmake.lua`](../../build/xmake.lua)：OM 构建入口，加载配置/规则/子模块，并定义聚合目标 `tar_oh_my_robot`。
 
 核心目录职责：
-- `oh-my-robot/build/config/`：构建选项与默认值。
-- `oh-my-robot/build/rules/`：规则定义（上下文注入、板级资源、镜像转换）。
-- `oh-my-robot/build/toolchains/`：工具链数据与脚本逻辑。
-- `oh-my-robot/build/tasks/`：自定义任务（如 flash 烧录）。
-- `oh-my-robot/platform/bsp/`：BSP 数据加载、合并、板级构建脚本。
-- `oh-my-robot/platform/osal/`：OS 抽象层与 OS 端口。
-- `oh-my-robot/platform/sync/`：同步原语与可选加速后端。
+- [`oh-my-robot/build/config/`](../../build/config/)：构建选项与默认值。
+- [`oh-my-robot/build/rules/`](../../build/rules/)：规则定义（上下文注入、板级资源、镜像转换）。
+- [`oh-my-robot/build/toolchains/`](../../build/toolchains/)：工具链数据与脚本逻辑。
+- [`oh-my-robot/build/tasks/`](../../build/tasks/)：自定义任务（如 flash 烧录）。
+- [`oh-my-robot/platform/bsp/`](../../platform/bsp/)：BSP 数据加载、合并、板级构建脚本。
+- [`oh-my-robot/platform/osal/`](../../platform/osal/)：OS 抽象层与 OS 端口。
+- [`oh-my-robot/platform/sync/`](../../platform/sync/)：同步原语与可选加速后端。
 自定义任务：
 - `xmake flash`：通过 J-Link Commander 烧录，默认优先使用 HEX，可通过 `--firmware` 指定 ELF/HEX，并可通过 `--native_output=true` 透传原生输出。
 - 调试器支持矩阵（当前）：`om_preset.flash` 仅接入 `jlink`；`daplink` 尚未实现，仅作为规划项记录。
@@ -47,9 +47,9 @@
 
 ## 5. 目录职责与依赖方向简图
 **依赖方向原则**
-- 构建系统层（`oh-my-robot/build`）提供配置、规则、工具链与共享 API，供模块构建脚本调用。
-- 模块构建脚本（`oh-my-robot/lib`、`oh-my-robot/platform` 下的 `xmake.lua`）只描述本模块目标与依赖，不反向依赖构建系统实现细节。
-- 板级/芯片/厂商数据（`oh-my-robot/platform/bsp/data`）仅被 BSP 装配层读取，不直接参与构建规则。
+- 构建系统层（[`oh-my-robot/build`](../../build)）提供配置、规则、工具链与共享 API，供模块构建脚本调用。
+- 模块构建脚本（[`oh-my-robot/lib`](../../lib)、[`oh-my-robot/platform`](../../platform) 下的 `xmake.lua`）只描述本模块目标与依赖，不反向依赖构建系统实现细节。
+- 板级/芯片/厂商数据（[`oh-my-robot/platform/bsp/data`](../../platform/bsp/data)）仅被 BSP 装配层读取，不直接参与构建规则。
 
 ```mermaid
 flowchart TB
@@ -105,9 +105,9 @@ flowchart LR
 
 ## 8. 模块职责细节
 ### 8.1 配置模块
-- `oh-my-robot/build/config/defaults.lua`：定义 `board/os/sync_accel/semihosting` 默认值。
-- `oh-my-robot/build/config/options.lua`：
-  - 基于 `oh-my-robot/platform/bsp/data/boards/index.lua` 与 `oh-my-robot/platform/osal/index.lua` 枚举可选 board/os。
+- [`oh-my-robot/build/config/defaults.lua`](../../build/config/defaults.lua)：定义 `board/os/sync_accel/semihosting` 默认值。
+- [`oh-my-robot/build/config/options.lua`](../../build/config/options.lua)：
+  - 基于 [`oh-my-robot/platform/bsp/data/boards/index.lua`](../../platform/bsp/data/boards/index.lua) 与 [`oh-my-robot/platform/osal/index.lua`](../../platform/osal/index.lua) 枚举可选 board/os。
   - 将 board/os/toolchain/arch/flags 写入上下文。
   - `semihosting=off` 时为 armclang 可执行目标注入非 semihosting syscall 覆盖桩，避免运行期触发 semihost BKPT。
   - 对默认值进行合法性校验。
@@ -131,10 +131,10 @@ flowchart LR
   - 清理阶段删除生成文件。
 
 ### 8.3 工具链模块
-- `oh-my-robot/build/toolchains/data.lua`：工具链数据（`toolset/image/linker_flag` 等）。
-- `oh-my-robot/build/toolchains/xmake.lua`：注册 `kind=custom` 工具链。
-- `oh-my-robot/build/modules/toolchain_lib.lua`：脚本侧 API，供规则与配置使用。
-- `oh-my-robot/build/toolchains/toolchain_bootstrap.lua`：在构建前补全工具链配置，保证首轮构建可用。
+- [`oh-my-robot/build/toolchains/data.lua`](../../build/toolchains/data.lua)：工具链数据（`toolset/image/linker_flag` 等）。
+- [`oh-my-robot/build/toolchains/xmake.lua`](../../build/toolchains/xmake.lua)：注册 `kind=custom` 工具链。
+- [`oh-my-robot/build/modules/toolchain_lib.lua`](../../build/modules/toolchain_lib.lua)：脚本侧 API，供规则与配置使用。
+- [`oh-my-robot/build/toolchains/toolchain_bootstrap.lua`](../../build/toolchains/toolchain_bootstrap.lua)：在构建前补全工具链配置，保证首轮构建可用。
 
 ### 8.4 BSP 模块
 - `bsp/data_loader.lua`：加载 board/chip/vendor 数据并生成 profile。
@@ -145,14 +145,14 @@ flowchart LR
 - rm-c-board 的 armclang scatter 不再将 FreeRTOS 相关对象固定放入 `RW_IRAM2`，避免 CCM/DMA 风险。
 
 ### 8.5 armclang 运行时与 semihosting 维护约束
-- 运行时决策入口：`oh-my-robot/build/toolchains/toolchain_runtime.lua`。
+- 运行时决策入口：[`oh-my-robot/build/toolchains/toolchain_runtime.lua`](../../build/toolchains/toolchain_runtime.lua)。
   - `resolve_semihosting_mode()` 只接受 `off/on`。
-  - `resolve_runtime_payload("armclang", "off")` 返回 `oh-my-robot/build/runtime/armclang/semihost_stub.c`。
+  - `resolve_runtime_payload("armclang", "off")` 返回 [`oh-my-robot/build/runtime/armclang/semihost_stub.c`](../../build/runtime/armclang/semihost_stub.c)。
   - `resolve_runtime_payload("armclang", "on")` 返回空注入。
-- 注入生效点：`oh-my-robot/build/rules/context.lua` 的 `oh_my_robot.context` 规则。
+- 注入生效点：[`oh-my-robot/build/rules/context.lua`](../../build/rules/context.lua) 的 `oh_my_robot.context` 规则。
   - 仅对 `target:kind() == "binary"` 注入运行时 payload。
   - 静态库目标不应注入 semihost stub，避免污染库边界。
-- stub 语义约束（`oh-my-robot/build/runtime/armclang/semihost_stub.c`）：
+- stub 语义约束（[`oh-my-robot/build/runtime/armclang/semihost_stub.c`](../../build/runtime/armclang/semihost_stub.c)）：
   - 目标是“去 semihost 依赖”，不是“模拟完整主机文件系统”。
   - `_sys_open` 返回伪句柄用于保障 C 运行库初始化继续执行。
   - `_sys_exit` 保持死循环，避免落入未定义宿主行为。
@@ -172,8 +172,8 @@ flowchart LR
 - 仅调整库顺序通常无法根治该类问题。
 
 当前实现（必须保持）：
-- `platform/bsp/inputs.lua` 负责收集 `override_sources`（vendor/chip/board）并从 `inputs.sources` 中排除。
-- `build/rules/board_assets.lua` 仅对 `binary` 目标注入 `override_sources`，并带入板级 `includedirs/defines`。
+- [`platform/bsp/inputs.lua`](../../platform/bsp/inputs.lua) 负责收集 `override_sources`（vendor/chip/board）并从 `inputs.sources` 中排除。
+- [`build/rules/board_assets.lua`](../../build/rules/board_assets.lua) 仅对 `binary` 目标注入 `override_sources`，并带入板级 `includedirs/defines`。
 - 覆盖源通过“直连最终 `binary`”参与链接，不依赖静态库抽取偶然性。
 
 维护约束：
@@ -201,7 +201,7 @@ flowchart LR
 
 ### 8.9 armclang 链路确定性与诊断约束
 当前实现（必须保持）：
-- `oh-my-robot/build/toolchains/toolchain_overrides.lua` 对 `armclang` 强制补全 `toolset_as=armclang`，禁止回退到 `armasm`。
+- [`oh-my-robot/build/toolchains/toolchain_overrides.lua`](../../build/toolchains/toolchain_overrides.lua) 对 `armclang` 强制补全 `toolset_as=armclang`，禁止回退到 `armasm`。
 - 若用户显式传入 `toolset_as` 且值不是 `armclang`，配置期直接报错，不做隐式兼容。
 
 版本门禁（配置期/构建期）：
@@ -214,7 +214,7 @@ flowchart LR
 
 ## 9. 数据结构与合并策略
 ### 9.1 Toolchain 数据
-- 定义位置：`oh-my-robot/build/toolchains/data.lua`。
+- 定义位置：[`oh-my-robot/build/toolchains/data.lua`](../../build/toolchains/data.lua)。
 - 关键字段：`default/toolchains`。
 - `toolchains[name]` 包含 `kind/plat/arch/linker_flag/toolset/image`。
 - `linker_accepts_arch_flags`：控制是否将工具链映射得到的 arch ldflags 注入链接阶段（armclang 为 `false`）。
@@ -302,7 +302,7 @@ function get()
   return board
 end
 ```
-新增 board 时需同步更新 `oh-my-robot/platform/bsp/data/boards/index.lua`。
+新增 board 时需同步更新 [`oh-my-robot/platform/bsp/data/boards/index.lua`](../../platform/bsp/data/boards/index.lua)。
 
 ### 11.4 新增 board 构建脚本
 文件：`oh-my-robot/platform/bsp/boards/my-board/xmake.lua`
@@ -341,7 +341,7 @@ target_end()
 ```lua
 osal = { myos = "boards/my-board/osal/myos" }
 ```
-新增 OS 时需同步更新 `oh-my-robot/platform/osal/index.lua`。
+新增 OS 时需同步更新 [`oh-my-robot/platform/osal/index.lua`](../../platform/osal/index.lua)。
 
 ### 11.6 新增 Sync 加速后端
 目录：`oh-my-robot/platform/sync/myos/`，编写 `sync_accel.lua`：
@@ -355,7 +355,7 @@ end
 ```
 
 ### 11.7 新增 Toolchain
-在 `oh-my-robot/build/toolchains/data.lua` 中添加：
+在 [`oh-my-robot/build/toolchains/data.lua`](../../build/toolchains/data.lua) 中添加：
 ```lua
 ["my-gcc"] = {
   kind = "custom",
@@ -387,7 +387,7 @@ end
 - FreeRTOS 端口文件缺失：`tar_os` 加载时失败。
 - `semihosting` 值非法：`options.lua`/`toolchain_runtime.lua` 会在配置期报错（仅允许 `off/on`）。
 - `gnu-rm` 下 LTO 未开启：`auto` 策略要求 `gcc >= 14.2.0`；低于门槛会自动关闭并在摘要输出原因（典型旧版问题：`offset out of range`）。
-- `armclang semihost stub missing`：`oh-my-robot/build/runtime/armclang/semihost_stub.c` 缺失或路径变更未同步。
+- `armclang semihost stub missing`：[`oh-my-robot/build/runtime/armclang/semihost_stub.c`](../../build/runtime/armclang/semihost_stub.c) 缺失或路径变更未同步。
 - `armclang toolset_as unsupported`：仅支持 `toolset_as=armclang`；请移除自定义回退配置。
 - `armclang version not supported`：当前版本门禁为 `>= 6.14`，请升级 Arm Compiler 6。
 - `Fatal error: L6050U`：当前 `armlink` 为 Lite 授权导致代码大小受限；先执行 `armlink --vsn` 确认 `Product`，若为 `MDK-ARM Lite` 则需切换到非 Lite 授权或改用 `gnu-rm`。
@@ -422,6 +422,6 @@ end
 - 2026-01-30：BSP 改为仅提供 `arch_traits`，由工具链映射生成 `arch_flags`，实现职责解耦。
 - 2026-01-31：rm-c-board 的 armclang 链接脚本移除 FreeRTOS 对象固定分配，默认落入 `RW_IRAM1`。
 - 2026-01-31：preset 拆分为 `toolchain_default` 与 `toolchain_presets`，支持多工具链路径预设。
-- 2026-01-31：构建脚本入口迁移至 `oh-my-robot/build/xmake.lua`，并将 `config/rules/toolchains/modules` 统一归档到 `oh-my-robot/build/`。
+- 2026-01-31：构建脚本入口迁移至 [`oh-my-robot/build/xmake.lua`](../../build/xmake.lua)，并将 `config/rules/toolchains/modules` 统一归档到 [`oh-my-robot/build/`](../../build/)。
 - 2026-02-01：启用 `plugin.compile_commands.autoupdate`，构建后自动生成 `compile_commands.json` 到项目根目录。
 
