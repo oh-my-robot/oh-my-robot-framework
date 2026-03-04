@@ -44,21 +44,79 @@ git remote -v
 
 ## 4. 分支同步与变基（Rebase）标准规范
 
-### 4.1 强制规定
+### 4.1 提交前预检（Fork 与上游落后检查）
+
+#### 4.1.1 远端拓扑检查（必须通过）
+
+1. `upstream` 必须指向官方仓库 `oh-my-robot/oh-my-robot-framework`。
+2. `origin` 必须指向个人 Fork，且 URL 不得与 `upstream` 相同。
+3. 未通过该检查前，禁止进入后续 `rebase`、`push` 与 PR 流程。
+
+```bash
+git remote -v
+git remote get-url origin
+git remote get-url upstream
+```
+
+若远端配置错误，先修正后再继续：
+
+```bash
+git remote rename origin legacy
+git remote add origin https://github.com/<your-username>/oh-my-robot-framework.git
+git remote set-url upstream https://github.com/oh-my-robot/oh-my-robot-framework.git
+```
+
+#### 4.1.2 Fork 关系检查（必须通过）
+
+1. `origin` 对应仓库必须是 `upstream` 的 Fork 网络成员。
+2. 在 GitHub 仓库页面确认存在 `forked from oh-my-robot/oh-my-robot-framework` 标识。
+3. 若当前 `origin` 不是 Fork，必须先重新创建正确 Fork，再更新 `origin`。
+
+#### 4.1.3 上游落后检查（必须通过）
+
+1. `feature/*` 与 `fix/*` 的检查基线为 `upstream/integration`。
+2. `hotfix/*` 的检查基线为 `upstream/main`。
+3. 预检时先同步远端追踪信息，再检查当前分支相对基线的落后状态。
+
+```bash
+git fetch upstream --prune
+git branch --show-current
+
+# feature/* 与 fix/*
+git rev-list --left-right --count upstream/integration...HEAD
+
+# hotfix/*
+git rev-list --left-right --count upstream/main...HEAD
+```
+
+`git rev-list --left-right --count` 输出格式为 `<behind> <ahead>`：
+
+1. `behind > 0`：当前分支落后基线，必须先执行 `rebase`。
+2. `behind = 0`：可继续后续流程。
+
+#### 4.1.4 预检后的动作决策
+
+1. 远端拓扑或 Fork 关系不通过：先修正远端与 Fork 关系，再执行后续流程。
+2. 若 `behind > 0`：对对应基线执行 `git rebase <base>`。
+3. 冲突处理中仅允许 `git add` + `git rebase --continue`，禁止 `git commit`。
+4. 变基完成后推送必须使用 `git push origin <branch> --force-with-lease`。
+5. 全流程禁止使用 `git merge upstream/*` 同步上游。
+
+### 4.2 强制规定
 
 1. `feature/*` 与 `fix/*` 落后 `upstream/integration` 时，必须 `rebase`；`hotfix/*` 落后 `upstream/main` 时，必须 `rebase`；统一禁止 `merge` 同步上游。
 2. 冲突恢复流程中禁止执行 `git commit`。
 3. 变基重写历史后，推送必须使用 `--force-with-lease`。
 
-### 4.2 标准变基工作流
+### 4.3 标准变基工作流
 
-#### 4.2.1 更新上游追踪分支
+#### 4.3.1 更新上游追踪分支
 
 ```bash
 git fetch upstream
 ```
 
-#### 4.2.2 执行变基
+#### 4.3.2 执行变基
 
 ```bash
 git rebase upstream/integration
@@ -66,7 +124,7 @@ git rebase upstream/integration
 
 `hotfix/*` 分支执行变基时，将基线替换为 `upstream/main`。
 
-#### 4.2.3 冲突处理
+#### 4.3.3 冲突处理
 
 ```bash
 git add <冲突文件路径>
@@ -75,7 +133,7 @@ git rebase --continue
 
 重复执行“解决冲突 -> `git add` -> `git rebase --continue`”直到变基完成。
 
-#### 4.2.4 推送变更到个人派生库
+#### 4.3.4 推送变更到个人派生库
 
 ```bash
 git push origin <当前特性分支名> --force-with-lease
@@ -118,19 +176,23 @@ git commit -m "docs(osal): 补充互斥锁使用场景推演草稿 (#15)"
 
 ### 阶段四：变基与推送到个人派生库（CLI）
 
-1. 同步上游时严禁 `git merge upstream/integration`，必须使用 `git rebase upstream/integration`。
-2. 变基冲突处理中严禁执行 `git commit`，仅允许 `git add` + `git rebase --continue`。
+1. 进入本阶段前，必须先通过第 `4.1` 节提交前预检（远端拓扑、Fork 关系、上游落后状态）。
+2. 同步上游时严禁 `git merge upstream/integration`，必须使用 `git rebase upstream/integration`。
+3. 变基冲突处理中严禁执行 `git commit`，仅允许 `git add` + `git rebase --continue`。
 
 ```bash
-# 1) 再次同步官方最新状态
-git fetch upstream
+# 0) 执行第 4.1 节预检（示例为 feature/fix）
+git fetch upstream --prune
+git rev-list --left-right --count upstream/integration...HEAD
 
-# 2) 变基防冲突，保持线性历史
+# 1) 变基防冲突，保持线性历史
 git rebase upstream/integration
 
-# 3) 推送到个人派生库（origin）
+# 2) 推送到个人派生库（origin）
 git push origin feature/15-osal-mutex --force-with-lease
 ```
+
+`hotfix/*` 分支将基线替换为 `upstream/main`，其余规则不变。
 
 ### 阶段五：跨库 PR 与自动闭环（Web 端）
 
@@ -142,10 +204,12 @@ git push origin feature/15-osal-mutex --force-with-lease
 ### SOP 执行检查清单
 
 1. 是否先在 `upstream` 创建并认领了 Issue。
-2. 分支名是否为 `feature/<id>-<slug>` 且包含 Issue 编号。
-3. 是否所有提交都带 `(#<id>)` 锚点。
-4. 提交 PR 前是否已 `rebase upstream/integration`。
-5. PR 描述是否按目标分支使用正确关键字：`Refs #<id>`（到 `integration`）/`Fixes #<id>`（到 `main`）。
+2. 是否已执行第 `4.1` 节预检并确认 `origin` 是 `upstream` 的 Fork。
+3. 是否已执行 `git rev-list --left-right --count <base>...HEAD` 并按规则完成落后处理。
+4. 分支名是否为 `feature/<id>-<slug>` 且包含 Issue 编号。
+5. 是否所有提交都带 `(#<id>)` 锚点。
+6. 提交 PR 前是否已 `rebase upstream/integration`。
+7. PR 描述是否按目标分支使用正确关键字：`Refs #<id>`（到 `integration`）/`Fixes #<id>`（到 `main`）。
 
 ## 6. 合并策略
 
