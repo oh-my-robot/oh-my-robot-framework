@@ -24,7 +24,6 @@ body:
         - label: 应用层 (Sample 演示，应用层)
         - label: 构建与脚本层 (构建系统、脚本、环境变量等)
         - label: 其他层 (未归类)
-      required: true
   - type: textarea
     id: acceptance
     attributes:
