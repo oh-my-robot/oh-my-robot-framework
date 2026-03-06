@@ -311,6 +311,20 @@ void UART7_IRQHandler(void)
 
     HAL_UART_IRQHandler(&bsp_serial->handle);
 }
+#ifdef USE_SERIAL7_DMA_TX
+void SERIAL_7_DMA_TX_IRQ_Handler(void)
+{
+    bsp_serial_t bsp_serial = &g_bsp_serial[SERIAL7_IDX];
+    HAL_DMA_IRQHandler(bsp_serial->handle.hdmatx);
+}
+#endif /* USE_SERIAL7_DMA_TX */
+#ifdef USE_SERIAL7_DMA_RX
+void SERIAL_7_DMA_RX_IRQ_Handler(void)
+{
+    bsp_serial_t bsp_serial = &g_bsp_serial[SERIAL7_IDX];
+    HAL_DMA_IRQHandler(bsp_serial->handle.hdmarx);
+}
+#endif /* USE_SERIAL7_DMA_RX */
 #endif /* USE_SERIAL_7 */
 
 #ifdef USE_SERIAL_8
@@ -326,4 +340,18 @@ void UART8_IRQHandler(void)
 
     HAL_UART_IRQHandler(&bsp_serial->handle);
 }
+#ifdef USE_SERIAL8_DMA_TX
+void SERIAL_8_DMA_TX_IRQ_Handler(void)
+{
+    bsp_serial_t bsp_serial = &g_bsp_serial[SERIAL8_IDX];
+    HAL_DMA_IRQHandler(bsp_serial->handle.hdmatx);
+}
+#endif /* USE_SERIAL8_DMA_TX */
+#ifdef USE_SERIAL8_DMA_RX
+void SERIAL_8_DMA_RX_IRQ_Handler(void)
+{
+    bsp_serial_t bsp_serial = &g_bsp_serial[SERIAL8_IDX];
+    HAL_DMA_IRQHandler(bsp_serial->handle.hdmarx);
+}
+#endif /* USE_SERIAL8_DMA_RX */
 #endif /* USE_SERIAL_8 */

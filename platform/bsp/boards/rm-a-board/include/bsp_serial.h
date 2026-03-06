@@ -14,6 +14,13 @@
 
 #include "stm32f4xx_hal.h"
 
+/* UART7 与 USART3 的 DMA stream 存在冲突，只能二选一。 */
+#define RM_A_SERIAL_DMA_PROFILE_USART3 (0U)
+#define RM_A_SERIAL_DMA_PROFILE_UART7  (1U)
+#ifndef RM_A_SERIAL_DMA_PROFILE
+#define RM_A_SERIAL_DMA_PROFILE RM_A_SERIAL_DMA_PROFILE_USART3
+#endif
+
 #define USE_SERIAL_1
 #ifdef USE_SERIAL_1
 #define SERIAL_1_REG_PARAMS (SERIAL_REG_DMA_RX | SERIAL_REG_DMA_TX) /* 注册参数 */
@@ -37,6 +44,7 @@
 
 #define USE_SERIAL_3
 #ifdef USE_SERIAL_3
+#if (RM_A_SERIAL_DMA_PROFILE == RM_A_SERIAL_DMA_PROFILE_USART3)
 #define SERIAL_3_REG_PARAMS (SERIAL_REG_DMA_RX | SERIAL_REG_DMA_TX) /* 注册参数 */
 #define USE_SERIAL3_DMA_TX                                          /* 使用DMA发送 */
 #define USE_SERIAL3_DMA_RX                                          /* 使用DMA接收 */
@@ -54,16 +62,55 @@
 #define SERIAL_3_DMA_RX_IRQn DMA1_Stream1_IRQn
 #define SERIAL_3_DMA_RX_IRQ_Handler DMA1_Stream1_IRQHandler
 #endif
+#else
+#define SERIAL_3_REG_PARAMS (SERIAL_REG_INT_RX | SERIAL_REG_INT_TX) /* 注册参数 */
+#endif
 #endif
 
 #define USE_SERIAL_7
 #ifdef USE_SERIAL_7
+#if (RM_A_SERIAL_DMA_PROFILE == RM_A_SERIAL_DMA_PROFILE_UART7)
+#define SERIAL_7_REG_PARAMS (SERIAL_REG_DMA_RX | SERIAL_REG_DMA_TX) /* 注册参数 */
+#define USE_SERIAL7_DMA_TX                                          /* 使用DMA发送 */
+#define USE_SERIAL7_DMA_RX                                          /* 使用DMA接收 */
+#ifdef USE_SERIAL7_DMA_TX
+#define SERIAL_7_DMA_TX_DMA_STREAM DMA1_Stream1
+#define SERIAL_7_DMA_TX_DMA_CHANNEL DMA_CHANNEL_5
+#define SERIAL_7_DMA_TX_IRQn DMA1_Stream1_IRQn
+#define SERIAL_7_DMA_TX_IRQ_Handler DMA1_Stream1_IRQHandler
+#endif
+#ifdef USE_SERIAL7_DMA_RX
+#define SERIAL_7_RX_MULTIBUF_SIZE (256U) /* 多缓冲区接收长度 */
+#define USE_SERIAL7_CONTAINER1           /* 使用多缓冲区接收 */
+#define SERIAL_7_DMA_RX_DMA_STREAM DMA1_Stream3
+#define SERIAL_7_DMA_RX_DMA_CHANNEL DMA_CHANNEL_5
+#define SERIAL_7_DMA_RX_IRQn DMA1_Stream3_IRQn
+#define SERIAL_7_DMA_RX_IRQ_Handler DMA1_Stream3_IRQHandler
+#endif
+#else
 #define SERIAL_7_REG_PARAMS (SERIAL_REG_INT_RX | SERIAL_REG_INT_TX) /* 注册参数 */
+#endif
 #endif
 
 #define USE_SERIAL_8
 #ifdef USE_SERIAL_8
-#define SERIAL_8_REG_PARAMS (SERIAL_REG_INT_RX | SERIAL_REG_INT_TX) /* 注册参数 */
+#define SERIAL_8_REG_PARAMS (SERIAL_REG_DMA_RX | SERIAL_REG_DMA_TX) /* 注册参数 */
+#define USE_SERIAL8_DMA_TX                                          /* 使用DMA发送 */
+#define USE_SERIAL8_DMA_RX                                          /* 使用DMA接收 */
+#ifdef USE_SERIAL8_DMA_TX
+#define SERIAL_8_DMA_TX_DMA_STREAM DMA1_Stream0
+#define SERIAL_8_DMA_TX_DMA_CHANNEL DMA_CHANNEL_5
+#define SERIAL_8_DMA_TX_IRQn DMA1_Stream0_IRQn
+#define SERIAL_8_DMA_TX_IRQ_Handler DMA1_Stream0_IRQHandler
+#endif
+#ifdef USE_SERIAL8_DMA_RX
+#define SERIAL_8_RX_MULTIBUF_SIZE (256U) /* 多缓冲区接收长度 */
+#define USE_SERIAL8_CONTAINER1           /* 使用多缓冲区接收 */
+#define SERIAL_8_DMA_RX_DMA_STREAM DMA1_Stream6
+#define SERIAL_8_DMA_RX_DMA_CHANNEL DMA_CHANNEL_5
+#define SERIAL_8_DMA_RX_IRQn DMA1_Stream6_IRQn
+#define SERIAL_8_DMA_RX_IRQ_Handler DMA1_Stream6_IRQHandler
+#endif
 #endif
 
 /* 串口配置宏 */

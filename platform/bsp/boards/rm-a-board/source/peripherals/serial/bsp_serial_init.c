@@ -252,8 +252,23 @@ static void _bsp_serial6_pre_init(bsp_serial_t bsp_serial, uint8_t is_enalbe_int
 #endif
 
 #ifdef USE_SERIAL_7
+#ifdef USE_SERIAL7_DMA_TX
+static DMA_HandleTypeDef hdma_serial7_tx;
+#endif /* USE_SERIAL7_DMA_TX */
+
+#ifdef USE_SERIAL7_DMA_RX
+static DMA_HandleTypeDef hdma_serial7_rx;
+static uint8_t serial7_container0[SERIAL_7_RX_MULTIBUF_SIZE];
+#ifdef USE_SERIAL7_CONTAINER1
+static uint8_t serial7_container1[SERIAL_7_RX_MULTIBUF_SIZE];
+BSP_SERIAL_MULTIBUF_DEF(serial7_rx_multibuf, serial7_container0, serial7_container1, SERIAL_7_RX_MULTIBUF_SIZE);
+#else
+BSP_SERIAL_MULTIBUF_DEF(serial7_rx_multibuf, serial7_container0, NULL, SERIAL_7_RX_MULTIBUF_SIZE);
+#endif /* USE_SERIAL7_CONTAINER1 */
+#endif /* USE_SERIAL7_DMA_RX */
 static void _bsp_serial7_pre_init(bsp_serial_t bsp_serial, uint8_t is_enalbe_int)
 {
+    UART_HandleTypeDef* huart = &bsp_serial->handle;
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     SerialCfg cfg = {
         .baudrate = 115200u,
@@ -269,12 +284,34 @@ static void _bsp_serial7_pre_init(bsp_serial_t bsp_serial, uint8_t is_enalbe_int
     __HAL_RCC_UART7_CLK_ENABLE();
     if (__HAL_RCC_GPIOE_IS_CLK_DISABLED())
         __HAL_RCC_GPIOE_CLK_ENABLE();
+#if defined(USE_SERIAL7_DMA_TX) || defined(USE_SERIAL7_DMA_RX)
+    if (__HAL_RCC_DMA1_IS_CLK_DISABLED())
+        __HAL_RCC_DMA1_CLK_ENABLE();
+#endif
     GPIO_InitStruct.Pin = GPIO_PIN_8 | GPIO_PIN_7; // PE8 ------> UART7_TX, PE7 ------> UART7_RX
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF8_UART7;
     HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+#ifdef USE_SERIAL7_DMA_TX
+    __HAL_LINKDMA(huart, hdmatx, hdma_serial7_tx);
+    hdma_serial7_tx.Instance = SERIAL_7_DMA_TX_DMA_STREAM;
+    hdma_serial7_tx.Init.Channel = SERIAL_7_DMA_TX_DMA_CHANNEL;
+
+    HAL_NVIC_SetPriority(SERIAL_7_DMA_TX_IRQn, 6, 0);
+    HAL_NVIC_EnableIRQ(SERIAL_7_DMA_TX_IRQn);
+#endif
+#ifdef USE_SERIAL7_DMA_RX
+    __HAL_LINKDMA(huart, hdmarx, hdma_serial7_rx);
+    hdma_serial7_rx.Instance = SERIAL_7_DMA_RX_DMA_STREAM;
+    hdma_serial7_rx.Init.Channel = SERIAL_7_DMA_RX_DMA_CHANNEL;
+    bsp_serial->rx_multibuf = &serial7_rx_multibuf;
+
+    HAL_NVIC_SetPriority(SERIAL_7_DMA_RX_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(SERIAL_7_DMA_RX_IRQn);
+#endif
     if (is_enalbe_int)
     {
         HAL_NVIC_SetPriority(UART7_IRQn, 6, 0);
@@ -284,8 +321,23 @@ static void _bsp_serial7_pre_init(bsp_serial_t bsp_serial, uint8_t is_enalbe_int
 #endif
 
 #ifdef USE_SERIAL_8
+#ifdef USE_SERIAL8_DMA_TX
+static DMA_HandleTypeDef hdma_serial8_tx;
+#endif /* USE_SERIAL8_DMA_TX */
+
+#ifdef USE_SERIAL8_DMA_RX
+static DMA_HandleTypeDef hdma_serial8_rx;
+static uint8_t serial8_container0[SERIAL_8_RX_MULTIBUF_SIZE];
+#ifdef USE_SERIAL8_CONTAINER1
+static uint8_t serial8_container1[SERIAL_8_RX_MULTIBUF_SIZE];
+BSP_SERIAL_MULTIBUF_DEF(serial8_rx_multibuf, serial8_container0, serial8_container1, SERIAL_8_RX_MULTIBUF_SIZE);
+#else
+BSP_SERIAL_MULTIBUF_DEF(serial8_rx_multibuf, serial8_container0, NULL, SERIAL_8_RX_MULTIBUF_SIZE);
+#endif /* USE_SERIAL8_CONTAINER1 */
+#endif /* USE_SERIAL8_DMA_RX */
 static void _bsp_serial8_pre_init(bsp_serial_t bsp_serial, uint8_t is_enalbe_int)
 {
+    UART_HandleTypeDef* huart = &bsp_serial->handle;
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     SerialCfg cfg = {
         .baudrate = 115200u,
@@ -301,12 +353,34 @@ static void _bsp_serial8_pre_init(bsp_serial_t bsp_serial, uint8_t is_enalbe_int
     __HAL_RCC_UART8_CLK_ENABLE();
     if (__HAL_RCC_GPIOE_IS_CLK_DISABLED())
         __HAL_RCC_GPIOE_CLK_ENABLE();
+#if defined(USE_SERIAL8_DMA_TX) || defined(USE_SERIAL8_DMA_RX)
+    if (__HAL_RCC_DMA1_IS_CLK_DISABLED())
+        __HAL_RCC_DMA1_CLK_ENABLE();
+#endif
     GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_0; // PE1 ------> UART8_TX, PE0 ------> UART8_RX
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF8_UART8;
     HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+#ifdef USE_SERIAL8_DMA_TX
+    __HAL_LINKDMA(huart, hdmatx, hdma_serial8_tx);
+    hdma_serial8_tx.Instance = SERIAL_8_DMA_TX_DMA_STREAM;
+    hdma_serial8_tx.Init.Channel = SERIAL_8_DMA_TX_DMA_CHANNEL;
+
+    HAL_NVIC_SetPriority(SERIAL_8_DMA_TX_IRQn, 6, 0);
+    HAL_NVIC_EnableIRQ(SERIAL_8_DMA_TX_IRQn);
+#endif
+#ifdef USE_SERIAL8_DMA_RX
+    __HAL_LINKDMA(huart, hdmarx, hdma_serial8_rx);
+    hdma_serial8_rx.Instance = SERIAL_8_DMA_RX_DMA_STREAM;
+    hdma_serial8_rx.Init.Channel = SERIAL_8_DMA_RX_DMA_CHANNEL;
+    bsp_serial->rx_multibuf = &serial8_rx_multibuf;
+
+    HAL_NVIC_SetPriority(SERIAL_8_DMA_RX_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(SERIAL_8_DMA_RX_IRQn);
+#endif
     if (is_enalbe_int)
     {
         HAL_NVIC_SetPriority(UART8_IRQn, 6, 0);
