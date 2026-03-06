@@ -39,7 +39,7 @@ static void can_filter_callback(Device* dev, void* param, CanFilterHandle filter
     device_read(dev, NULL, &info->msg[cnt], msg_count);
     for (size_t i = 0; i < msg_count; i++)
     {
-        info->msg[cnt + i].dsc.id = info->msg[cnt + i].dsc.id + 0x100; // CAN鎬荤嚎涓嬩笉鍏佽鍑虹幇鐩稿悓ID锛屽洜姝よ繖閲屽姞0x100閬垮厤鍜屼笂浣嶆満ID鍐茬獊
+        info->msg[cnt + i].dsc.id = info->msg[cnt + i].dsc.id + 0x100; // CAN总线下不允许出现相同ID，因此这里加0x100避免和上位机ID冲突
     }
     device_write(dev, NULL, &info->msg[cnt], msg_count);
     cnt++;
@@ -57,7 +57,7 @@ void can_test_task(void* param)
     {
     };
 
-    /* CAN璁惧鍒濆鍖?*/
+    /* CAN 设备初始化 */
     ret = device_open(can, CAN_O_INT_RX | CAN_O_INT_TX);
     while (ret != OM_OK)
     {
@@ -101,10 +101,9 @@ int main(void)
     om_core_init();
 
     osal_kernel_start();
-    // 璋冨害鎴愬姛鍚庝笉浼氳窇鍒拌繖閲?
+    // 调度成功后不会运行到这里
     while (1)
     {
     }
     return 0;
 }
-

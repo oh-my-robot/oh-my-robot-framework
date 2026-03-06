@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file main.c
  * @brief P1010B 同步路径速度环测试样例
  * @details

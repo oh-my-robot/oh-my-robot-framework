@@ -56,16 +56,18 @@ xmake
 ## 6. 根 `xmake.lua` 最小示例
 ```lua
 set_project("om_app")
+set_xmakever("3.0.7")
 add_rules("mode.debug", "mode.release")
+set_policy("build.optimization.lto", false)
+add_rules("plugin.compile_commands.autoupdate", {outputdir = os.projectdir()})
 
 includes("oh-my-robot")
 
 target("app")
     set_kind("binary")
     add_deps("tar_oh_my_robot")
-    add_rules("oh_my_robot.context", "oh_my_robot.board_assets", "oh_my_robotimage_convert")
+    add_rules("oh_my_robot.context", "oh_my_robot.board_assets", "oh_my_robot.image_convert")
     add_files("src/main.c")
-    set_policy("check.auto_ignore_flags", false)
 target_end()
 ```
 
@@ -159,7 +161,7 @@ end
 - 产物路径：`build/<plat>/<arch>/<mode>/`。
 - `arch` 为平台架构标识：优先取工具链数据中的 `arch`，若工具链未提供则使用板级 CPU 架构（例如 `cortex-m4`）。  
   因此 armclang 的输出路径可能为 `build/cross/cortex-m4/<mode>/`，属于正常行为。
-- 若目标启用 `oh_my_robotimage_convert` 规则，会生成 `.hex`/`.bin`。
+- 若目标启用 `oh_my_robot.image_convert` 规则，会生成 `.hex`/`.bin`。
 - 清理：
 ```sh
 xmake clean
@@ -182,7 +184,7 @@ xmake clean
 - 烧录：`xmake flash` 通过 J-Link Commander 烧录，默认优先使用 HEX，可通过 `--firmware` 指定 ELF/HEX，并可用 `--native_output=true` 透传原生输出。
 - 调试器支持范围：当前仅支持 J-Link；DAPLink 为后续规划项（当前版本不可用）。
 - 更换板级/OS/工具链：重新执行 `xmake f -c --board=... --os=... --toolchain=...`。
-- 关闭镜像生成：从目标规则中移除 `oh_my_robotimage_convert`。
+- 关闭镜像生成：从目标规则中移除 `oh_my_robot.image_convert`。
 - 禁用同步加速：`xmake f -c --sync_accel=none ...`。
 - 启用 LTO（链接时优化）：
   - 当前工程通过官方接口 `set_policy("build.optimization.lto", ...)` 统一管理 LTO，`debug/release` 都可启用。
