@@ -1,9 +1,9 @@
-﻿# OH-MY-ROBOT 快速开始（完全新手）
+# OH-MY-ROBOT 快速开始（完全新手）
 
 本指南面向第一次接触本项目的开发者，目标是：
 - 先把环境装好并验证。
-- 再在项目根目录准备 `om_preset.lua`。
-- 最后确认根 `xmake.lua` 可用于构建。
+- 再在项目根目录先创建 `xmake.lua`。
+- 然后编写 `om_preset.lua` 完成本机预设。
 
 当前示例环境为 Windows + VSCode。
 
@@ -111,7 +111,69 @@ arm-none-eabi-gdb --version
 - 当前仓库调试链路默认使用 J-Link。
 - DAPLink 为后续规划，当前版本不提供可用模板。
 
-## 2. 在项目根目录编写 `om_preset.lua`
+## 2. 在项目根目录编写 `xmake.lua`
+
+文件位置：
+- `xmake.lua`（项目根目录）
+
+作用：
+- 定义工程入口、构建模式、OM 规则与最终可执行目标。
+
+### 2.1 如果你没用过 XMake，先理解这件事
+`xmake.lua` 就是“构建配置脚本”。
+你可以把它理解成：告诉构建系统“项目名是什么、要生成什么目标、主文件在哪、要挂哪些规则”。
+
+### 2.2 按步骤写最小可用 `xmake.lua`
+步骤 1：在项目根目录创建 `xmake.lua`。
+步骤 2：粘贴下面模板（可直接用）。
+
+```lua
+set_project("oh-my-robot")
+set_xmakever("3.0.7")
+add_rules("mode.debug", "mode.release")
+set_policy("build.optimization.lto", false)
+add_rules("plugin.compile_commands.autoupdate", {outputdir = os.projectdir()})
+
+includes("oh-my-robot")
+
+target("robot_project")
+    set_kind("binary")
+    set_filename("robot_project.elf")
+    add_deps("tar_oh_my_robot")
+    add_rules("oh_my_robot.context", "oh_my_robot.board_assets", "oh_my_robot.image_convert")
+    add_files(path.join("oh-my-robot", "samples", "motor", "p1010b", "main.c")) -- 示例文件
+target_end()
+```
+
+### 2.3 每行都在做什么（新手解释）
+- `set_project("oh-my-robot")`：设置项目名。
+- `set_xmakever("3.0.7")`：声明最低 XMake 版本。
+- `add_rules("mode.debug", "mode.release")`：声明 Debug/Release 两种模式。
+- `set_policy("build.optimization.lto", false)`：默认关闭顶层 LTO，由 OM 上下文规则按工具链决定是否启用。
+- `add_rules("plugin.compile_commands.autoupdate", ...)`：自动生成 `compile_commands.json`（给 Clangd 用）。
+- `includes("oh-my-robot")`：加载 OM 构建入口。
+- `target("robot_project")`：定义最终编译目标的“目标名”（供 `xmake flash --target=...`、`flash.jlink.target` 使用）。
+- `set_kind("binary")`：目标是可执行镜像。
+- `set_filename("robot_project.elf")`：输出文件名（供调试配置中的 `executable` 路径使用）。
+- `add_deps("tar_oh_my_robot")`：依赖 OM 的聚合静态库目标。
+- `add_rules("oh_my_robot.context", "oh_my_robot.board_assets", "oh_my_robot.image_convert")`：注入上下文、板级资源并生成镜像格式。
+- `add_files(path.join(...))`：指定入口源文件；当前示例使用 `oh-my-robot/samples/motor/p1010b/main.c`。
+
+### 2.4 完成后验证
+```powershell
+xmake f -c --toolchain=gnu-rm -m debug
+xmake
+```
+
+期望结果：
+- 成功生成 `build/<profile>/robot_project.elf`，并生成 `compile_commands.json`。
+
+### 2.5 常见新手错误
+- `xmake: not found`：XMake 未安装或终端未重启。
+- `includes("oh-my-robot")` 报错：当前目录不是项目根目录。
+- `toolchain path not set`：继续第 3 章配置 `om_preset.lua` 的 `sdk/bin` 后重试。
+
+## 3. 在项目根目录编写 `om_preset.lua`
 
 文件位置：
 - `om_preset.lua`（项目根目录）
@@ -120,15 +182,15 @@ arm-none-eabi-gdb --version
 - 固定本机的工具链路径、默认板卡、默认 OS、烧录参数。
 - 避免每次 `xmake f` 都手工输入 `--sdk` 和 `--bin`。
 
-### 2.1 如果你没写过 Lua，先记住这 4 条
+### 3.1 如果你没写过 Lua，先记住这 4 条
 1. `key = value`：这是“配置项 = 配置值”。
 2. `{ ... }`：这是一个配置表（可以理解为“配置集合”）。
 3. 字符串要加引号：例如 `"gnu-rm"`。
 4. `get_preset()` 是固定入口函数：请保留函数名不改。
 
-### 2.2 先按步骤创建一个可用版本
-步骤 1：在项目根目录新建 `om_preset.lua`。  
-步骤 2：粘贴以下模板。  
+### 3.2 先按步骤创建一个可用版本
+步骤 1：在项目根目录新建 `om_preset.lua`。
+步骤 2：粘贴以下模板。
 步骤 3：只改标记为“请改成你本机路径”的字段。
 
 ```lua
@@ -175,12 +237,12 @@ function get_preset()
 end
 ```
 
-### 2.3 重要说明：当前调试器支持范围
+### 3.3 重要说明：当前调试器支持范围
 - `om_preset.flash` 当前只消费 `flash.jlink`。
 - 当前版本不支持 `flash.daplink`。
 - 后续计划支持 DAPLink（当前处于规划阶段，尚未接入构建任务）。
 
-### 2.4 每个常用参数是什么意思
+### 3.4 每个常用参数是什么意思
 参数优先级（非常重要）：
 - 命令行参数 > `om_preset.lua` > 构建系统默认值
 
@@ -210,7 +272,7 @@ end
 兼容项说明：
 - `flash.file` 与 `flash.firmware` 都可识别，但新配置建议只用 `flash.jlink.firmware`。
 
-### 2.5 写完后怎么确认没写错
+### 3.5 写完后怎么确认没写错
 ```powershell
 xmake f -c --toolchain=gnu-rm -m debug
 xmake f -c --toolchain=armclang -m debug --semihosting=off
@@ -224,71 +286,10 @@ xmake f -c --toolchain=armclang -m debug --semihosting=off
 xmake flash --native_output=true
 ```
 
-### 2.6 `flash.jlink.target` 到底要填什么（高频混淆）
+### 3.6 `flash.jlink.target` 到底要填什么（高频混淆）
 - `flash.jlink.target` 填的是 **XMake 目标名**，不是文件名。
 - 在本项目里，它应当与 `xmake.lua` 里的 `target("robot_project")` 保持一致。
 - 它不等于 `set_filename("robot_project.elf")` 里的文件名。
-
-## 3. 在项目根目录编写 `xmake.lua`
-
-文件位置：
-- `xmake.lua`（项目根目录）
-
-作用：
-- 定义工程入口、构建模式、OM 规则与最终可执行目标。
-
-### 3.1 如果你没用过 XMake，先理解这件事
-`xmake.lua` 就是“构建配置脚本”。  
-你可以把它理解成：告诉构建系统“项目名是什么、要生成什么目标、主文件在哪、要挂哪些规则”。
-
-### 3.2 按步骤写最小可用 `xmake.lua`
-步骤 1：在项目根目录创建 `xmake.lua`。  
-步骤 2：粘贴下面模板（可直接用）。
-
-```lua
-set_project("oh-my-robot")
-set_xmakever("3.0.7")
-add_rules("mode.debug", "mode.release")
-add_rules("plugin.compile_commands.autoupdate", {outputdir = os.projectdir()})
-
-includes("oh-my-robot")
-
-target("robot_project")
-    set_kind("binary")
-    set_filename("robot_project.elf")
-    add_deps("tar_oh_my_robot")
-    set_policy("check.auto_ignore_flags", false)
-    add_rules("oh_my_robot.context", "oh_my_robot.board_assets", "oh_my_robotimage_convert")
-    add_files("oh-my-robot/samples/motor/dji_motor/main.c")	-- 示例文件
-target_end()
-```
-
-### 3.3 每行都在做什么（新手解释）
-- `set_project("oh-my-robot")`：设置项目名。
-- `set_xmakever("3.0.7")`：声明最低 XMake 版本。
-- `add_rules("mode.debug", "mode.release")`：声明 Debug/Release 两种模式。
-- `add_rules("plugin.compile_commands.autoupdate", ...)`：自动生成 `compile_commands.json`（给 Clangd 用）。
-- `includes("oh-my-robot")`：加载 OM 构建入口。
-- `target("robot_project")`：定义最终编译目标的“目标名”（供 `xmake flash --target=...`、`flash.jlink.target` 使用）。
-- `set_kind("binary")`：目标是可执行镜像。
-- `set_filename("robot_project.elf")`：输出文件名（供调试配置中的 `executable` 路径使用）。
-- `add_deps("tar_oh_my_robot")`：依赖 OM 的聚合静态库目标。
-- `add_rules("oh_my_robot.context", "oh_my_robot.board_assets", "oh_my_robotimage_convert")`：注入上下文、板级资源并生成镜像格式。
-- `add_files("...main.c")`：指定入口源文件。
-
-### 3.4 完成后验证
-```powershell
-xmake f -c --toolchain=gnu-rm -m debug
-xmake
-```
-
-期望结果：
-- 成功生成 `build/<profile>/robot_project.elf`，并生成 `compile_commands.json`。
-
-### 3.5 常见新手错误
-- `xmake: not found`：XMake 未安装或终端未重启。
-- `includes("oh-my-robot")` 报错：当前目录不是项目根目录。
-- `toolchain path not set`：先检查 `om_preset.lua` 的 `sdk/bin` 是否为本机真实路径。
 
 ## 4. 配置 VSCode 调试（`.vscode/launch.json`）
 
@@ -398,4 +399,3 @@ xmake
 - 工具链已安装但命令不可用：`PATH` 未生效，重开终端或在 `om_preset.lua` 明确配置 `sdk/bin`。
 - `xmake` 可以执行但编译失败：先执行 `xmake f -c ...` 重新配置，再执行 `xmake`。
 - VSCode 没有代码跳转：先确认 Clangd 已启用，再确认项目根目录存在 `compile_commands.json`。
-

@@ -24,7 +24,7 @@
 4) 编译数据库：通过 `plugin.compile_commands.autoupdate` 在构建后生成 `compile_commands.json` 至项目根目录。  
 5) 目标加载：`oh_my_robot.context` 注入架构与工具链参数。  
 6) 板级资源：`oh_my_robot.board_assets` 注入启动文件与链接脚本。  
-7) 可选镜像：`oh_my_robotimage_convert` 生成 `hex/bin` 并在清理时移除。  
+7) 可选镜像：`oh_my_robot.image_convert` 生成 `hex/bin` 并在清理时移除。
 8) 编译与链接：`tar_board`、`tar_os`、`tar_sync` 等目标完成编译，最终由 `robot_project` 输出可执行镜像。  
 
 ## 4. 构建入口与目录职责
@@ -126,7 +126,7 @@ flowchart LR
 - `oh_my_robot.board_assets`：
   - 注入启动文件与链接脚本。
   - 依赖 `toolchain_linker_flag`。
-- `oh_my_robotimage_convert`：
+- `oh_my_robot.image_convert`：
   - 构建后生成 `hex/bin`。
   - 清理阶段删除生成文件。
 
