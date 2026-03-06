@@ -15,6 +15,9 @@ on:
       - "lib/**"
       - "platform/**"
       - "samples/**"
+      - "oh-my-robot/lib/**"
+      - "oh-my-robot/platform/**"
+      - "oh-my-robot/samples/**"
       - ".github/workflows/style-gate.yml"
       - "oh-my-robot/.github/workflows/style-gate.yml"
 
@@ -34,51 +37,45 @@ jobs:
         uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: latest
+          actions-cache-folder: '.xmake-cache'
+
+      - name: Setup GNU ARM Embedded Toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: 'latest'
 
       - name: Install clang tools
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-format clang-tidy
 
-      - name: Resolve changed source files
-        id: changed
-        shell: bash
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            lib/**/*.{c,cc,cpp,cxx,h,hh,hpp,hxx}
+            platform/**/*.{c,cc,cpp,cxx,h,hh,hpp,hxx}
+            samples/**/*.{c,cc,cpp,cxx,h,hh,hpp,hxx}
+            oh-my-robot/lib/**/*.{c,cc,cpp,cxx,h,hh,hpp,hxx}
+            oh-my-robot/platform/**/*.{c,cc,cpp,cxx,h,hh,hpp,hxx}
+            oh-my-robot/samples/**/*.{c,cc,cpp,cxx,h,hh,hpp,hxx}
+          separator: ";"
+
+      - name: Configure xmake (Toolchain discovery)
+        if: steps.changed-files.outputs.any_changed == 'true'
         run: |
-          set -euo pipefail
+          # 提前执行配置阶段让 xmake 生成工具链缓存和配置，避免后续并行格式化或静态检查时死锁失败
+          xmake f -c --toolchain=gnu-rm -m debug --yes
 
-          base_ref="${{ github.base_ref }}"
-          git fetch --no-tags --prune --depth=1 origin "${base_ref}:${base_ref}"
-
-          repo_prefix=""
-          if [ -d "oh-my-robot" ] && [ -f "oh-my-robot/xmake.lua" ]; then
-            repo_prefix="oh-my-robot/"
-          fi
-
-          source_regex="^${repo_prefix}(lib|samples)/.*\\.(c|cc|cpp|cxx|h|hh|hpp|hxx)$"
-
-          mapfile -t files < <(
-            git diff --name-only "${base_ref}...HEAD" \
-              | grep -E "${source_regex}" \
-              || true
-          )
-
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "has_files=false" >> "$GITHUB_OUTPUT"
-            echo "No style-managed source file changed."
-            exit 0
-          fi
-
-          files_joined="$(printf '%s;' "${files[@]}")"
-          files_joined="${files_joined%;}"
-
-          echo "has_files=true" >> "$GITHUB_OUTPUT"
-          echo "files=${files_joined}" >> "$GITHUB_OUTPUT"
-
-          printf 'Changed files (%d):\n' "${#files[@]}"
-          printf '  - %s\n' "${files[@]}"
-
-      - name: Run style gate
-        if: steps.changed.outputs.has_files == 'true'
+      - name: Run style gate (Format)
+        if: steps.changed-files.outputs.any_changed == 'true'
         run: |
-          xmake format --dry-run --error --files="${{ steps.changed.outputs.files }}"
-          xmake check clang.tidy --files="${{ steps.changed.outputs.files }}"
+          echo "Checking format for: ${{ steps.changed-files.outputs.all_changed_files }}"
+          xmake format --dry-run --error --files="${{ steps.changed-files.outputs.all_changed_files }}"
+
+      - name: Run style gate (Lint)
+        if: steps.changed-files.outputs.any_changed == 'true'
+        run: |
+          echo "Running clang-tidy for: ${{ steps.changed-files.outputs.all_changed_files }}"
+          xmake check clang.tidy --files="${{ steps.changed-files.outputs.all_changed_files }}"
