@@ -1,4 +1,4 @@
-﻿#include "core/om_cpu.h"
+#include "core/om_cpu.h"
 #include "drivers/peripheral/serial/pal_serial_dev.h"
 #include "osal/osal.h"
 #include "osal/osal_time.h"
@@ -13,12 +13,12 @@ void serial_write_cb(Device* dev, void* param, size_t paramsz)
 }
 
 /*
- * @brief: 涓插彛閿欒鍥炶皟鍑芥暟
- * @param: dev 涓插彛璁惧鍙ユ焺
- * @param: errcode 閿欒鐮?
- * @param: param 閿欒鍙傛暟
- * @param: paramsz 閿欒鍙傛暟澶у皬
- * @return: 鏃?
+ * @brief: 串口错误回调函数
+ * @param: dev 串口设备句柄
+ * @param: errcode 错误码
+ * @param: param 错误参数
+ * @param: paramsz 错误参数大小
+ * @return: 无
  */
 void serial_err_cb(Device* dev, uint32_t errcode, void* param, size_t paramsz)
 {
@@ -86,10 +86,9 @@ int main(void)
     om_core_init();
 
     osal_kernel_start();
-    // 璋冨害鎴愬姛鍚庝笉浼氳窇鍒拌繖閲?
+    // 调度成功后不会运行到这里
     while (1)
     {
     }
     return 0;
 }
-

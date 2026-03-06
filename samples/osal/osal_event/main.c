@@ -1,12 +1,12 @@
 /**
  * @file main.c
- * @brief OSAL event_flags 鐙珛渚嬬▼
+ * @brief OSAL event_flags 独立例程
  * @details
- * - 鏈緥绋嬬敤浜庨獙璇?event_flags 鐨勬牳蹇冨悎鍚屼笌杈圭晫璇箟銆?
- * - 瑙傛祴鍙橀噺锛?
- *   - `g_event_result.total`锛氱疮璁℃柇瑷€鏁伴噺
- *   - `g_event_result.failed`锛氬け璐ユ柇瑷€鏁伴噺
- *   - `g_event_result.done`锛氱敤渚嬫槸鍚︽墽琛屽畬鎴愶紙1 琛ㄧず瀹屾垚锛?
+ * - 本例程用于验证 event_flags 的核心语义与边界行为。
+ * - 观测变量：
+ *   - `g_event_result.total`：累计断言数量
+ *   - `g_event_result.failed`：失败断言数量
+ *   - `g_event_result.done`：用例是否执行完成（1 表示完成）
  */
 #include "osal/osal.h"
 #include "osal/osal_config.h"
@@ -24,8 +24,8 @@ static OsalThread* g_setter_thread           = NULL;
 static OsalEventTestResult g_event_result = {0u, 0u, 0u};
 
 /**
- * @brief 绠€鍗曟柇瑷€璁℃暟鍣?
- * @param condition 闈?0 琛ㄧず鏂█閫氳繃
+ * @brief 简单断言计数器
+ * @param condition 非 0 表示断言通过
  */
 static void osal_event_expect(int condition)
 {
@@ -35,8 +35,8 @@ static void osal_event_expect(int condition)
 }
 
 /**
- * @brief 杈呭姪绾跨▼锛氬欢鏃跺悗璁剧疆浜嬩欢浣?
- * @note 鐢ㄤ簬瑙﹀彂 wait 鐨勫敜閱掕矾寰勩€?
+ * @brief 辅助线程：延时后设置事件位
+ * @note 用于触发 wait 的唤醒路径
  */
 static void osal_event_setter_thread_entry(void *arg)
 {
@@ -48,15 +48,15 @@ static void osal_event_setter_thread_entry(void *arg)
 }
 
 /**
- * @brief event_flags 璇箟娴嬭瘯绾跨▼
- * @details 楠岃瘉鐐瑰垎涓冪粍锛?
- * 1) 鍒涘缓鍙傛暟鏍￠獙涓庡熀纭€鍒涘缓鍒犻櫎
- * 2) wait 鍙傛暟涓庤秴鏃惰竟鐣?
- * 3) wait_any + clear 璇箟
- * 4) wait_all 璇箟
- * 5) NO_CLEAR 璇箟
- * 6) 鍙敤浣嶆帺鐮侀潪娉曡緭鍏ユ牎楠?
- * 7) from_isr 鍦ㄧ嚎绋嬩笂涓嬫枃璇敤锛坅ssert 鍏抽棴鏃舵墽琛岋級
+ * @brief event_flags 语义测试线程
+ * @details 验证点分七组：
+ * 1) 创建参数校验与基础创建/删除
+ * 2) wait 参数与超时边界
+ * 3) wait_any + clear 语义
+ * 4) wait_all 语义
+ * 5) NO_CLEAR 语义
+ * 6) 可用位掩码非法输入校验
+ * 7) from_isr 在线程上下文误用（assert 关闭时执行）
  */
 static void osal_event_test_thread_entry(void *arg)
 {
@@ -72,42 +72,42 @@ static void osal_event_test_thread_entry(void *arg)
 
     (void)arg;
 
-    /* 缁?1锛氬垱寤哄弬鏁颁笌鍩虹琛屼负 */
+    /* 组1：创建参数与基础行为 */
     osal_event_expect(osal_event_flags_create(NULL) == OSAL_INVALID);
     osal_event_expect(osal_event_flags_create(&g_event) == OSAL_OK);
     osal_event_expect(osal_event_flags_delete(NULL) == OSAL_INVALID);
 
-    /* 缁?2锛歸ait 鍙傛暟涓庤秴鏃惰竟鐣?*/
+    /* 组2：wait 参数与超时边界 */
     osal_event_expect(osal_event_flags_wait(g_event, 0u, &out_value, 0u, 0u) == OSAL_INVALID);
     osal_event_expect(osal_event_flags_wait(g_event, 0x01u, &out_value, 0u, 0u) == OSAL_WOULD_BLOCK);
 
-    /* 缁?3锛歸ait_any + clear 璇箟 */
+    /* 组3：wait_any + clear 语义 */
     osal_event_expect(osal_thread_create(&g_setter_thread, &setter_attr, osal_event_setter_thread_entry, (void *)0x01u) ==
                       OSAL_OK);
     osal_event_expect(osal_event_flags_wait(g_event, 0x01u, &out_value, OSAL_WAIT_FOREVER, 0u) == OSAL_OK);
     osal_event_expect((out_value & 0x01u) != 0u);
     osal_event_expect(osal_event_flags_wait(g_event, 0x01u, &out_value, 0u, 0u) == OSAL_WOULD_BLOCK);
 
-    /* 缁?4锛歸ait_all 璇箟 */
+    /* 组4：wait_all 语义 */
     osal_event_expect(osal_event_flags_set(g_event, 0x03u) == OSAL_OK);
     osal_event_expect(osal_event_flags_wait(g_event, 0x03u, &out_value, 0u, OSAL_EVENT_FLAGS_WAIT_ALL) == OSAL_OK);
     osal_event_expect((out_value & 0x03u) == 0x03u);
 
-    /* 缁?5锛歂O_CLEAR 璇箟 */
+    /* 组5：NO_CLEAR 语义 */
     osal_event_expect(osal_event_flags_set(g_event, 0x04u) == OSAL_OK);
     osal_event_expect(osal_event_flags_wait(g_event, 0x04u, &out_value, 0u, OSAL_EVENT_FLAGS_NO_CLEAR) == OSAL_OK);
     osal_event_expect(osal_event_flags_wait(g_event, 0x04u, &out_value, 0u, 0u) == OSAL_OK);
     osal_event_expect(osal_event_flags_clear(g_event, 0x04u) == OSAL_OK);
     osal_event_expect(osal_event_flags_wait(g_event, 0x04u, &out_value, 0u, 0u) == OSAL_WOULD_BLOCK);
 
-    /* 缁?6锛氬彲鐢ㄤ綅鎺╃爜闈炴硶杈撳叆鏍￠獙 */
+    /* 组6：可用位掩码非法输入校验 */
     if (invalid_single_bit != 0u) {
         osal_event_expect(osal_event_flags_set(g_event, invalid_single_bit) == OSAL_INVALID);
         osal_event_expect(osal_event_flags_clear(g_event, invalid_single_bit) == OSAL_INVALID);
         osal_event_expect(osal_event_flags_wait(g_event, invalid_single_bit, &out_value, 0u, 0u) == OSAL_INVALID);
     }
 
-    /* 缁?7锛歠rom_isr 璇敤杩斿洖鐮侊紙浠呭湪绂佺敤 assert 鏃堕獙璇侊級 */
+    /* 组7：from_isr 误用返回码（仅在禁用 assert 时验证） */
 #ifndef __OM_USE_ASSERT
     osal_event_expect(osal_event_flags_set_from_isr(g_event, 0x08u) == OSAL_INVALID);
 #endif
@@ -115,7 +115,7 @@ static void osal_event_test_thread_entry(void *arg)
     osal_event_expect(osal_event_flags_delete(g_event) == OSAL_OK);
     g_event = NULL;
 
-    /* 琛ュ厖锛氬眬閮ㄥ璞＄敓鍛藉懆鏈?*/
+    /* 补充：局部对象生命周期 */
     osal_event_expect(osal_event_flags_create(&event_temp) == OSAL_OK);
     osal_event_expect(osal_event_flags_delete(event_temp) == OSAL_OK);
 
@@ -125,8 +125,8 @@ static void osal_event_test_thread_entry(void *arg)
 }
 
 /**
- * @brief 渚嬬▼鍏ュ彛
- * @return 鍒涘缓娴嬭瘯绾跨▼澶辫触杩斿洖 -1锛涙垚鍔熷悗鍚姩璋冨害鍣?
+ * @brief 例程入口
+ * @return 创建测试线程失败返回 -1；成功后启动调度
  */
 int main(void)
 {
@@ -141,4 +141,3 @@ int main(void)
 
     return osal_kernel_start();
 }
-

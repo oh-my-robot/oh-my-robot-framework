@@ -1,12 +1,12 @@
 /**
  * @file main.c
- * @brief OSAL queue 鐙珛渚嬬▼
+ * @brief OSAL queue 独立例程
  * @details
- * - 鏈緥绋嬬敤浜庨獙璇?queue 鐨勬牳蹇冨悎鍚屼笌杈圭晫璇箟銆?
- * - 瑙傛祴鍙橀噺锛?
- *   - `g_queue_result.total`锛氱疮璁℃柇瑷€鏁伴噺
- *   - `g_queue_result.failed`锛氬け璐ユ柇瑷€鏁伴噺
- *   - `g_queue_result.done`锛氱敤渚嬫槸鍚︽墽琛屽畬鎴愶紙1 琛ㄧず瀹屾垚锛?
+ * - 本例程用于验证 queue 的核心合同与边界语义。
+ * - 观测变量：
+ *   - `g_queue_result.total`：累计断言数量
+ *   - `g_queue_result.failed`：失败断言数量
+ *   - `g_queue_result.done`：用例是否执行完成（1 表示完成）
  */
 #include "osal/osal.h"
 #include "osal/osal_config.h"
@@ -30,8 +30,8 @@ static OsalThread* g_sender_thread = NULL;
 static OsalQueueTestResult g_queue_result = {0u, 0u, 0u};
 
 /**
- * @brief 绠€鍗曟柇瑷€璁℃暟鍣?
- * @param condition 闈?0 琛ㄧず鏂█閫氳繃
+ * @brief 简单断言计数器
+ * @param condition 非 0 表示断言通过
  */
 static void osal_queue_expect(int condition)
 {
@@ -41,7 +41,7 @@ static void osal_queue_expect(int condition)
 }
 
 /**
- * @brief 姣旇緝涓ゆ潯娴嬭瘯娑堟伅
+ * @brief 比较两条测试消息是否一致
  */
 static int osal_queue_message_equal(const OsalQueueTestMessage* left, const OsalQueueTestMessage* right)
 {
@@ -52,8 +52,8 @@ static int osal_queue_message_equal(const OsalQueueTestMessage* left, const Osal
 }
 
 /**
- * @brief 杈呭姪绾跨▼锛氬欢鏃跺悗鍙戦€佷竴娆℃秷鎭?
- * @note 鐢ㄤ簬瑙﹀彂 `recv(OSAL_WAIT_FOREVER)` 鐨勫敜閱掕矾寰勩€?
+ * @brief 辅助线程：延时后发送一次消息
+ * @note 用于触发 `recv(OSAL_WAIT_FOREVER)` 的唤醒路径
  */
 static void osal_queue_sender_thread_entry(void* arg)
 {
@@ -66,15 +66,15 @@ static void osal_queue_sender_thread_entry(void* arg)
 }
 
 /**
- * @brief queue 璇箟娴嬭瘯绾跨▼
- * @details 楠岃瘉鐐瑰垎涓冪粍锛?
- * 1) 鍒涘缓鍙傛暟鏍￠獙涓庡熀纭€鍒涘缓鍒犻櫎
- * 2) 鏌ヨ鎺ュ彛鐘舵€佸寲琛屼负
- * 3) 绌?婊¤竟鐣屼笌 peek 璇箟
- * 4) reset 娓呯┖璇箟
- * 5) `recv(OSAL_WAIT_FOREVER)` 鍞ら啋璺緞
- * 6) `from_isr` 鍦ㄧ嚎绋嬩笂涓嬫枃璇敤淇濇姢
- * 7) 璧勬簮閲婃斁
+ * @brief queue 语义测试线程
+ * @details 验证点分七组：
+ * 1) 创建参数校验与基础创建/删除
+ * 2) 查询接口状态化行为
+ * 3) 空/满边界与 peek 语义
+ * 4) reset 清空语义
+ * 5) `recv(OSAL_WAIT_FOREVER)` 唤醒路径
+ * 6) `from_isr` 在线程上下文误用保护
+ * 7) 资源释放
  */
 static void osal_queue_test_thread_entry(void* arg)
 {
@@ -93,14 +93,14 @@ static void osal_queue_test_thread_entry(void* arg)
 
     (void)arg;
 
-    /* 缁?1锛氬垱寤哄弬鏁颁笌鍩虹琛屼负 */
+    /* 组1：创建参数与基础行为 */
     osal_queue_expect(osal_queue_create(NULL, 2u, sizeof(OsalQueueTestMessage)) == OSAL_INVALID);
     osal_queue_expect(osal_queue_create(&queue_temp, 0u, sizeof(OsalQueueTestMessage)) == OSAL_INVALID);
     osal_queue_expect(osal_queue_create(&queue_temp, 2u, 0u) == OSAL_INVALID);
     osal_queue_expect(osal_queue_create(&g_queue, 2u, sizeof(OsalQueueTestMessage)) == OSAL_OK);
     osal_queue_expect(osal_queue_delete(NULL) == OSAL_INVALID);
 
-    /* 缁?2锛氭煡璇㈡帴鍙ｇ姸鎬佸寲 */
+    /* 组2：查询接口状态化 */
     osal_queue_expect(osal_queue_messages_waiting(NULL, &queue_count) == OSAL_INVALID);
     osal_queue_expect(osal_queue_messages_waiting(g_queue, NULL) == OSAL_INVALID);
     osal_queue_expect(osal_queue_spaces_available(NULL, &queue_space) == OSAL_INVALID);
@@ -108,7 +108,7 @@ static void osal_queue_test_thread_entry(void* arg)
     osal_queue_expect(osal_queue_messages_waiting(g_queue, &queue_count) == OSAL_OK && queue_count == 0u);
     osal_queue_expect(osal_queue_spaces_available(g_queue, &queue_space) == OSAL_OK && queue_space == 2u);
 
-    /* 缁?3锛氱┖/婊¤竟鐣屼笌 peek 璇箟 */
+    /* 组3：空/满边界与 peek 语义 */
     osal_queue_expect(osal_queue_recv(g_queue, &message_rx, 0u) == OSAL_WOULD_BLOCK);
     osal_queue_expect(osal_queue_send(g_queue, &message_1, 0u) == OSAL_OK);
     osal_queue_expect(osal_queue_send(g_queue, &message_2, 0u) == OSAL_OK);
@@ -122,7 +122,7 @@ static void osal_queue_test_thread_entry(void* arg)
     osal_queue_expect(osal_queue_message_equal(&message_rx, &message_2));
     osal_queue_expect(osal_queue_recv(g_queue, &message_rx, 0u) == OSAL_WOULD_BLOCK);
 
-    /* 缁?4锛歳eset 鍚庡簲娓呯┖ */
+    /* 组4：reset 后应清空 */
     osal_queue_expect(osal_queue_send(g_queue, &message_1, 0u) == OSAL_OK);
     osal_queue_expect(osal_queue_send(g_queue, &message_2, 0u) == OSAL_OK);
     osal_queue_expect(osal_queue_reset(g_queue) == OSAL_OK);
@@ -130,13 +130,13 @@ static void osal_queue_test_thread_entry(void* arg)
     osal_queue_expect(osal_queue_spaces_available(g_queue, &queue_space) == OSAL_OK && queue_space == 2u);
     osal_queue_expect(osal_queue_peek(g_queue, &message_rx, 0u) == OSAL_WOULD_BLOCK);
 
-    /* 缁?5锛歐AIT_FOREVER 璺緞 */
+    /* 组5：WAIT_FOREVER 路径 */
     osal_queue_expect(osal_thread_create(&g_sender_thread, &sender_attr, osal_queue_sender_thread_entry, NULL) == OSAL_OK);
     osal_queue_expect(osal_queue_recv(g_queue, &message_rx, OSAL_WAIT_FOREVER) == OSAL_OK);
     osal_queue_expect(message_rx.id == 0xA5u && message_rx.payload == 0x5Au);
     osal_queue_expect(osal_queue_messages_waiting(g_queue, &queue_count) == OSAL_OK && queue_count == 0u);
 
-    /* 缁?6锛氳祫婧愰噴鏀?*/
+    /* 组6：资源释放 */
     osal_queue_expect(osal_queue_delete(g_queue) == OSAL_OK);
     g_queue = NULL;
 
@@ -146,8 +146,8 @@ static void osal_queue_test_thread_entry(void* arg)
 }
 
 /**
- * @brief 渚嬬▼鍏ュ彛
- * @return 鍒涘缓娴嬭瘯绾跨▼澶辫触杩斿洖 -1锛涙垚鍔熷悗鍚姩璋冨害鍣?
+ * @brief 例程入口
+ * @return 创建测试线程失败返回 -1；成功后启动调度
  */
 int main(void)
 {
@@ -162,4 +162,3 @@ int main(void)
 
     return osal_kernel_start();
 }
-

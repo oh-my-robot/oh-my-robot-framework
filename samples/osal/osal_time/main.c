@@ -1,12 +1,12 @@
 /**
  * @file main.c
- * @brief OSAL time 鐙珛渚嬬▼
+ * @brief OSAL time 独立例程
  * @details
- * - 鏈緥绋嬬敤浜庨獙璇?time 鍘熻鍚堝悓锛岃鐩栬浆鎹€佹瘮杈冦€乻leep銆乨elay_until 鍏抽敭璇箟銆?
- * - 瑙傛祴鍙橀噺锛?
- *   - `g_time_result.total`锛氱疮璁℃柇瑷€鏁伴噺
- *   - `g_time_result.failed`锛氬け璐ユ柇瑷€鏁伴噺
- *   - `g_time_result.done`锛氱敤渚嬫槸鍚︽墽琛屽畬鎴愶紙1 琛ㄧず瀹屾垚锛?
+ * - 本例程用于验证 time 原语合同，覆盖单位转换、回绕比较、sleep 与 delay_until 关键语义。
+ * - 观测变量：
+ *   - `g_time_result.total`：累计断言数量
+ *   - `g_time_result.failed`：失败断言数量
+ *   - `g_time_result.done`：用例是否执行完成（1 表示完成）
  */
 #include <stdint.h>
 
@@ -24,8 +24,8 @@ static OsalThread* g_test_thread = NULL;
 static OsalTimeTestResult g_time_result = {0u, 0u, 0u};
 
 /**
- * @brief 绠€鍗曟柇瑷€璁℃暟鍣?
- * @param condition 闈?0 琛ㄧず鏂█閫氳繃
+ * @brief 简单断言计数器
+ * @param condition 非 0 表示断言通过
  */
 static void osal_time_expect(int condition)
 {
@@ -35,8 +35,8 @@ static void osal_time_expect(int condition)
 }
 
 /**
- * @brief 鏃堕棿杞崲璇箟娴嬭瘯
- * @details 楠岃瘉 us/ns 鍒?ms 鐨勫悜涓婂彇鏁磋竟鐣屻€?
+ * @brief 时间转换语义测试
+ * @details 验证 us/ns 到 ms 的向上取整边界
  */
 static void osal_time_test_conversion_group(void)
 {
@@ -54,10 +54,10 @@ static void osal_time_test_conversion_group(void)
 }
 
 /**
- * @brief 鍗曡皟鏃堕挓涓庡洖缁曞畨鍏ㄦ瘮杈冩祴璇?
+ * @brief 单调时钟与回绕安全比较测试
  * @details
- * 1) 瀹炴椂璇绘暟涓嶅簲鍊掗€€锛?
- * 2) `osal_time_before/after` 瀵硅嚜鐒跺洖缁曞満鏅彲鐢ㄣ€?
+ * 1) 实时读数不应倒退
+ * 2) `osal_time_before/after` 对自然回绕场景可用
  */
 static void osal_time_test_monotonic_group(void)
 {
@@ -74,10 +74,10 @@ static void osal_time_test_monotonic_group(void)
 }
 
 /**
- * @brief sleep 璇箟娴嬭瘯
+ * @brief sleep 语义测试
  * @details
- * - `OSAL_WAIT_FOREVER` 瀵?sleep 闈炴硶锛?
- * - 0ms/1ms sleep 搴旇繑鍥炴垚鍔熴€?
+ * - `OSAL_WAIT_FOREVER` 对 sleep 非法
+ * - 0ms/1ms sleep 应返回成功
  */
 static void osal_time_test_sleep_group(void)
 {
@@ -87,11 +87,11 @@ static void osal_time_test_sleep_group(void)
 }
 
 /**
- * @brief delay_until 鍩虹璇箟娴嬭瘯
+ * @brief delay_until 基础语义测试
  * @details
- * 1) 鍙傛暟鏍￠獙锛?
- * 2) 棣栨 `cursor=0` 鑷姩鍒濆鍖栵紱
- * 3) 姝ｅ父鍛ㄦ湡鎺ㄨ繘鍙帹杩涗竴涓懆鏈熴€?
+ * 1) 参数校验
+ * 2) 首次 `cursor=0` 自动初始化；
+ * 3) 正常周期推进只推进一个周期
  */
 static void osal_time_test_delay_until_base_group(void)
 {
@@ -119,10 +119,10 @@ static void osal_time_test_delay_until_base_group(void)
 }
 
 /**
- * @brief delay_until 杩囨湡杩借刀璇箟娴嬭瘯
+ * @brief delay_until 过期追赶语义测试
  * @details
- * - 褰?deadline 宸茶繃鏈熸椂搴旇繑鍥?`OSAL_OK`锛屽苟缁熻 `missed_periods`锛?
- * - 鏈疆璋冪敤鍚庢父鏍囦粎鎺ㄨ繘涓€涓懆鏈燂紙涓嶈法澶氬懆鏈熻烦璺冿級銆?
+ * - 当 deadline 已过期时应返回 `OSAL_OK`，并统计 `missed_periods`
+ * - 本轮调用后游标仅推进一个周期（不跨多周期跳跃）
  */
 static void osal_time_test_delay_until_catchup_group(void)
 {
@@ -143,13 +143,13 @@ static void osal_time_test_delay_until_catchup_group(void)
 }
 
 /**
- * @brief time 璇箟娴嬭瘯绾跨▼
- * @details 楠岃瘉鐐瑰垎浜旂粍锛?
- * 1) 鍗曚綅杞崲杈圭晫
- * 2) 鍗曡皟鏃堕挓涓庡洖缁曟瘮杈?
- * 3) sleep 鍚堝悓
- * 4) delay_until 鍩虹琛屼负
- * 5) delay_until 杩囨湡杩借刀琛屼负
+ * @brief time 语义测试线程
+ * @details 验证点分五组：
+ * 1) 单位转换边界
+ * 2) 单调时钟与回绕比较
+ * 3) sleep 合同
+ * 4) delay_until 基础行为
+ * 5) delay_until 过期追赶行为
  */
 static void osal_time_test_thread_entry(void* arg)
 {
@@ -167,8 +167,8 @@ static void osal_time_test_thread_entry(void* arg)
 }
 
 /**
- * @brief 渚嬬▼鍏ュ彛
- * @return 鍒涘缓娴嬭瘯绾跨▼澶辫触杩斿洖 -1锛涙垚鍔熷悗鍚姩璋冨害鍣?
+ * @brief 例程入口
+ * @return 创建测试线程失败返回 -1；成功后启动调度
  */
 int main(void)
 {
@@ -183,4 +183,3 @@ int main(void)
 
     return osal_kernel_start();
 }
-

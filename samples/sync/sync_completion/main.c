@@ -1,26 +1,43 @@
 /**
  * @file main.c
- * @brief SYNC completion 鐙珛渚嬬▼
+ * @brief SYNC completion 独立例程
  * @details
- * 鏈緥绋嬭鐩?completion 鐨勫熀纭€鍚堝悓涓庨珮骞跺彂鍘嬪姏鍦烘櫙锛? * - 鍩虹璇箟锛氬崟绛夊緟鑰?one-shot銆乨one 鍏堜簬 wait銆侀噸澶?done 杩斿洖 BUSY銆乼imeout 璇箟銆? * - 鍘嬪姏璇箟锛? *   - 缁?8锛氬绾跨▼骞跺彂 done + 鍗曠嚎绋?wait锛坉one 涓?waiter 涓夋€佷紭鍏堢骇瀵圭収锛夛紱
- *   - 缁?9锛氱嚎绋嬫ā鎷?ISR done + 绾跨▼ wait锛堜笉渚濊禆鑺墖 IRQ 澶存枃浠讹級銆? * - 娴嬭瘯妯″瀷锛堝崟妯″紡锛夛細
- *   - 鍔熻兘姝ｇ‘鎬ц建閬擄細鍥哄畾杞 + 涓ユ牸 one-shot 璁℃暟鍏崇郴锛? *   - 骞跺彂鍘嬪姏杞ㄩ亾锛氬浐瀹氭椂闂寸獥 + 娲绘€ч槇鍊硷紙>=1锛? 绔炰簤璇佹嵁銆? * - 鍒ゅ畾鏍囧噯锛? *   - 鍏ㄥ眬閫氳繃锛歚g_result.done == 1` 涓?`g_result.failed == 0`銆? *   - 鍘嬫祴鍏叡閫氳繃鏉′欢锛? *     1) waiter/producer 鍧囨寜鏈熼€€鍑猴紱
- *     2) `waiter_wait_err == 0` 涓?done 渚?`*_done_err == 0`锛? *   - 鍔熻兘姝ｇ‘鎬ц建閬撻澶栨潯浠讹細
- *     3) `*_done_ok >= waiter_wait_ok` 涓?`*_done_ok - waiter_wait_ok <= 1`锛? *     4) `waiter_wait_ok == target_wait_ok`銆? *   - 骞跺彂鍘嬪姏杞ㄩ亾棰濆鏉′欢锛? *     3) `waiter_wait_ok >= min_wait_ok`锛堟椿鎬ч槇鍊硷紝榛樿 1锛夛紱
- *     4) `done_busy > 0`锛堣瘉鏄庡瓨鍦ㄦ湁鏁堢珵浜夛級銆? */
+ * 本例程覆盖 completion 的基础合同与高并发压力场景。
+ * - 基础语义：单等待者、one-shot、done 先于 wait、重复 done 返回 BUSY、timeout 语义。
+ * - 压力语义：
+ *   - 组8：多线程并发 done + 单线程 wait（done 与 waiter 三种优先级关系）。
+ *   - 组9：线程模拟 ISR done + 线程 wait（不依赖芯片 IRQ 头文件）。
+ * - 测试模型（单模式）：
+ *   - 功能正确性轨道：固定轮次 + 严格 one-shot 计数关系。
+ *   - 并发压力轨道：固定时间窗 + 活性阈值（>=1）+ 竞争证据。
+ * - 判定标准：
+ *   - 全局通过：`g_result.done == 1` 且 `g_result.failed == 0`。
+ *   - 压测公共通过条件：
+ *     1) waiter/producer 均按期退出；
+ *     2) `waiter_wait_err == 0` 且 done 侧 `*_done_err == 0`。
+ *   - 功能正确性轨道额外条件：
+ *     3) `*_done_ok >= waiter_wait_ok` 且 `*_done_ok - waiter_wait_ok <= 1`；
+ *     4) `waiter_wait_ok == target_wait_ok`。
+ *   - 并发压力轨道额外条件：
+ *     3) `waiter_wait_ok >= min_wait_ok`（活性阈值，默认 1）；
+ *     4) `done_busy > 0`（证明存在有效竞争）。
+ */
 #include "osal/osal.h"
 #include "osal/osal_config.h"
 #include "sync/completion.h"
 
 /**
- * @brief completion 绾跨▼妯℃嫙 ISR 涓撻」鍘嬫祴寮€鍏? * @details
- * - `0`锛氬叧闂粍 9锛堢嚎绋嬫ā鎷?ISR 璺緞涓撻」锛夈€? * - `1`锛氬惎鐢ㄧ粍 9锛堥粯璁わ級銆? */
+ * @brief completion 线程模拟 ISR 专项压测开关
+ * @details
+ * - `0`：关闭组 9（线程模拟 ISR 路径专项）
+ * - `1`：启用组 9（默认）
+ */
 #ifndef COMPLETION_ISR_STRESS_ENABLE
 #define COMPLETION_ISR_STRESS_ENABLE 1u
 #endif
 
 #if (COMPLETION_ISR_STRESS_ENABLE != 0u) && (COMPLETION_ISR_STRESS_ENABLE != 1u)
-#error "COMPLETION_ISR_STRESS_ENABLE 浠呭厑璁?0 鎴?1"
+#error "COMPLETION_ISR_STRESS_ENABLE only accepts 0 or 1"
 #endif
 
 typedef struct
@@ -33,42 +50,42 @@ typedef struct
 } SyncCompletionTestResult;
 
 enum {
-    /* 骞跺彂 done 绾跨▼鏁颁笂闄愶紝鐢ㄤ簬鍒堕€犵珵浜夊帇鍔涖€?*/
+    /* 并发 done 线程数上限，用于控制竞争压力 */
     COMPLETION_STRESS_DONE_WORKERS = 4u,
-    /* 缁?8 涓?done > waiter 鍘嬪姏瀛愬満鏅娇鐢ㄧ殑 done 绾跨▼鏁般€?*/
+    /* 组8中 done > waiter 压力子场景使用的 done 线程数 */
     COMPLETION_STRESS_DONE_WORKERS_GT_CASE = 2u,
-    /* 鍔熻兘姝ｇ‘鎬ц建閬擄紙鍥哄畾杞锛夛細done<waiter銆?*/
+    /* 功能正确性轨道（固定轮次）：done < waiter */
     COMPLETION_STRESS_FUNCTIONAL_TARGET_ROUNDS_LT = 20000u,
-    /* 鍔熻兘姝ｇ‘鎬ц建閬擄紙鍥哄畾杞锛夛細done==waiter銆?*/
+    /* 功能正确性轨道（固定轮次）：done == waiter */
     COMPLETION_STRESS_FUNCTIONAL_TARGET_ROUNDS_EQ = 20000u,
-    /* 鍔熻兘姝ｇ‘鎬ц建閬撳崟瀛愬満鏅秴鏃朵繚鎶わ紙姣锛夈€?*/
+    /* 功能正确性轨道单子场景超时保护（毫秒） */
     COMPLETION_STRESS_FUNCTIONAL_CASE_TIMEOUT_MS = 120000u,
-    /* 骞跺彂鍘嬪姏杞ㄩ亾鏃堕棿绐楋紙姣锛夈€?*/
+    /* 并发压力轨道时间窗（毫秒） */
     COMPLETION_STRESS_PRESSURE_WINDOW_MS = 20000u,
-    /* 骞跺彂鍘嬪姏杞ㄩ亾娲绘€ч槇鍊硷紙浠呰姹傚瓨鍦ㄦ渶灏忓墠杩涳紝涓嶅仛鎬ц兘璇勭骇锛夈€?*/
+    /* 并发压力轨道活性阈值（仅要求存在最小前进，不做性能评级） */
     COMPLETION_STRESS_PRESSURE_MIN_WAIT_OK = 1u,
-    /* 涓嶈杞涓婇檺锛堢敱 stop 鏀舵暃锛夈€?*/
+    /* 不设轮次上限（由 stop 收敛） */
     COMPLETION_STRESS_TARGET_ROUNDS_UNBOUNDED = 0xFFFFFFFFu,
-    /* 缁?8 鍋滄満鏀跺熬绛夊緟涓婇檺锛堟绉掞級銆?*/
+    /* 组8停机收尾等待上限（毫秒） */
     COMPLETION_STRESS_STOP_TIMEOUT_MS = 5000u,
     COMPLETION_STRESS_SHUTDOWN_TIMEOUT_MS = 2000u,
-    /* done 绾跨▼璁╁嚭 CPU 鐨勮妭娴佹帺鐮侊紙姣?64 娆″惊鐜鍑轰竴娆★級銆?*/
+    /* done 线程让出 CPU 的节流掩码（每 64 次循环让出一次） */
     COMPLETION_STRESS_WORKER_YIELD_MASK = 0x003Fu
 };
 
 enum {
-    /* 绾跨▼妯℃嫙 ISR 鍘嬪姏杞ㄩ亾鏃堕棿绐楋紙姣锛夈€?*/
+    /* 线程模拟 ISR 压力轨道时间窗（毫秒） */
     COMPLETION_ISR_STRESS_WINDOW_MS = 20000u,
-    /* 绾跨▼妯℃嫙 ISR 鍘嬪姏杞ㄩ亾娲绘€ч槇鍊硷紙浠呰姹傚瓨鍦ㄦ渶灏忓墠杩涳級銆?*/
+    /* 线程模拟 ISR 压力轨道活性阈值（仅要求存在最小前进） */
     COMPLETION_ISR_STRESS_MIN_WAIT_OK = 1u,
-    /* 绾跨▼妯℃嫙 ISR 涓撻」鍋滄満鏀跺熬绛夊緟涓婇檺锛堟绉掞級銆?*/
+    /* 线程模拟 ISR 专项停机收尾等待上限（毫秒） */
     COMPLETION_ISR_STRESS_STOP_TIMEOUT_MS = 5000u,
-    /* 瑙﹀彂绾跨▼璁╁嚭 CPU 鐨勮妭娴佹帺鐮侊紙姣?1024 娆″惊鐜鍑轰竴娆★級銆?*/
+    /* 触发线程让出 CPU 的节流掩码（每 1024 次循环让出一次） */
     COMPLETION_ISR_STRESS_TRIGGER_YIELD_MASK = 0x03FFu,
 };
 
 enum {
-    /* 缁?8/缁?9 鐨?waiter 鍩哄噯浼樺厛绾с€?*/
+    /* 组8/组9的 waiter 基准优先级 */
     COMPLETION_STRESS_WAITER_PRIORITY_BASE = 3u,
 };
 
@@ -165,7 +182,8 @@ static void completion_expect_level(int condition, CompletionAssertLevel level)
 }
 
 /**
- * @brief 绠€鍗曟柇瑷€璁℃暟鍣? * @param condition 闈?0 琛ㄧず鏂█閫氳繃
+ * @brief 简单断言计数器
+ * @param condition 非 0 表示断言通过
  */
 static void completion_expect(int condition)
 {
@@ -175,7 +193,7 @@ static void completion_expect(int condition)
 }
 
 /**
- * @brief 绛夊緟鏌愪釜鏍囧織浣嶄负 1锛堣秴鏃跺け璐ワ級
+ * @brief 等待某个标志位为 1（超时失败）
  */
 static int completion_wait_flag(volatile uint32_t *flag, uint32_t timeout_ms)
 {
@@ -191,7 +209,7 @@ static int completion_wait_flag(volatile uint32_t *flag, uint32_t timeout_ms)
 }
 
 /**
- * @brief 绛夊緟 completion 杩涘叆鎸囧畾鐘舵€侊紙鐢ㄤ簬娑堥櫎娴嬭瘯鎻℃墜绔炴€侊級
+ * @brief 等待 completion 进入指定状态（用于消除测试握手竞争）
  */
 static int completion_wait_status(volatile CompStatus *status, CompStatus expected, uint32_t timeout_ms)
 {
@@ -207,9 +225,12 @@ static int completion_wait_status(volatile CompStatus *status, CompStatus expect
 }
 
 /**
- * @brief 鍦ㄥ仠鏈洪樁娈靛惊鐜ˉ鍙?done锛岀‘淇?waiter 浠?WAIT_FOREVER 閫€鍑? * @param completion completion 瀵硅薄
- * @param waiter_done waiter 閫€鍑烘爣蹇? * @param timeout_ms 鏀跺熬涓婇檺锛堟绉掞級
- * @param force_done_stats 闈?NULL 鏃剁粺璁℃敹灏鹃樁娈?done 杩斿洖鍊? */
+ * @brief 在停机阶段循环补发 done，确保 waiter 从 WAIT_FOREVER 返回
+ * @param completion completion 对象
+ * @param waiter_done waiter 退出标志
+ * @param timeout_ms 收尾上限（毫秒）
+ * @param force_done_stats 非 NULL 时统计收尾阶段 done 返回值
+ */
 static int completion_force_wake_waiter(
     Completion* completion,
     volatile uint32_t *waiter_done,
@@ -238,7 +259,8 @@ static int completion_force_wake_waiter(
 }
 
 /**
- * @brief 鑾峰彇褰撳墠绔彛鍙敤鐨勬渶楂樼嚎绋嬩紭鍏堢骇鍊? */
+ * @brief 获取当前端口可用的最高线程优先级
+ */
 static uint32_t completion_priority_max(void)
 {
     if (OSAL_PRIORITY_MAX == 0u)
@@ -247,7 +269,8 @@ static uint32_t completion_priority_max(void)
 }
 
 /**
- * @brief 灏嗚緭鍏ヤ紭鍏堢骇鏀舵暃鍒板綋鍓嶇鍙ｆ湁鏁堣寖鍥? */
+ * @brief 将输入优先级收敛到当前端口有效范围
+ */
 static uint32_t completion_priority_clamp(uint32_t priority)
 {
     uint32_t max_priority = completion_priority_max();
@@ -258,14 +281,15 @@ static uint32_t completion_priority_clamp(uint32_t priority)
 }
 
 /**
- * @brief 鑾峰彇缁?8/缁?9 鐨?waiter 浼樺厛绾? */
+ * @brief 获取组8/组9的 waiter 优先级
+ */
 static uint32_t completion_priority_stress_waiter(void)
 {
     return completion_priority_clamp(COMPLETION_STRESS_WAITER_PRIORITY_BASE);
 }
 
 /**
- * @brief 鑾峰彇缁?8 涓?done < waiter 鐨勪紭鍏堢骇
+ * @brief 获取组8中 done < waiter 的优先级
  */
 static uint32_t completion_priority_stress_done_lt(void)
 {
@@ -277,7 +301,7 @@ static uint32_t completion_priority_stress_done_lt(void)
 }
 
 /**
- * @brief 鑾峰彇缁?8 涓?done == waiter 鐨勪紭鍏堢骇
+ * @brief 获取组8中 done == waiter 的优先级
  */
 static uint32_t completion_priority_stress_done_eq(void)
 {
@@ -285,7 +309,7 @@ static uint32_t completion_priority_stress_done_eq(void)
 }
 
 /**
- * @brief 鑾峰彇缁?8 涓?done > waiter 鐨勪紭鍏堢骇
+ * @brief 获取组8中 done > waiter 的优先级
  */
 static uint32_t completion_priority_stress_done_gt(void)
 {
@@ -298,14 +322,15 @@ static uint32_t completion_priority_stress_done_gt(void)
 }
 
 /**
- * @brief 鑾峰彇缁?9 瑙﹀彂绾跨▼锛堢嚎绋嬫ā鎷?ISR锛夌殑浼樺厛绾? */
+ * @brief 获取组9触发线程（线程模拟 ISR）的优先级
+ */
 static uint32_t completion_priority_isr_trigger(void)
 {
     return completion_priority_max();
 }
 
 /**
- * @brief 鑾峰彇娴嬭瘯鎺у埗绾跨▼浼樺厛绾э紙闃叉鐘舵€佹満鎺ㄨ繘琚タ姝伙級
+ * @brief 获取测试控制线程优先级（防止状态机推进被饿死）
  */
 static uint32_t completion_priority_test_ctrl(void)
 {
@@ -313,7 +338,8 @@ static uint32_t completion_priority_test_ctrl(void)
 }
 
 /**
- * @brief 閲嶇疆鍘嬪姏娴嬭瘯涓婁笅鏂? */
+ * @brief 重置压力测试上下文
+ */
 static void completion_stress_reset_ctx(void)
 {
     uint32_t worker_index = 0u;
@@ -338,7 +364,8 @@ static void completion_stress_reset_ctx(void)
 }
 
 /**
- * @brief 妫€鏌ュ帇鍔涙祴璇?worker 鏄惁鍏ㄩ儴閫€鍑? */
+ * @brief 检查压力测试 worker 是否全部退出
+ */
 static int completion_stress_workers_all_done(void)
 {
     uint32_t worker_index = 0u;
@@ -351,7 +378,8 @@ static int completion_stress_workers_all_done(void)
 }
 
 /**
- * @brief 绛夊緟鍘嬪姏娴嬭瘯 worker 鍏ㄩ儴閫€鍑? */
+ * @brief 等待压力测试 worker 全部退出
+ */
 static int completion_stress_wait_workers_done(uint32_t timeout_ms)
 {
     OsalTimeMs start_ms = osal_time_now_monotonic();
@@ -366,7 +394,7 @@ static int completion_stress_wait_workers_done(uint32_t timeout_ms)
 }
 
 /**
- * @brief 姹囨€诲帇鍔涙祴璇?worker 缁熻
+ * @brief 汇总压力测试 worker 统计
  */
 static void completion_stress_collect_stats(
     uint32_t *total_done_ok,
@@ -391,7 +419,8 @@ static void completion_stress_collect_stats(
 
 #if (COMPLETION_ISR_STRESS_ENABLE != 0u)
 /**
- * @brief 閲嶇疆 ISR 涓撻」鍘嬫祴涓婁笅鏂? */
+ * @brief 重置 ISR 专项压测上下文
+ */
 static void completion_isr_stress_reset_ctx(void)
 {
     g_isr_stress.start               = 0u;
@@ -410,8 +439,9 @@ static void completion_isr_stress_reset_ctx(void)
 }
 
 /**
- * @brief 灏?done 杩斿洖鐮佽鍏?ISR 涓撻」缁熻
- * @param done_ret `completion_done` 杩斿洖鍊? */
+ * @brief 按 done 返回码统计 ISR 专项结果
+ * @param done_ret `completion_done` 返回值
+ */
 static void completion_isr_stress_count_done_ret(OmRet done_ret)
 {
     if (done_ret == OM_OK)
@@ -423,7 +453,7 @@ static void completion_isr_stress_count_done_ret(OmRet done_ret)
 }
 
 /**
- * @brief ISR 涓撻」 waiter 绾跨▼鍏ュ彛
+ * @brief ISR 专项 waiter 线程入口
  */
 static void completion_isr_stress_waiter_thread_entry(void *arg)
 {
@@ -468,7 +498,8 @@ static void completion_isr_stress_waiter_thread_entry(void *arg)
 }
 
 /**
- * @brief 瑙﹀彂绾跨▼锛氫互楂橀 `completion_done` 妯℃嫙 ISR 鐢熶骇鑰? */
+ * @brief 触发线程：以高频 `completion_done` 模拟 ISR 生产者
+ */
 static void completion_isr_trigger_thread_entry(void *arg)
 {
     uint32_t loop_count = 0u;
@@ -491,7 +522,7 @@ static void completion_isr_trigger_thread_entry(void *arg)
 #endif
 
 /**
- * @brief 绛夊緟绾跨▼锛氱敤浜庨獙璇佸崟绛夊緟鑰呯害鏉熶笌鍞ら啋璺緞
+ * @brief 等待线程：用于验证单等待者约束与唤醒路径
  */
 static void completion_waiter_thread_entry(void *arg)
 {
@@ -505,7 +536,8 @@ static void completion_waiter_thread_entry(void *arg)
 }
 
 /**
- * @brief 寤惰繜 done 绾跨▼锛氱敤浜庨獙璇?wait 琚紓姝ュ敜閱? */
+ * @brief 延迟 done 线程：用于验证 wait 被异步唤醒
+ */
 static void completion_done_thread_entry(void *arg)
 {
     (void)arg;
@@ -516,7 +548,8 @@ static void completion_done_thread_entry(void *arg)
 }
 
 /**
- * @brief 鍘嬪姏娴嬭瘯绛夊緟绾跨▼锛氬惊鐜秷璐?one-shot 瀹屾垚鎬? */
+ * @brief 压力测试等待线程：循环消费 one-shot 完成事件
+ */
 static void completion_stress_waiter_thread_entry(void *arg)
 {
     Completion* completion = (Completion*)arg;
@@ -560,7 +593,7 @@ static void completion_stress_waiter_thread_entry(void *arg)
 }
 
 /**
- * @brief 鍘嬪姏娴嬭瘯 done 绾跨▼锛氬苟鍙戝啿鍑?completion_done
+ * @brief 压力测试 done 线程：并发冲击 completion_done
  */
 static void completion_stress_done_thread_entry(void *arg)
 {
@@ -587,7 +620,9 @@ static void completion_stress_done_thread_entry(void *arg)
 
         loop_count++;
         /*
-         * 鍛ㄦ湡鎬ч樆濉?1ms锛岄伩鍏?done 绾跨▼闀挎湡鎶㈠崰 CPU锛?         * 瀵艰嚧 waiter 鍦ㄤ綆浼樺厛绾у叧绯讳笅琚タ姝汇€?         */
+         * 周期性阻塞 1ms，避免 done 线程长期抢占 CPU，
+         * 导致 waiter 在低优先级关系下被饿死。
+         */
         if ((loop_count & COMPLETION_STRESS_WORKER_YIELD_MASK) == 0u)
             (void)osal_sleep_ms(1u);
     }
@@ -600,9 +635,11 @@ static void completion_stress_done_thread_entry(void *arg)
 }
 
 /**
- * @brief 缁?8 鍔熻兘姝ｇ‘鎬у瓙鐢ㄤ緥锛堝浐瀹氳疆娆?+ 涓ユ牸璁℃暟鍏崇郴锛? * @param done_priority done 绾跨▼浼樺厛绾? * @param done_worker_count 鏈瓙鐢ㄤ緥鍚敤鐨?done 绾跨▼鏁帮紙0 鎴栬秺鐣屾椂鍥為€€鍒版渶澶у€硷級
- * @param enforce_busy_gate 闈?0 鏃跺己鍒舵鏌?`total_done_busy > 0`
- * @param target_wait_ok 鏈瓙鐢ㄤ緥鐩爣杞锛? 鏃跺洖閫€鍒伴粯璁わ級
+ * @brief 组8功能正确性子用例（固定轮次 + 严格计数关系）
+ * @param done_priority done 线程优先级
+ * @param done_worker_count 本子用例启用的 done 线程数（0 或越界时回退到最大值）
+ * @param enforce_busy_gate 非 0 时强制检查 `total_done_busy > 0`
+ * @param target_wait_ok 本子用例目标轮次（0 时回退到默认值）
  */
 static void completion_run_group8_functional_case(
     uint32_t done_priority,
@@ -708,10 +745,13 @@ static void completion_run_group8_functional_case(
 }
 
 /**
- * @brief 缁?8 骞跺彂鍘嬪姏瀛愮敤渚嬶紙鏃堕棿绐?+ 娲绘€ч槇鍊硷級
- * @param done_priority done 绾跨▼浼樺厛绾? * @param done_worker_count 鏈瓙鐢ㄤ緥鍚敤鐨?done 绾跨▼鏁帮紙0 鎴栬秺鐣屾椂鍥為€€鍒版渶澶у€硷級
- * @param enforce_busy_gate 闈?0 鏃跺己鍒舵鏌?`total_done_busy > 0`
- * @param pressure_window_ms 鍘嬫祴鏃堕棿绐楋紙姣锛? * @param min_wait_ok 娲绘€ч槇鍊硷紙榛樿 1锛? */
+ * @brief 组8并发压力子用例（时间窗 + 活性阈值）
+ * @param done_priority done 线程优先级
+ * @param done_worker_count 本子用例启用的 done 线程数（0 或越界时回退到最大值）
+ * @param enforce_busy_gate 非 0 时强制检查 `total_done_busy > 0`
+ * @param pressure_window_ms 压测时间窗（毫秒）
+ * @param min_wait_ok 活性阈值（默认 1）
+ */
 static void completion_run_group8_pressure_case(
     uint32_t done_priority,
     uint32_t done_worker_count,
@@ -813,7 +853,7 @@ static void completion_run_group8_pressure_case(
 }
 
 /**
- * @brief completion 鍚堝悓娴嬭瘯绾跨▼
+ * @brief completion 合同测试线程
  */
 static void completion_test_thread_entry(void *arg)
 {
@@ -852,29 +892,29 @@ static void completion_test_thread_entry(void *arg)
     (void)arg;
     g_test_infra_abort = 0u;
 
-    /* 缁?1锛氬弬鏁版牎楠?*/
+    /* 组1：参数校验 */
     completion_expect(completion_init(NULL) == OM_ERROR_PARAM);
     completion_expect(completion_wait(NULL, 0u) == OM_ERROR_PARAM);
     completion_expect(completion_done(NULL) == OM_ERROR_PARAM);
 
-    /* 缁?2锛歵imeout=0 鏈畬鎴愬嵆瓒呮椂 */
+    /* 组2：timeout=0 未完成即超时 */
     completion_expect(completion_init(&g_completion) == OM_OK);
     completion_expect(completion_wait(&g_completion, 0u) == OM_ERROR_TIMEOUT);
 
-    /* 缁?3锛歞one 鍏堜簬 wait锛坥ne-shot 娑堣垂锛?*/
+    /* 组3：done 先于 wait（one-shot 消费） */
     completion_expect(completion_done(&g_completion) == OM_OK);
     completion_expect(completion_wait(&g_completion, 0u) == OM_OK);
     completion_expect(completion_wait(&g_completion, 0u) == OM_ERROR_TIMEOUT);
 
-    /* 缁?4锛氶噸澶?done 杩斿洖 BUSY */
+    /* 组4：重复 done 返回 BUSY */
     completion_expect(completion_done(&g_completion) == OM_OK);
     completion_expect(completion_done(&g_completion) == OM_ERROR_BUSY);
     completion_expect(completion_wait(&g_completion, 0u) == OM_OK);
 
-    /* 缁?5锛氭湁闄愯秴鏃?*/
+    /* 组5：有限超时 */
     completion_expect(completion_wait(&g_completion, 20u) == OM_ERROR_TIMEOUT);
 
-    /* 缁?6锛氬崟绛夊緟鑰呯害鏉?*/
+    /* 组6：单等待者约束 */
     g_waiter_started = 0u;
     g_waiter_waiting = 0u;
     g_waiter_done    = 0u;
@@ -889,7 +929,7 @@ static void completion_test_thread_entry(void *arg)
     completion_expect(g_waiter_ret == OM_OK);
     g_waiter_thread = NULL;
 
-    /* 缁?7锛歸ait 鍏堜簬 done 鍞ら啋 */
+    /* 组7：wait 先于 done 唤醒 */
     g_done_thread_done = 0u;
     g_done_thread_ret  = OM_ERROR;
     g_done_delay_ms    = 20u;
@@ -900,7 +940,11 @@ static void completion_test_thread_entry(void *arg)
     g_done_thread = NULL;
 
     /*
-     * 缁?8锛氬弻杞ㄦā鍨?     * 1) 鍔熻兘姝ｇ‘鎬э細done < waiter锛堝浐瀹氳疆娆?+ 涓ユ牸 one-shot 璁℃暟鍏崇郴锛?     * 2) 鍔熻兘姝ｇ‘鎬э細done == waiter锛堝浐瀹氳疆娆?+ 涓ユ牸 one-shot 璁℃暟鍏崇郴锛?     * 3) 骞跺彂鍘嬪姏锛歞one > waiter锛堟椂闂寸獥 + 娲绘€ч槇鍊?+ BUSY 绔炰簤璇佹嵁锛?     */
+     * 组8：双轨模式
+     * 1) 功能正确性：done < waiter（固定轮次 + 严格 one-shot 计数关系）
+     * 2) 功能正确性：done == waiter（固定轮次 + 严格 one-shot 计数关系）
+     * 3) 并发压力：done > waiter（时间窗 + 活性阈值 + BUSY 竞争证据）
+     */
     completion_run_group8_functional_case(
         completion_priority_stress_done_lt(),
         COMPLETION_STRESS_DONE_WORKERS,
@@ -928,8 +972,10 @@ static void completion_test_thread_entry(void *arg)
 
 #if (COMPLETION_ISR_STRESS_ENABLE != 0u)
     /*
-     * 缁?9锛氱嚎绋嬫ā鎷?ISR 骞跺彂鍘嬪姏锛堝崟妯″紡锛?     * - 閲囩敤鈥滄椂闂寸獥 + 娲绘€ч槇鍊?+ BUSY 绔炰簤璇佹嵁鈥濋獙鏀讹紱
-     * - 涓嶉獙璇佺湡瀹炰腑鏂笂涓嬫枃锛屼粎楠岃瘉楂樹紭鍏堢骇鐢熶骇鑰?+ wait 娑堣垂鑰呭悎鍚屻€?     */
+     * 组9：线程模拟 ISR 并发压力（单模式）
+     * - 采用“时间窗 + 活性阈值 + BUSY 竞争证据”验收；
+     * - 不验证真实中断上下文，仅验证高优先级生产者 + wait 消费者合同。
+     */
     completion_expect(completion_init(&g_completion) == OM_OK);
     completion_isr_stress_reset_ctx();
     g_isr_stress.targetWaitOk = COMPLETION_STRESS_TARGET_ROUNDS_UNBOUNDED;
@@ -997,8 +1043,9 @@ test_finish:
 }
 
 /**
- * @brief 渚嬬▼鍏ュ彛
- * @return 鍒涘缓娴嬭瘯绾跨▼澶辫触杩斿洖 -1锛涙垚鍔熷悗鍚姩璋冨害鍣? */
+ * @brief 例程入口
+ * @return 创建测试线程失败返回 -1；成功后启动调度
+ */
 int main(void)
 {
     OsalThreadAttr test_attr = {
@@ -1012,4 +1059,3 @@ int main(void)
 
     return osal_kernel_start();
 }
-
