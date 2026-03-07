@@ -41,8 +41,20 @@ jobs:
 
       - name: Setup GNU ARM Embedded Toolchain
         uses: carlosperate/arm-none-eabi-gcc-action@v1
+        id: gnu-rm-toolchain
         with:
           release: 'latest'
+          path-env-var: ARM_NONE_EABI_GCC_PATH
+
+      - name: Export GNU ARM toolchain
+        run: |
+          echo "${ARM_NONE_EABI_GCC_PATH}" >> "${GITHUB_PATH}"
+          echo "ARM_NONE_EABI_GCC_BIN=${ARM_NONE_EABI_GCC_PATH}" >> "${GITHUB_ENV}"
+          echo "ARM_NONE_EABI_GCC_SDK=$(dirname "${ARM_NONE_EABI_GCC_PATH}")" >> "${GITHUB_ENV}"
+          echo "Using gnu-rm bindir: ${ARM_NONE_EABI_GCC_PATH}"
+          ls "${ARM_NONE_EABI_GCC_PATH}"
+          which arm-none-eabi-gcc
+          arm-none-eabi-gcc --version
 
       - name: Install clang tools
         run: |
@@ -66,7 +78,9 @@ jobs:
         if: steps.changed-files.outputs.any_changed == 'true'
         run: |
           # 提前执行配置阶段让 xmake 生成工具链缓存和配置，避免后续并行格式化或静态检查时死锁失败
-          xmake f -c --toolchain=gnu-rm -m debug --yes
+          xmake f -c -p cross -a arm --board=rm-c-board --os=freertos \
+            --toolchain=gnu-rm --sdk="${ARM_NONE_EABI_GCC_SDK}" --bin="${ARM_NONE_EABI_GCC_BIN}" \
+            -m debug --yes
 
       - name: Run style gate (Format)
         if: steps.changed-files.outputs.any_changed == 'true'

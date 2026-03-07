@@ -3,5 +3,6 @@
 --- @details 以静态列表替代描述域的文件扫描。
 
 om_board_index = {
+    "rm-a-board",
     "rm-c-board",
 }
