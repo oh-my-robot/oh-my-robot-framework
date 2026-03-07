@@ -14,11 +14,31 @@
 
 #include "stm32f4xx_hal.h"
 
-/* UART7 与 USART3 的 DMA stream 存在冲突，只能二选一。 */
-#define RM_A_SERIAL_DMA_PROFILE_USART3 (0U)
-#define RM_A_SERIAL_DMA_PROFILE_UART7  (1U)
+/*
+ * USART3_RX 与 UART7_TX 共享 DMA1_Stream1，因此 USART3 全 DMA 与
+ * UART7 全 DMA 不能同时成立。
+ *
+ * rm-a-board 提供两套板级私有 profile：
+ * 1. USART3 全 DMA + UART7 全中断（兼容旧行为）
+ * 2. USART3 TX-DMA/RX-INT + UART7 全 DMA（默认）
+ */
+#define RM_A_SERIAL37_PROFILE_USART3_FULLDMA_UART7_INT   (0U)
+#define RM_A_SERIAL37_PROFILE_USART3_TXDMA_UART7_FULLDMA (1U)
+
+/* 兼容旧命名，避免打断已有命令行宏。 */
+#define RM_A_SERIAL_DMA_PROFILE_USART3 RM_A_SERIAL37_PROFILE_USART3_FULLDMA_UART7_INT
+#define RM_A_SERIAL_DMA_PROFILE_UART7  RM_A_SERIAL37_PROFILE_USART3_TXDMA_UART7_FULLDMA
+
+#ifndef RM_A_SERIAL37_PROFILE
+#ifdef RM_A_SERIAL_DMA_PROFILE
+#define RM_A_SERIAL37_PROFILE RM_A_SERIAL_DMA_PROFILE
+#else
+#define RM_A_SERIAL37_PROFILE RM_A_SERIAL37_PROFILE_USART3_TXDMA_UART7_FULLDMA
+#endif
+#endif
+
 #ifndef RM_A_SERIAL_DMA_PROFILE
-#define RM_A_SERIAL_DMA_PROFILE RM_A_SERIAL_DMA_PROFILE_USART3
+#define RM_A_SERIAL_DMA_PROFILE RM_A_SERIAL37_PROFILE
 #endif
 
 #define USE_SERIAL_1
@@ -44,7 +64,7 @@
 
 #define USE_SERIAL_3
 #ifdef USE_SERIAL_3
-#if (RM_A_SERIAL_DMA_PROFILE == RM_A_SERIAL_DMA_PROFILE_USART3)
+#if (RM_A_SERIAL37_PROFILE == RM_A_SERIAL37_PROFILE_USART3_FULLDMA_UART7_INT)
 #define SERIAL_3_REG_PARAMS (SERIAL_REG_DMA_RX | SERIAL_REG_DMA_TX) /* 注册参数 */
 #define USE_SERIAL3_DMA_TX                                          /* 使用DMA发送 */
 #define USE_SERIAL3_DMA_RX                                          /* 使用DMA接收 */
@@ -63,13 +83,20 @@
 #define SERIAL_3_DMA_RX_IRQ_Handler DMA1_Stream1_IRQHandler
 #endif
 #else
-#define SERIAL_3_REG_PARAMS (SERIAL_REG_INT_RX | SERIAL_REG_INT_TX) /* 注册参数 */
+#define SERIAL_3_REG_PARAMS (SERIAL_REG_INT_RX | SERIAL_REG_DMA_TX) /* 注册参数 */
+#define USE_SERIAL3_DMA_TX                                          /* 使用DMA发送 */
+#ifdef USE_SERIAL3_DMA_TX
+#define SERIAL_3_DMA_TX_DMA_STREAM DMA1_Stream4
+#define SERIAL_3_DMA_TX_DMA_CHANNEL DMA_CHANNEL_7
+#define SERIAL_3_DMA_TX_IRQn DMA1_Stream4_IRQn
+#define SERIAL_3_DMA_TX_IRQ_Handler DMA1_Stream4_IRQHandler
+#endif
 #endif
 #endif
 
 #define USE_SERIAL_7
 #ifdef USE_SERIAL_7
-#if (RM_A_SERIAL_DMA_PROFILE == RM_A_SERIAL_DMA_PROFILE_UART7)
+#if (RM_A_SERIAL37_PROFILE == RM_A_SERIAL37_PROFILE_USART3_TXDMA_UART7_FULLDMA)
 #define SERIAL_7_REG_PARAMS (SERIAL_REG_DMA_RX | SERIAL_REG_DMA_TX) /* 注册参数 */
 #define USE_SERIAL7_DMA_TX                                          /* 使用DMA发送 */
 #define USE_SERIAL7_DMA_RX                                          /* 使用DMA接收 */
