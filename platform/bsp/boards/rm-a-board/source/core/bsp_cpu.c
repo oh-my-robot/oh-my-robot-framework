@@ -2,8 +2,6 @@
 #include "bsp.h"
 #include "core/om_interrupt.h"
 
-extern uint32_t g_pfnVectors[];
-
 /**
  * @brief  This function is executed in case of error occurrence.
  * @retval None
@@ -74,9 +72,6 @@ static OmBoardInterface g_om_board_interface = {
 void om_board_init(void)
 {
     // 开发板初始化，对于STM32来说，在CubeMX上配置时钟树，然后直接复制过来用就好
-    SCB->VTOR = (uint32_t)g_pfnVectors;
-    __DSB();
-    __ISB();
     HAL_Init();
     SystemClock_Config();
     NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4); // 任务调度前，需要设置中断优先级分组
