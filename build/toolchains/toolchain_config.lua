@@ -209,7 +209,7 @@ function apply_defaults(toolchain_context)
     else
         set_config_value(config, "toolchain", toolchain_raw, false)
     end
-    if entry.plat and not config.readonly("plat") then
+    if entry.plat then
         config.set("plat", entry.plat)
     end
     if context.paths.sdkdir and not config.readonly("sdk") then
