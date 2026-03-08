@@ -41,10 +41,8 @@ jobs:
 
       - name: Setup GNU ARM Embedded Toolchain
         uses: carlosperate/arm-none-eabi-gcc-action@v1
-        id: gnu-rm-toolchain
         with:
           release: 'latest'
-          path-env-var: ARM_NONE_EABI_GCC_PATH
 
       - name: Install clang tools
         run: |
@@ -68,8 +66,7 @@ jobs:
         if: steps.changed-files.outputs.any_changed == 'true'
         run: |
           # 提前执行配置阶段让 xmake 生成工具链缓存和配置，避免后续并行格式化或静态检查时死锁失败
-          echo "Using gnu-rm bindir: ${ARM_NONE_EABI_GCC_PATH}"
-          xmake f -c --toolchain=gnu-rm --bin="${ARM_NONE_EABI_GCC_PATH}" -m debug --yes
+          xmake f -c --toolchain=gnu-rm -m debug --yes
 
       - name: Run style gate (Format)
         if: steps.changed-files.outputs.any_changed == 'true'
