@@ -89,7 +89,10 @@ target("tar_awasync")
     set_kind("static")
     add_rules("oh_my_robot.context")
     add_deps("tar_awapi_async", {public = true})
-    add_files("async/src/**.c")
+    local async_sources = os.files("async/src/**.c")
+    if #async_sources > 0 then
+        add_files(table.unpack(async_sources))
+    end
 target_end()
 
 --- @target tar_awsystems

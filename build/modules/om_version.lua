@@ -22,8 +22,8 @@ end
 local function run_git(argv)
     local output = nil
     local run_error = nil
-    local project_root = os.projectdir()
-    local command_argv = {"-C", project_root}
+    local framework_root = path.directory(path.directory(os.scriptdir()))
+    local command_argv = {"-C", framework_root}
     for _, argument in ipairs(argv or {}) do
         command_argv[#command_argv + 1] = argument
     end
