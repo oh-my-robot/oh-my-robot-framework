@@ -37,19 +37,64 @@ local context_cache = nil
 --- 预设缓存（om_preset.lua）
 local preset_cache = nil
 local preset_root_cache = nil
+local preset_path_cache = nil
+local project_root_cache = nil
+local framework_root_cache = nil
 
---- 解析预设根目录（项目根目录）
----@return string root 根目录路径
-local function resolve_preset_root()
-    if preset_root_cache then
-        return preset_root_cache
+--- 获取框架仓根目录
+---@return string root 框架仓根目录
+local function resolve_framework_root()
+    if framework_root_cache then
+        return framework_root_cache
+    end
+    local root = path.directory(path.directory(os.scriptdir()))
+    framework_root_cache = root
+    return root
+end
+
+--- 解析项目根目录（XMake 顶层工程目录）
+---@return string root 项目根目录
+local function resolve_project_root()
+    if project_root_cache then
+        return project_root_cache
     end
     local root = os.projectdir()
     if not root or root == "" then
         raise("project root not found: os.projectdir() returned empty")
     end
-    preset_root_cache = root
-    return root
+    project_root_cache = path.absolute(root)
+    return project_root_cache
+end
+
+--- 解析预设文件路径
+---@return string|nil preset_file 预设文件绝对路径
+local function resolve_preset_path()
+    if preset_path_cache ~= nil then
+        return preset_path_cache or nil
+    end
+
+    local preset_file = path.join(resolve_project_root(), "om_preset.lua")
+    if not os.isfile(preset_file) then
+        preset_file = nil
+    end
+
+    preset_path_cache = preset_file or false
+    return preset_file
+end
+
+--- 解析预设根目录
+---@return string root 根目录路径
+local function resolve_preset_root()
+    if preset_root_cache then
+        return preset_root_cache
+    end
+    local preset_path = resolve_preset_path()
+    if preset_path and preset_path ~= "" then
+        preset_root_cache = path.directory(preset_path)
+        return preset_root_cache
+    end
+    preset_root_cache = resolve_project_root()
+    return preset_root_cache
 end
 
 --- 获取预设根目录
@@ -58,7 +103,25 @@ function get_preset_root()
     return resolve_preset_root()
 end
 
---- 获取用户预设（om_preset.lua）
+--- 获取项目根目录
+---@return string root 项目根目录
+function get_project_root()
+    return resolve_project_root()
+end
+
+--- 获取框架仓根目录
+---@return string root 框架仓根目录
+function get_framework_root()
+    return resolve_framework_root()
+end
+
+--- 获取预设文件绝对路径
+---@return string|nil preset_path 预设文件路径
+function get_preset_path()
+    return resolve_preset_path()
+end
+
+--- 获取项目根预设（om_preset.lua）
 ---@return table|nil preset 预设配置
 function get_preset()
     if preset_cache == false then
@@ -67,12 +130,12 @@ function get_preset()
     if preset_cache then
         return preset_cache
     end
-    local root = resolve_preset_root()
-    local preset_path = path.join(root, "om_preset.lua")
-    if not os.isfile(preset_path) then
+    local preset_path = resolve_preset_path()
+    if not preset_path or preset_path == "" or not os.isfile(preset_path) then
         preset_cache = false
         return nil
     end
+    local root = path.directory(preset_path)
     local module = import("om_preset", {rootdir = root})
     local preset = nil
     --- 判断表是否为空
@@ -358,7 +421,10 @@ function om_verify_link_contract(target)
 end
 
 return {
+    get_project_root = get_project_root,
+    get_framework_root = get_framework_root,
     get_preset_root = get_preset_root,
+    get_preset_path = get_preset_path,
     get_preset = get_preset,
     set_context_extra = set_context_extra,
     get_context = get_context,

@@ -167,6 +167,27 @@ git fetch upstream
 git checkout -b feature/15-osal-mutex upstream/integration
 ```
 
+#### 阶段二补充：`oh-my-robot` 的 worktree 与项目根推荐组织
+
+1. `robot/oh-my-robot` 只作为 root 仓中的集成快照使用，不作为 `oh-my-robot` 的日常功能开发 checkout。
+2. `oh-my-robot` 的源码开发应放在 `robot/` 外部的 worktree 中，推荐目录为 `../worktrees/oh-my-robot/<task>/`。
+3. 需要独立编译、调试或生成 `compile_commands.json` 时，不要把项目级构建文件直接堆在源码 worktree 根目录；应额外准备一个项目根目录，推荐放在 `../workspaces/oh-my-robot/<task>/`。
+4. `om_preset.lua` 是项目级配置，必须放在项目根目录，与顶层 `xmake.lua` 同级；不要把它作为用户全局配置，也不要长期维护在源码 worktree 根目录。
+5. 推荐工作分层：
+   - 源码编辑、提交、rebase、push：在 `../worktrees/oh-my-robot/<task>/` 中完成。
+   - 配置、构建、调试：在 `../workspaces/oh-my-robot/<task>/` 中完成。
+6. 若项目根尚未准备好，可在源码 worktree 中执行 `xmake init_workspace` 自动生成轻量项目壳；具体参数与用法见 [`oh-my-robot/docs/build/build_tasks_manual.md`](../build/build_tasks_manual.md)。
+
+推荐目录关系示意：
+
+```text
+robot/
+├─ oh-my-robot/                             # root 仓中的集成快照
+├─ ...
+../worktrees/oh-my-robot/<task>/           # 日常源码开发 worktree
+../workspaces/oh-my-robot/<task>/          # 独立构建/调试用项目根
+```
+
 ### 阶段三：开发与原子提交（本地分支）
 
 1. 在专属 `feature/*` 分支开发，遵循 `.clang-format` 与 `.clang-tidy` 规范。
@@ -178,6 +199,16 @@ git checkout -b feature/15-osal-mutex upstream/integration
 git commit -m "feat(osal): 新增互斥锁抽象接口与基础数据结构 (#15)"
 git commit -m "docs(osal): 补充互斥锁使用场景推演草稿 (#15)"
 ```
+
+若当前任务需要独立构建，推荐在阶段三开始前先完成以下准备：
+
+```bash
+git worktree add ../worktrees/oh-my-robot/<task> -b feature/<id>-<slug> upstream/integration
+cd ../worktrees/oh-my-robot/<task>
+xmake init_workspace --output=<项目根目录>
+```
+
+随后在生成的项目根目录中维护 `om_preset.lua`、执行 `xmake f` / `xmake` / 调试器配置；源码提交仍回到当前 worktree 分支完成。
 
 ### 阶段四：变基与推送到个人派生库（CLI）
 
