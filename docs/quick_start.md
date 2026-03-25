@@ -2,8 +2,8 @@
 
 本指南面向第一次接触本项目的开发者，目标是：
 - 先把环境装好并验证。
-- 再在项目根目录先创建 `xmake.lua`。
-- 然后编写 `om_preset.lua` 完成本机预设。
+- 再准备一个可用的项目根目录。
+- 然后编写项目级 `om_preset.lua` 完成本机预设。
 
 当前示例环境为 Windows + VSCode。
 
@@ -119,6 +119,9 @@ arm-none-eabi-gdb --version
 作用：
 - 定义工程入口、构建模式、OM 规则与最终可执行目标。
 
+说明：
+- 本章只讨论“项目根目录里应该放什么、怎么完成首次构建”。
+
 ### 2.1 如果你没用过 XMake，先理解这件事
 `xmake.lua` 就是“构建配置脚本”。
 你可以把它理解成：告诉构建系统“项目名是什么、要生成什么目标、主文件在哪、要挂哪些规则”。
@@ -176,11 +179,12 @@ xmake
 ## 3. 在项目根目录编写 `om_preset.lua`
 
 文件位置：
-- `om_preset.lua`（项目根目录）
+- 项目根目录下的 `om_preset.lua`
 
 作用：
 - 固定本机的工具链路径、默认板卡、默认 OS、烧录参数。
 - 避免每次 `xmake f` 都手工输入 `--sdk` 和 `--bin`。
+- 这个文件只对当前项目根生效。
 
 ### 3.1 如果你没写过 Lua，先记住这 4 条
 1. `key = value`：这是“配置项 = 配置值”。
@@ -189,8 +193,8 @@ xmake
 4. `get_preset()` 是固定入口函数：请保留函数名不改。
 
 ### 3.2 先按步骤创建一个可用版本
-步骤 1：在项目根目录新建 `om_preset.lua`。
-步骤 2：粘贴以下模板。
+步骤 1：如果你拿到的项目根目录里已经有 `om_preset.lua`，直接修改它即可。
+步骤 2：如果当前项目根还没有 `om_preset.lua`，复制 [`oh-my-robot/om_preset.example.lua`](../om_preset.example.lua) 到项目根并命名为 `om_preset.lua`。
 步骤 3：只改标记为“请改成你本机路径”的字段。
 
 ```lua
@@ -244,7 +248,7 @@ end
 
 ### 3.4 每个常用参数是什么意思
 参数优先级（非常重要）：
-- 命令行参数 > `om_preset.lua` > 构建系统默认值
+- 命令行参数 > 项目根 `om_preset.lua` > 构建系统默认值
 
 当前仓库可选值（按现有实现）：
 - `board.name`：`rm-c-board`
@@ -396,6 +400,7 @@ xmake flash --native_output=true
 - VSCode 报找不到可执行文件：先检查 `launch.json` 的 `executable` 是否对应 `set_filename(...)` 的实际输出路径。
 
 ## 5. 新手常见错误
-- 工具链已安装但命令不可用：`PATH` 未生效，重开终端或在 `om_preset.lua` 明确配置 `sdk/bin`。
+- 工具链已安装但命令不可用：`PATH` 未生效，重开终端或在项目根 `om_preset.lua` 明确配置 `sdk/bin`。
 - `xmake` 可以执行但编译失败：先执行 `xmake f -c ...` 重新配置，再执行 `xmake`。
 - VSCode 没有代码跳转：先确认 Clangd 已启用，再确认项目根目录存在 `compile_commands.json`。
+- 当前目录缺少 `xmake.lua` 或 `om_preset.lua`：检查你是否已经进入正确的项目根目录。

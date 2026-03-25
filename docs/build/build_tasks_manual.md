@@ -1,17 +1,55 @@
 ﻿# OM XMake 内置任务手册
 
 ## 1. 目标与范围
-本手册用于说明 OM 内置任务的职责、参数与使用方式。当前仅包含 `xmake flash`（J-Link 烧录）。
+本手册用于说明 OM 内置任务的职责、参数与使用方式。当前包含：
+- `xmake init_workspace`：为当前 `oh-my-robot` checkout 生成轻量项目壳。
+- `xmake flash`：通过 J-Link Commander 烧录目标固件。
 
 ## 2. 参数优先级
 任务参数的优先级统一为：
 1) 命令行参数
 2) 配置缓存（`xmake f` 持久化后的 config）
-3) `om_preset.lua` 中的预设
+3) 项目根 `om_preset.lua`
 4) 任务内置默认值
 
 ## 3. 任务列表
-### 3.1 `xmake flash`
+### 3.1 `xmake init_workspace`
+**职责**：为当前 `oh-my-robot` worktree 或 checkout 生成一个最小可用的顶层工程目录。
+
+**解决的问题**：
+- worktree 里只有框架源码，没有顶层 `xmake.lua`。
+- 不希望为每个 worktree 手工复制完整项目环境。
+- 需要一个可独立编译完整应用镜像的轻量“项目壳”。
+
+**命令示例**：
+```sh
+xmake init_workspace --output="../workspaces/oh-my-robot/16-build-env"
+```
+
+**参数说明**：
+| 参数 | 说明 | 默认值 | 备注 |
+| --- | --- | --- | --- |
+| `--output` | 输出目录 | 无 | 必填，表示生成项目壳的位置 |
+| `--framework` | 框架根目录 | 当前 `oh-my-robot` checkout | 通常不用改 |
+| `--preset` | 要拷贝到项目壳的 preset 源文件 | `oh-my-robot/om_preset.example.lua` | 支持绝对路径和相对当前项目目录的路径 |
+| `--project_name` | 顶层项目名 | 输出目录名 | 仅影响 `set_project(...)` |
+| `--target` | 顶层 XMake 目标名 | `robot_project` | 需与后续烧录目标保持一致 |
+| `--entry` | 相对框架根的入口文件 | `samples/motor/p1010b/main.c` | 用于生成默认顶层目标 |
+| `--force` | 是否允许覆盖已存在文件 | `false` | `true`/`false` |
+
+**生成内容**：
+- `oh-my-robot/`：指向当前框架 checkout 的本地目录链接/junction。
+- `xmake.lua`：最小顶层工程壳，通过固定别名 `oh-my-robot` 加载框架。
+- `om_preset.lua`：项目级 preset 模板，默认从框架根的 [`oh-my-robot/om_preset.example.lua`](../../om_preset.example.lua) 复制而来。
+- `README.md`：说明项目根 preset 的推荐用法。
+- `.gitignore`：忽略本地构建产物。
+
+**预设建议**：
+1) 不传 `--preset` 时，任务会从 [`oh-my-robot/om_preset.example.lua`](../../om_preset.example.lua) 复制模板。
+2) 传 `--preset=<path>` 时，任务会把该文件复制到项目壳根目录并命名为 `om_preset.lua`。
+3) 若目标 `om_preset.lua` 已存在，只有在 `--force=true` 时才会覆盖。
+
+### 3.2 `xmake flash`
 **职责**：使用 J-Link Commander 对目标固件进行烧录。
 
 **前置条件**：
@@ -51,6 +89,8 @@ xmake flash --device=STM32F407IG --interface=swd --speed=4000 --program="D:/Prog
 - 当前已知限制：使用 `--firmware` 指向 `.elf` 时可能无法实际烧录，请优先使用 `.hex`。
 
 ## 4. `om_preset.lua` 预设示例
+可直接参考 [`oh-my-robot/om_preset.example.lua`](../../om_preset.example.lua)。
+
 ```lua
 flash = {
   jlink = {

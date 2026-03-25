@@ -33,6 +33,18 @@ xmake --version
 - [`oh-my-robot/platform/sync/`](../../platform/sync/)：同步原语与加速后端。
 
 ## 5. 第一次构建（完整示例）
+如果你当前打开的是单独的 `oh-my-robot` worktree，而不是完整项目根，推荐先执行：
+```sh
+xmake init_workspace --output="../workspaces/oh-my-robot/my-task"
+```
+它会同时生成项目根 `xmake.lua`、`oh-my-robot/` 目录链接/junction，以及项目根 `om_preset.lua` 模板。
+再进入生成的项目壳目录执行下面的配置与构建命令。
+
+如果你已经有一份项目专用 preset，也可以直接指定：
+```sh
+xmake init_workspace --output="../workspaces/oh-my-robot/my-task" --preset="D:/project/om_preset.lua"
+```
+
 ### 5.1 配置
 ```sh
 xmake f -c --board=rm-c-board --os=freertos --toolchain=gnu-rm \
@@ -87,16 +99,20 @@ target_end()
 board/os 可选值由以上索引文件维护，新增条目时需同步更新索引。
 
 ### 7.2 默认值优先级
-- board / os：命令行 > `om_preset.lua` > [`oh-my-robot/build/config/defaults.lua`](../../build/config/defaults.lua) > 数据目录按名称排序的第一个。
+- board / os：命令行 > 项目根 `om_preset.lua` > [`oh-my-robot/build/config/defaults.lua`](../../build/config/defaults.lua) > 数据目录按名称排序的第一个。
 - sync_accel：命令行 > [`oh-my-robot/build/config/defaults.lua`](../../build/config/defaults.lua)（未配置时等价于 `auto`）。
 - semihosting：命令行 > [`oh-my-robot/build/config/defaults.lua`](../../build/config/defaults.lua)（未配置时等价于 `off`）。
-- toolchain：命令行 > `om_preset.lua` 的 `toolchain_default.name` > 已保存配置 > [`oh-my-robot/build/toolchains/data.lua`](../../build/toolchains/data.lua) 中的 `default`。
-- sdk / bin：命令行 > `om_preset.lua` 的 `toolchain_presets[toolchain]` > 已保存配置 > toolchain 数据默认值（若都没有会报错）。
+- toolchain：命令行 > 解析到的 preset 中 `toolchain_default.name` > 已保存配置 > [`oh-my-robot/build/toolchains/data.lua`](../../build/toolchains/data.lua) 中的 `default`。
+- sdk / bin：命令行 > 解析到的 preset 中 `toolchain_presets[toolchain]` > 已保存配置 > toolchain 数据默认值（若都没有会报错）。
 
 ## 8. `om_preset.lua`（推荐配置方式）
-位置：项目根目录（与根 `xmake.lua` 同级）。
+推荐位置：
+1. 项目根目录（与根 `xmake.lua` 同级）的 `om_preset.lua`
 
 用途：提供本机的工具链路径和默认 board/os 选择，避免在命令行重复输入。
+这个文件只对当前项目根生效，适合作为项目级配置。
+
+模板：[`oh-my-robot/om_preset.example.lua`](../../om_preset.example.lua)
 
 示例：
 ```lua
@@ -142,7 +158,14 @@ end
 - `flash.jlink` 仅在 `xmake flash` 任务中读取，不影响常规构建流程。
 - 当前 `om_preset.flash` 仅支持 `jlink` 配置；`daplink` 处于规划阶段，尚未接入任务链路。
 
-### 8.1 名称映射（preset/xmake/launch）
+### 8.1 项目根与框架根
+- 项目根：当前顶层 `xmake.lua` 所在目录，也是 `compile_commands.json` 与构建产物的默认落点。
+- 框架根：当前 `oh-my-robot` checkout 所在目录，用于加载构建模块、样例、BSP 数据与框架版本信息。
+- 单独 worktree 开发时，建议把 `oh-my-robot` 保持为“框架根”，再用 `xmake init_workspace` 生成项目根。
+- `xmake init_workspace` 生成的项目壳不会复制框架源码，而是会创建本地 `oh-my-robot` 目录链接/junction 指向当前 checkout，并在项目根生成 `om_preset.lua` 模板；框架版本信息仍以框架根的 Git 状态为准。
+- 若传入 `--preset=<path>`，项目壳中的 `om_preset.lua` 将从该路径复制；若目标文件已存在，则需要 `--force=true` 才会覆盖。
+
+### 8.2 名称映射（preset/xmake/launch）
 `xmake flash` 内部会解析一个 `target_name`（命令行 `--target` 优先，否则回退到 `flash.jlink.target`），再按该名称查找 XMake 目标。  
 因此以下关系必须明确：
 
@@ -169,6 +192,7 @@ xmake clean
 
 ## 10. 常见问题与排查
 - **context missing**：未完成 `xmake f` 或配置不完整。重新执行配置命令。
+- **worktree 只有框架仓，无法直接编完整应用**：先在当前 checkout 执行 `xmake init_workspace --output=<dir>`，再进入生成的项目壳目录构建。
 - **toolchain path not set / sdk not found / bin not found**：未提供 `--sdk/--bin` 或 preset 路径错误。
 - **board/os not found**：`--board` 或 `--os` 不存在于数据/目录中。
 - **startup/linkerscript not found**：板级/芯片/厂商数据中缺少映射。
@@ -181,6 +205,10 @@ xmake clean
 
 ## 11. 新手常用调整
 ### 11.1 构建与烧录
+- 单独 worktree 开发：
+  - 生成项目壳：`xmake init_workspace --output=<dir>`。
+  - 编辑项目根 `om_preset.lua`，填写当前项目使用的 `sdk/bin` 与烧录参数。
+  - 进入项目壳后再执行 `xmake f -c -m debug` 与 `xmake`。
 - 烧录：`xmake flash` 通过 J-Link Commander 烧录，默认优先使用 HEX，可通过 `--firmware` 指定 ELF/HEX，并可用 `--native_output=true` 透传原生输出。
 - 调试器支持范围：当前仅支持 J-Link；DAPLink 为后续规划项（当前版本不可用）。
 - 更换板级/OS/工具链：重新执行 `xmake f -c --board=... --os=... --toolchain=...`。

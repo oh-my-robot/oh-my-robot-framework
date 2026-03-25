@@ -7,6 +7,7 @@
 - [`oh-my-robot/docs/build/build_tasks_manual.md`](build_tasks_manual.md)：内置任务与参数说明。
 - [`oh-my-robot/docs/build/build_system_best_practices.md`](build_system_best_practices.md)：构建系统最佳工程实践。
 - [`oh-my-robot/docs/build/upstream_xmake_armlink_sourcefile_nil.md`](upstream_xmake_armlink_sourcefile_nil.md)：XMake `armlink.lua` 缺陷的上游提交材料（复现、根因、建议 patch）。
+- [`oh-my-robot/docs/quick_start.md`](../quick_start.md)：新手快速开始与项目根首次构建说明。
 
 ## 2. 构建系统设计方法论
 - **分层原则**：构建系统只在 [`oh-my-robot/build/`](../../build/) 集中管理“选项、规则、工具链、共享模块”，模块级构建脚本就地维护，避免全局脚本侵入模块。
@@ -21,11 +22,12 @@
 1) 配置阶段：`xmake f` 读取 `board/os/toolchain/sync_accel/semihosting` 等选项。  
 2) 选项回调：[`oh-my-robot/build/config/options.lua`](../../build/config/options.lua) 在 `after_check` 中写入上下文。  
 3) 上下文持久化：`oh-my-robot/build/modules/oh_my_robotlua` 将关键字段保存到配置缓存。  
-4) 编译数据库：通过 `plugin.compile_commands.autoupdate` 在构建后生成 `compile_commands.json` 至项目根目录。  
-5) 目标加载：`oh_my_robot.context` 注入架构与工具链参数。  
-6) 板级资源：`oh_my_robot.board_assets` 注入启动文件与链接脚本。  
-7) 可选镜像：`oh_my_robot.image_convert` 生成 `hex/bin` 并在清理时移除。
-8) 编译与链接：`tar_board`、`tar_os`、`tar_sync` 等目标完成编译，最终由 `robot_project` 输出可执行镜像。  
+4) 预设解析：只读取项目根 `om_preset.lua`。  
+5) 编译数据库：通过 `plugin.compile_commands.autoupdate` 在构建后生成 `compile_commands.json` 至项目根目录。  
+6) 目标加载：`oh_my_robot.context` 注入架构与工具链参数。  
+7) 板级资源：`oh_my_robot.board_assets` 注入启动文件与链接脚本。  
+8) 可选镜像：`oh_my_robot.image_convert` 生成 `hex/bin` 并在清理时移除。
+9) 编译与链接：`tar_board`、`tar_os`、`tar_sync` 等目标完成编译，最终由 `robot_project` 输出可执行镜像。  
 
 ## 4. 构建入口与目录职责
 - `xmake.lua`：顶层入口，定义 `robot_project` 并挂载规则；设置官方 LTO 策略默认关闭，由 `oh_my_robot.context` 按工具链动态启用（debug/release 同口径）。
@@ -41,6 +43,7 @@
 - [`oh-my-robot/platform/osal/`](../../platform/osal/)：OS 抽象层与 OS 端口。
 - [`oh-my-robot/platform/sync/`](../../platform/sync/)：同步原语与可选加速后端。
 自定义任务：
+- `xmake init_workspace`：为当前 `oh-my-robot` checkout 生成轻量项目壳，并创建本地 `oh-my-robot` 目录链接/junction，解决单独 worktree 缺少顶层 `xmake.lua` 的问题。
 - `xmake flash`：通过 J-Link Commander 烧录，默认优先使用 HEX，可通过 `--firmware` 指定 ELF/HEX，并可通过 `--native_output=true` 透传原生输出。
 - 调试器支持矩阵（当前）：`om_preset.flash` 仅接入 `jlink`；`daplink` 尚未实现，仅作为规划项记录。
 
@@ -235,6 +238,8 @@ flowchart LR
 - 上下文字段：`board_name/chip_name/os_name/toolchain_name/arch/arch_flags/toolchain_flags/board_os_config_dir`。
 - `oh-my-robot/build/modules/oh_my_robotlua` 将上下文保存到 `om_ctx_*` 配置项。
 - `get_context()` 缺失字段时会提示先执行 `xmake f`。
+- `get_preset()` 只读取项目根 `om_preset.lua`，不再接受环境变量或用户目录级 fallback。
+- `FRAMEWORK_VERSION` 的 Git 查询固定以框架根目录为准，不再错误跟随项目壳目录。
 
 ## 11. 扩展指南（模板）
 ### 11.1 新增 vendor（示例）
@@ -398,6 +403,7 @@ end
 - `[oh-my-robot] link contract check failed`：`tar_os`/`tar_sync` 的关键符号未以强符号形态提供；应回查模块构建输入与依赖传播，不要在应用目标补直连依赖。
 
 ## 13. 变更记录
+- 2026-03-26：preset 解析链路收敛为“只读取项目根 `om_preset.lua`”；`xmake init_workspace` 会在项目壳中创建本地 `oh-my-robot` 目录链接/junction，并自动落一份项目级 `om_preset.lua` 模板；新增 `--preset=<path>` 后，可直接把指定 preset 源文件复制到项目壳根目录；`docs/process/git_collaboration_spec.md` 已补充“外部 worktree 开发 + 外层项目根独立构建”的推荐用法，`quick_start.md` 收回到项目根首次构建口径。
 - 2026-02-19：LTO 在 debug/release 统一纳入策略控制；收敛为“gnu-rm 按版本门槛启用（>=14.2.0）、armclang 默认开启”，并在 `oh_my_robot.context` 按工具链显式注入 LTO 参数。
 - 2026-02-19：根 `xmake.lua` 使用官方策略 `set_policy("build.optimization.lto", false)` 作为统一入口，具体目标开关由 `oh_my_robot.context` 依据工具链动态设置，避免模式与工具链行为分叉。
 - 2026-02-18：将 `tar_oh_my_robot`、`tar_osal` 收敛为聚合目标（`phony`），并新增二进制构建后的 OSAL/SYNC 关键符号链接契约校验。
