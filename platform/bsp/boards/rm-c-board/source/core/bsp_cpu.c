@@ -15,6 +15,11 @@ static void Error_Handler(void)
     }
 }
 
+static void Board_DelayMs(float ms)
+{
+    DWT_Delay(ms / 1000.0f);
+}
+
 /**
  * @brief System Clock Configuration
  * @retval None
@@ -66,7 +71,7 @@ static OmBoardInterface g_om_board_interface = {
     .getCpuTimeMs = DWT_GetTimeline_ms,
     .getCpuTimeUs = DWT_GetTimeline_us,
     .getDeltaCpuTimeS = DWT_GetDeltaT,
-    .delayMs = DWT_Delay,
+    .delayMs = Board_DelayMs,
 };
 
 void om_board_init(void)
