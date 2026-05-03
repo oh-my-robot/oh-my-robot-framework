@@ -37,10 +37,18 @@ static void SystemClock_Config(void)
     RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
     RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
     RCC_OscInitStruct.PLL.PLLM = 6;
-    RCC_OscInitStruct.PLL.PLLN = 168;
+    RCC_OscInitStruct.PLL.PLLN = 180;
     RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-    RCC_OscInitStruct.PLL.PLLQ = 4;
+    RCC_OscInitStruct.PLL.PLLQ = 8;
     if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    /* 与旧工程对齐到 180MHz SYSCLK。
+     * STM32F427 在 Scale1 下跑 180MHz 需要打开 OverDrive。
+     */
+    if (HAL_PWREx_EnableOverDrive() != HAL_OK)
     {
         Error_Handler();
     }

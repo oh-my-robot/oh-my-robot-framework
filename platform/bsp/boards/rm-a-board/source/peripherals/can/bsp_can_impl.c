@@ -154,17 +154,28 @@ static OmRet bsp_can_clear_filter(CAN_HandleTypeDef* hcan, size_t bank)
     return OM_OK;
 }
 
-// 常用波特率预设参数（假设 CAN 内核时钟为 42MHz）。
+// 常用波特率预设参数（rm-a-board 当前 APB1 = 45MHz）。
 static CanTimeCfg BspCanBitTimeTable[] = {
-    {CAN_BAUD_10K, 300, {CAN_TSEG1_9TQ, CAN_TSEG2_4TQ, CAN_SYNCJW_2TQ}},
-    {CAN_BAUD_20K, 150, {CAN_TSEG1_9TQ, CAN_TSEG2_4TQ, CAN_SYNCJW_2TQ}},
-    {CAN_BAUD_50K, 60, {CAN_TSEG1_9TQ, CAN_TSEG2_4TQ, CAN_SYNCJW_2TQ}},
-    {CAN_BAUD_100K, 30, {CAN_TSEG1_9TQ, CAN_TSEG2_4TQ, CAN_SYNCJW_2TQ}},
-    {CAN_BAUD_125K, 24, {CAN_TSEG1_9TQ, CAN_TSEG2_4TQ, CAN_SYNCJW_2TQ}},
-    {CAN_BAUD_250K, 12, {CAN_TSEG1_9TQ, CAN_TSEG2_4TQ, CAN_SYNCJW_2TQ}},
-    {CAN_BAUD_500K, 6, {CAN_TSEG1_9TQ, CAN_TSEG2_4TQ, CAN_SYNCJW_2TQ}},
-    {CAN_BAUD_800K, 4, {CAN_TSEG1_8TQ, CAN_TSEG2_4TQ, CAN_SYNCJW_2TQ}},
-    {CAN_BAUD_1M, 3, {CAN_TSEG1_9TQ, CAN_TSEG2_4TQ, CAN_SYNCJW_2TQ}},
+    /* 10K ~ 500K 与 1M 统一采用 15TQ / 86.7% 采样点风格：
+     * bitrate = 45MHz / PSC / (1 + 12 + 2)
+     */
+    {CAN_BAUD_10K, 300, {CAN_TSEG1_12TQ, CAN_TSEG2_2TQ, CAN_SYNCJW_1TQ}},
+    {CAN_BAUD_20K, 150, {CAN_TSEG1_12TQ, CAN_TSEG2_2TQ, CAN_SYNCJW_1TQ}},
+    {CAN_BAUD_50K, 60, {CAN_TSEG1_12TQ, CAN_TSEG2_2TQ, CAN_SYNCJW_1TQ}},
+    {CAN_BAUD_100K, 30, {CAN_TSEG1_12TQ, CAN_TSEG2_2TQ, CAN_SYNCJW_1TQ}},
+    {CAN_BAUD_125K, 24, {CAN_TSEG1_12TQ, CAN_TSEG2_2TQ, CAN_SYNCJW_1TQ}},
+    {CAN_BAUD_250K, 12, {CAN_TSEG1_12TQ, CAN_TSEG2_2TQ, CAN_SYNCJW_1TQ}},
+    {CAN_BAUD_500K, 6, {CAN_TSEG1_12TQ, CAN_TSEG2_2TQ, CAN_SYNCJW_1TQ}},
+    /* 45MHz 下无法精确整分出 800kbps，这里选择最接近且采样点仍合理的一组：
+     * 45MHz / 4 / (1 + 11 + 2) = 803.6kbps, sample point = 85.7%
+     */
+    {CAN_BAUD_800K, 4, {CAN_TSEG1_11TQ, CAN_TSEG2_2TQ, CAN_SYNCJW_1TQ}},
+    /* ST 官方推荐的 bxCAN 1Mbps 配置之一：
+     * APB1 = 45MHz, PSC = 3, BS1 = 12TQ, BS2 = 2TQ, SJW = 1TQ
+     * 实际位率 = 45MHz / 3 / (1 + 12 + 2) = 1Mbps
+     * 采样点 = (1 + 12) / (1 + 12 + 2) = 86.7%
+     */
+    {CAN_BAUD_1M, 3, {CAN_TSEG1_12TQ, CAN_TSEG2_2TQ, CAN_SYNCJW_1TQ}},
 };
 
 static CanTimeCfg* bsp_can_time_cfg_matched(CanBaudRate baud)
