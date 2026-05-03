@@ -5,6 +5,7 @@
 
 #include "drivers/motor/vendors/dji/dji_motor_drv.h"
 #include "drivers/peripheral/can/pal_can_dev.h"
+#include "osal/osal_time.h"
 #include <math.h>
 #include <string.h>
 
@@ -108,6 +109,7 @@ static void dji_rx_callback(Device *dev, void *param, CanFilterHandle filter_han
                 motor->measure.current = (int16_t)(d[4] << 8 | d[5]);
                 motor->measure.temp = d[6];
                 motor->measure.errorCode = d[7];
+                motor->measure.lastFeedbackTimestampMs = osal_time_now_monotonic();
 
                 /* 步骤 3：估算多圈角度。
                  * 8192 编码为一圈，4096 作为半圈阈值判断过零方向。

@@ -131,6 +131,7 @@ struct DJIMotorDrv {
         int32_t totalAngle; /**< 多圈累计角度原始值 */
         uint16_t lastAngle; /**< 上一帧单圈角度 */
         int32_t roundCount; /**< 累计圈数 */
+        uint32_t lastFeedbackTimestampMs; /**< 最近一次有效反馈时间戳 */
     } measure;
 
     int16_t targetOutput;            /**< 当前目标输出值 */
@@ -297,7 +298,20 @@ static inline void dji_motor_reset_feedback(DJIMotorDrv *motor)
         motor->measure.totalAngle = 0;
         motor->measure.roundCount = 0;
         motor->measure.angle = 0;
+        motor->measure.lastFeedbackTimestampMs = 0u;
     }
+}
+
+/**
+ * @brief 获取最近一次有效反馈时间戳
+ * @param motor 电机实例
+ * @return 时间戳，单位 ms
+ */
+static inline uint32_t dji_motor_get_feedback_timestamp_ms(DJIMotorDrv *motor)
+{
+    if (!motor)
+        return 0u;
+    return motor->measure.lastFeedbackTimestampMs;
 }
 
 #ifdef __cplusplus
@@ -305,4 +319,3 @@ static inline void dji_motor_reset_feedback(DJIMotorDrv *motor)
 #endif
 
 #endif /* __DJI_MOTOR_DRIVER_H__ */
-
