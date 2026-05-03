@@ -433,12 +433,21 @@ static OmRet bsp_can_recv_msg(HalCanHandler* can, CanHwMsg* msg, int32_t rxfifo_
     msg->dsc.msgType = (rx_header.RTR == CAN_RTR_DATA) ? CAN_MSG_TYPE_DATA : CAN_MSG_TYPE_REMOTE;
     msg->dsc.dataLen = rx_header.DLC; 
     // 标准 CAN 数据长度范围 0~8，按 HAL 返回 DLC 直接透传
-    // FilterMatchIndex 是本 CAN 实例内索引，需要换算为全局硬件 bank
-    int16_t hwFilterBank = (int16_t)rx_header.FilterMatchIndex;
+    /* bxCAN 返回的 FilterMatchIndex 是“当前 FIFO 内命中的过滤器序号”，
+     * 不是全局 bank 编号。当前 BSP 固定按 bank 奇偶分配 FIFO：
+     * - 偶数 bank -> FIFO0
+     * - 奇数 bank -> FIFO1
+     * 且全部使用 32bit filter，因此可以按 FIFO 内序号还原真实 bank。
+     */
+    int16_t hwFilterBank = (int16_t)(rx_header.FilterMatchIndex * 2u + (uint32_t)rxfifo_bank);
 #ifdef USE_CAN2
     if (hcan->Instance == CAN2)
         hwFilterBank = (int16_t)(hwFilterBank + (int16_t)BSP_CAN_FILTER_SPLIT_BANK);
 #endif
+    if (msg->dsc.dataLen > 8u)
+    {
+        return OM_ERROR_PARAM;
+    }
     msg->hwFilterBank = hwFilterBank;
     msg->hwTxMailbox = -1;
     msg->dsc.timeStamp = rx_header.Timestamp;
@@ -469,6 +478,11 @@ static OmRet bsp_can_send_msg(HalCanHandler* can, CanHwMsg* msg)
     tx_header.RTR = (msg->dsc.msgType == CAN_MSG_TYPE_REMOTE) ? CAN_RTR_REMOTE : CAN_RTR_DATA;
     tx_header.DLC = msg->dsc.dataLen;
     tx_header.TransmitGlobalTime = DISABLE; // 不使能全局时间戳回传
+    if (msg->dsc.dataLen > 8u || (msg->dsc.dataLen > 0u && msg->data == NULL))
+    {
+        msg->hwTxMailbox = -1;
+        return OM_ERROR_PARAM;
+    }
     // 拷贝发送数据
     uint8_t data[8];
     if (msg->data != NULL && msg->dsc.dataLen > 0)
