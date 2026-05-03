@@ -367,6 +367,8 @@ static void can_status_manager_deinit(HalCanHandler *can)
     }
 }
 
+#define HAL_CAN_CLASSIC_MAX_DLEN (8u)
+
 DBG_PARAM_DEF(CanMailbox *, dbg_mailbox[3]) = {0};
 
 static OmRet can_txhandler_init(HalCanHandler *can, uint32_t iotype, size_t mailbox_num, uint32_t tx_msg_num)
@@ -451,6 +453,8 @@ static void can_rxhandler_deinit(CanRxHandler *rx_handler)
  */
 static inline void can_container_copy_to_usermsg(CanMsgList *msg_list, CanUserMsg *p_user_rx_msg)
 {
+    if (msg_list->userMsg.dsc.dataLen > HAL_CAN_CLASSIC_MAX_DLEN)
+        return;
     msg_list->userMsg.userBuf = p_user_rx_msg->userBuf; // 防止框架层的userBuf覆盖原有的用户内存指针
     *p_user_rx_msg = msg_list->userMsg;
     // 拷贝数据到用户缓冲区
@@ -893,6 +897,14 @@ static size_t cantx_msg_put_nonblock(HalCanHandler *can, CanUserMsg *p_user_tx_m
 
         // 填充用户消息指针
         p_msg_list->userMsg = p_user_tx_msg_buf[msg_counter];
+        if (p_msg_list->userMsg.dsc.dataLen > HAL_CAN_CLASSIC_MAX_DLEN || p_msg_list->userMsg.userBuf == NULL)
+        {
+            int_level = can_irq_lock();
+            can->statusManager.errCounter.txFailCnt++;
+            can_irq_unlock(int_level);
+            can_add_free_msg_list(&can->txHandler.txFifo, p_msg_list);
+            continue;
+        }
         // 填充CAN消息容器
         memcpy((void *)p_msg_list->container, (void *)p_user_tx_msg_buf[msg_counter].userBuf, p_user_tx_msg_buf[msg_counter].dsc.dataLen);
         p_msg_list->userMsg.userBuf = p_msg_list->container;
@@ -919,9 +931,15 @@ static void cantx_soft_retransmit(HalCanHandler *can, uint32_t mailbox_bank)
     // 因此该流程内对这两类对象的访问不与外部并发冲突（仅限该邮箱与该消息节点）
     CanMailbox *mailbox = &can->txHandler.pMailboxes[mailbox_bank];
     CanMsgList *p_msg_list = mailbox->pMsgList;
-    while (!p_msg_list)
+
+    /* TX_DONE 可能已经先一步回收了邮箱里的消息节点。
+     * 如果错误中断晚到，此时 mailbox 上已经没有有效消息可重传。
+     * 这种情况属于过期错误事件，直接忽略即可，不能在这里自旋。 */
+    if (mailbox->isBusy == 0u || p_msg_list == NULL)
     {
-    }; // TODO: assert
+        return;
+    }
+
     p_msg_list->owner = NULL;
     uint32_t int_level;
     int_level = can_irq_lock();
@@ -1275,6 +1293,12 @@ void hal_can_isr(HalCanHandler *can, CanIsrEvent event, size_t param)
         ret = can->hwInterface->recvMsg(can, &hw_msg, param);
         if (ret == OM_OK)
         {
+            if (hw_msg.dsc.dataLen > HAL_CAN_CLASSIC_MAX_DLEN)
+            {
+                canrx_add_free_msg_list(&can->rxHandler, msg_list);
+                can->statusManager.errCounter.rxFailCnt++;
+                break;
+            }
             int32_t slot = can_find_slot_by_hwbank(can, hw_msg.hwFilterBank);
             if (slot < 0 || IS_CAN_FILTER_INVALID(can, (size_t)slot))
             {
