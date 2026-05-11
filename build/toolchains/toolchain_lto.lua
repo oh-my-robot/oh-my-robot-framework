@@ -255,13 +255,13 @@ local function apply_lto_flags(plan, normalized_toolchain)
         plan.cflags = {"-flto"}
         plan.cxflags = {"-flto"}
         plan.ldflags = {"--lto"}
-        plan.needs_armclang_fallback_flags = true
+        plan.force_ldflags = true
         return
     end
-    -- gnu-rm 等 gcc 类工具链：编译与链接统一使用 -flto。
     plan.cflags = {"-flto"}
     plan.cxflags = {"-flto"}
     plan.ldflags = {"-flto"}
+    plan.force_ldflags = false
 end
 
 --- 解析 LTO 模式
@@ -306,7 +306,7 @@ function resolve_lto_plan(toolchain_name, lto_mode, target_name, target_kind, lt
         cflags = {},
         cxflags = {},
         ldflags = {},
-        needs_armclang_fallback_flags = false,
+        force_ldflags = false,
     }
     if mode == "off" then
         plan.enabled = false

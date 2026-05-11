@@ -38,11 +38,10 @@ rule("oh_my_robot.context")
             include_ldflags = (target:kind() == "binary"),
         })
         if lto_plan.enabled then
-            -- LTO 参数采用工具链收敛计划统一注入，确保跨工具链行为可预测。
             toolchain_lib.add_target_flags(target, "cflags", lto_plan.cflags, false)
             toolchain_lib.add_target_flags(target, "cxflags", lto_plan.cxflags, false)
             if target:kind() == "binary" then
-                toolchain_lib.add_target_flags(target, "ldflags", lto_plan.ldflags, false)
+                toolchain_lib.add_target_flags(target, "ldflags", lto_plan.ldflags, lto_plan.force_ldflags or false)
             end
         end
         if target:kind() == "binary" then
