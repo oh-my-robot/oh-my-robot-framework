@@ -46,6 +46,7 @@ typedef enum
     OM_ERROR_PARAM,       // 参数错误
     OM_ERROR_NULL,        // 参数为NULL
     OM_ERROR_BUSY,        // 忙错误
+    OM_ERROR_WOULD_BLOCK, // 非阻塞条件不满足
     OM_ERROR_EMPTY,       // 空转错误
     OM_ERROR_NOT_SUPPORT, // 不支持的操作
 } OmRet;

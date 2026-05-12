@@ -1,6 +1,6 @@
-﻿--- @file oh_my_robot/lib/xmake.lua
+--- @file oh_my_robot/lib/xmake.lua
 --- @brief OM lib 子库构建脚本
---- @details 按单一责任原则拆分 core/algorithm/drivers/async/systems 等静态库。
+--- @details 按单一责任原则拆分 core/algorithm/drivers/ipc/async/systems 等静态库。
 
 --- @target tar_awcore
 --- @brief AW 核心静态库
@@ -40,6 +40,16 @@ target("tar_awapi_sync")
     add_includedirs("sync/include", {public = true})
 target_end()
 
+--- @target tar_awapi_ipc
+--- @brief IPC API 头文件接口
+--- @details 为跨上下文数据传输层提供公共头文件。
+target("tar_awapi_ipc")
+    set_kind("headeronly")
+    add_deps("tar_awcore", {public = true})
+    add_deps("tar_awapi_osal", {public = true})
+    add_includedirs("ipc/include", {public = true})
+target_end()
+
 --- @target tar_awapi_async
 --- @brief Async API 头文件接口
 --- @details 为异步执行基座提供公共头文件与基础依赖。
@@ -48,6 +58,7 @@ target("tar_awapi_async")
     add_deps("tar_awcore", {public = true})
     add_deps("tar_awapi_osal", {public = true})
     add_deps("tar_awapi_sync", {public = true})
+    add_deps("tar_awapi_ipc", {public = true})
     add_includedirs("async/include", {public = true})
 target_end()
 
@@ -60,6 +71,7 @@ target("tar_awapi_driver")
     add_includedirs("drivers/include", {public = true})
     add_deps("tar_awapi_osal", {public = true})
     add_deps("tar_awapi_sync", {public = true})
+    add_deps("tar_awapi_ipc", {public = true})
 target_end()
 
 --- @target tar_awalgo

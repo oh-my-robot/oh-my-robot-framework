@@ -1,11 +1,11 @@
-﻿# OM 分层与依赖规范（长期稳定）
-本文用于明确 **core / OSAL / sync / services(comm) / drivers / systems** 的职责边界与依赖方向，目标是：
+# OM 分层与依赖规范（长期稳定）
+本文用于明确 **core / OSAL / sync / ipc / services(comm) / drivers / systems** 的职责边界与依赖方向，目标是：
 - 让模块可复用、可移植、可扩展
 - 避免循环依赖与层级倒置
 - 允许在关键路径做端口级性能优化，但不污染公共 API
 
 ## 规范来源约束（强制）
-- 本文档 [`oh-my-robot/docs/architecture/layer_dependency_spec.md`](layer_dependency_spec.md) 是全仓“分层与依赖方向”的唯一总规范源。
+- 本文档 [`oh-my-robot/docs/architecture/layer_dependency_spec.md`](layer_dependency_spec.md) 是全仓"分层与依赖方向"的唯一总规范源。
 - 其他文档（OSAL/SYNC、services、drivers、build）只能做专项补充，必须引用本文，不得重新定义总依赖矩阵。
 
 ## 名词与层级
@@ -19,7 +19,7 @@
 - 含义：芯片板卡初始化、外设底层配置、与具体 MCU 强耦合
 - 边界：仅处理板级硬件初始化、时钟/引脚/外设物理连接与启动文件；不承担 OSAL 端口或业务语义
 - 可依赖：[`lib/include/core`](../../lib/include/core)、[`lib/drivers`](../../lib/drivers)（通过 PAL 接口）、`third_party`
-- 禁止依赖：[`lib/osal`](../../lib/osal)、`lib/include/sync`、[`lib/services`](../../lib/services)、[`lib/systems`](../../lib/systems)（避免 OS/业务语义下沉到 BSP）
+- 禁止依赖：[`lib/osal`](../../lib/osal)、`lib/include/sync`、`lib/ipc`、[`lib/services`](../../lib/services)、[`lib/systems`](../../lib/systems)（避免 OS/业务语义下沉到 BSP）
 ### 3) [`platform/`](../../platform/)（端口与平台适配）
 - 含义：OSAL 端口与平台族适配实现
 - 边界：包含 OSAL 端口、架构/工具链/ABI 适配与 RTOS 绑定；不包含板级初始化与外设物理连接
@@ -30,37 +30,47 @@
 - 含义：基础类型/错误码/通用宏、平台无关的轻量工具与配置定义
 - 边界：不包含 OS、设备驱动、业务语义；不持有端口或板级细节
 - 可依赖：必要的 `third_party`（需封装在实现或内部头）
-- 禁止依赖：`osal/sync/drivers/services/systems/bsp/platform`
+- 禁止依赖：`osal/sync/ipc/drivers/services/systems/bsp/platform`
 
 ### 5) [`lib/osal/`](../../lib/osal/)（操作系统抽象层：最小原语集）
 - 含义：对 RTOS/系统调用做最小可移植抽象（线程/互斥/信号量/队列/时间/定时器事件对象等）
 - 规则：
-  - OSAL 只定义“端口必须实现”的最小原语
+  - OSAL 只定义"端口必须实现"的最小原语
   - OSAL 不承诺更高层语义（例如 completion、消息总线等）
 - 可依赖：[`lib/include/core`](../../lib/include/core)
 - 说明：端口实现放在 [`platform/`](../../platform/) 中，避免 OSAL 公共接口混杂
 
-### 6) `lib/include/sync` + [`lib/sync/src`](../../lib/sync/src)（同步语义层：组合原语）
-- 含义：基于 OSAL 原语组合出的同步抽象（例如 completion、barrier 等）
+### 6) `lib/include/sync` + [`lib/sync/src`](../../lib/sync/src)（同步语义层：纯同步信号）
+- 含义：基于 OSAL 原语组合出的纯同步信号抽象（例如 completion、future event、barrier 等），无数据载荷
+- 与 `ipc/` 的区别：sync 只传递"事件信号"，不传递数据；ipc 传递"数据载荷"
 - 规则：
   - 对外 API 不暴露具体 RTOS 类型
   - 默认实现仅依赖 OSAL（保证所有端口可用）
-  - 可选加速实现必须满足“同任务跨模块可复用”约束；不满足则禁止作为正式后端
+  - 可选加速实现必须满足"同任务跨模块可复用"约束；不满足则禁止作为正式后端
   - completion 当前固定为 reference 实现（基于 OSAL 原语），不提供 notify 后端
 
-### 7) [`lib/services`](../../lib/services)（通用服务）
+### 7) [`lib/ipc/`](../../lib/ipc/)（跨上下文数据传输层）
+- 含义：跨上下文（Task ↔ Task / ISR → Task / Task → ISR）的字节流/消息传输通道，有数据载荷
+- 与 `sync/` 的区别：ipc 传输带数据的通道（pipe、future channel、broadcast 等），sync 只传递事件信号
+- 与 `services/comm/` 的区别：ipc 提供无结构的字节流/类型化队列，comm 提供带帧格式和路由的结构化消息
+- 组织方式：按通信机制建目录（pipe/channel/broadcast），通信方作为 API 变体（`_from_isr` 后缀）
+- 可依赖：[`lib/osal`](../../lib/osal)、[`lib/include/core`](../../lib/include/core)
+- 禁止依赖：`services/drivers/systems`
+- 核间 IPC 抽象为 future scope
+
+### 8) [`lib/services`](../../lib/services)（通用服务）
 - 含义：可复用服务组件（log、config、comm、fs、diagnostics 等）
-- `comm`（服务层）含义：跨线程跨模块的通信语义（消息请求响应/发布订阅等），而非基础同步原语
-- 可依赖：[`lib/osal`](../../lib/osal)、[`lib/include/core`](../../lib/include/core)、`lib/include/sync`
+- `comm`（服务层）含义：跨线程跨模块的通信语义（消息请求响应/发布订阅等），构建在 `ipc/` 等底层通道之上
+- 可依赖：[`lib/osal`](../../lib/osal)、[`lib/include/core`](../../lib/include/core)、`lib/include/sync`、[`lib/ipc`](../../lib/ipc/)
 - 禁止直接依赖：[`lib/drivers`](../../lib/drivers)（由实现侧适配层解耦，避免服务层绑定具体总线实现）
-### 8) [`lib/drivers`](../../lib/drivers)（驱动与 PAL）
+### 9) [`lib/drivers`](../../lib/drivers)（驱动与 PAL）
 - 含义：设备模型、外设驱动、平台适配层（PAL），面向可复用/可移植
 - 边界：驱动层应保持硬件无关抽象；板级差异通过 PAL 接口交由 `bsp`/`platform` 处理
-- 可依赖：[`lib/include/core`](../../lib/include/core)、`lib/include/sync`、[`lib/osal`](../../lib/osal)、必要的 `third_party`（尽量通过 BSP 或 port 封装）
+- 可依赖：[`lib/include/core`](../../lib/include/core)、`lib/include/sync`、[`lib/ipc`](../../lib/ipc/)、[`lib/osal`](../../lib/osal)、必要的 `third_party`（尽量通过 BSP 或 port 封装）
 - 禁止依赖：[`lib/services`](../../lib/services)、[`lib/systems`](../../lib/systems)
 - 规则：禁止直接 include `bsp/` 头文件
 
-### 8.1) `comm adapter`（实现侧适配层，强约束）
+### 9.1) `comm adapter`（实现侧适配层，强约束）
 - 含义：位于实现端的胶水层，用于把具体总线实现（CAN/UART）接入 `services/comm`。
 - 推荐位置：`lib/drivers/src/peripheral/<bus>/comm_adapter_*.c`（按总线分目录）。
 - 允许依赖：[`lib/drivers`](../../lib/drivers) + `lib/services/comm` 公共抽象。
@@ -69,28 +79,29 @@
   - `drivers` 核心路径不得反向依赖 adapter 实现。
   - adapter 仅承担接入与注册，不承载业务协议语义。
 
-### 9) [`lib/systems`](../../lib/systems)（系统模块/业务子系统）
+### 10) [`lib/systems`](../../lib/systems)（系统模块/业务子系统）
 - 含义：机器人系统级模块（chassis/gimbal/robot 等），业务语义明确
-- 可依赖：[`lib/services`](../../lib/services)、[`lib/drivers`](../../lib/drivers)、`lib/include/sync`、[`lib/osal`](../../lib/osal)
+- 可依赖：[`lib/services`](../../lib/services)、[`lib/drivers`](../../lib/drivers)、`lib/include/sync`、[`lib/ipc`](../../lib/ipc/)、[`lib/osal`](../../lib/osal)
 - 说明：可直接依赖 [`lib/drivers`](../../lib/drivers)（驱动层视为硬件无关抽象），必要时可绕过 services
 
-### 10) `test/`（测试应用）
+### 11) `test/`（测试应用）
 - 含义：验证某个模块接口的最小应用
 - 可依赖：所有对外 API（但应避免直接包含端口私有实现）
-- 当前阶段（架构早期、跨平台构建刚搭起）：优先做“接口一致性验证”。行为测试可等 BSP 与样例稳定后，再在板级或 HIL 环境引入。
+- 当前阶段（架构早期、跨平台构建刚搭起）：优先做"接口一致性验证"。行为测试可等 BSP 与样例稳定后，再在板级或 HIL 环境引入。
 ## 依赖方向（强约束）
 允许依赖方向（从上到下，可跨层直连）：
-- `systems` → `services` → `sync` → `osal` → `core` → `third_party`
-- `systems` → `drivers` → `sync` → `osal` → `core` → `third_party`
-- `comm adapter(impl)` → `services/comm` + `drivers` + `sync/osal/core`
-- `bsp` → `drivers/core/third_party`（但不应依赖 `services/systems/osal/sync`）
+- `systems` → `services` → `ipc` → `sync` → `osal` → `core` → `third_party`
+- `systems` → `drivers` → `ipc` → `sync` → `osal` → `core` → `third_party`
+- `comm adapter(impl)` → `services/comm` + `drivers` + `ipc/sync/osal/core`
+- `bsp` → `drivers/core/third_party`（但不应依赖 `services/systems/osal/sync/ipc`）
 - `platform` → `core/third_party`（端口实现不应依赖上层业务）
 
 禁止依赖方向（示例）：
 - `drivers(core)` → `services`（层级倒置）
 - `services(core)` → `drivers`（服务层绑定具体总线实现）
-- `osal` → `services/systems/drivers`（OSAL 必须保持最小集）
-- `bsp` → `osal/sync`（板级层应保持 OS 语义无关）
+- `osal` → `services/systems/drivers/ipc`（OSAL 必须保持最小集）
+- `ipc` → `services/systems/drivers`（IPC 只依赖 OSAL/core）
+- `bsp` → `osal/sync/ipc`（板级层应保持 OS 语义无关）
 - `core` → 任何上层模块（core 应保持基础库属性）
 
 ## 依赖与 include 边界规则
@@ -99,15 +110,16 @@
 - 同层之间不得形成环依赖；必要时拆分子层或抽象接口
 
 ## 聚合目标约定
-- `oh-my-robot`：可裁剪聚合目标，链接 core/osal/sync/drivers/third_party
+- `oh-my-robot`：可裁剪聚合目标，链接 core/osal/sync/ipc/drivers/third_party
 - `om_full`：完整聚合目标，在 `oh-my-robot` 基础上包含 services/systems
 ## 落地检查清单（Review 用）
 - 是否出现 `drivers(core)` include `services/...`
 - 是否出现 `services(core)` include `drivers/...`
-- 是否出现 `bsp` include `osal/...` 或 `sync/...`
+- 是否出现 `bsp` include `osal/...` 或 `sync/...` 或 `ipc/...`
 - 是否出现公共头文件通过相对路径穿透到 `third_party/`
 - 公共头文件是否暴露 third_party 类型/宏
 - OSAL 是否只包含最小原语，且端口实现是否隔离第三方依赖
+- `ipc` 是否只依赖 OSAL/core，未绑定 services/drivers/systems
 - `platform` 是否避免依赖 `services/systems`
 - `core` 是否仅包含基础能力，未引入 OS/驱动/业务语义
 - `drivers` 是否直接 include `bsp/` 头文件
@@ -115,9 +127,8 @@
 - `sync` 是否只依赖 OSAL/core（默认实现），端口加速是否封装良好且后端选择符合约束
 
 ## 头文件聚合入口规范
-为降低上层使用成本，可保留“聚合头”作为对外入口，但需明确边界：
+为降低上层使用成本，可保留"聚合头"作为对外入口，但需明确边界：
 1. 对外入口（应用层/样例/测试）可包含聚合头（如 `awlib.h`、`osal/osal.h`）。
 2. 框架内部实现应优先包含最小必需头文件，避免依赖聚合头形成隐式耦合。
-3. 聚合头内容应受控扩展，不得成为“全局大头文件”。
+3. 聚合头内容应受控扩展，不得成为"全局大头文件"。
 4. 若出现 clangd `unused-includes` 提示，内部实现应按最小依赖原则清理；对外入口可忽略提示。
-

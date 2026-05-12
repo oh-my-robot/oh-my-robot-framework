@@ -1,4 +1,4 @@
-﻿--- @file oh_my_robot/build/xmake.lua
+--- @file oh_my_robot/build/xmake.lua
 --- @brief OM 构建入口
 --- @details 负责加载构建配置、规则、工具链与模块入口。
 set_xmakever("3.0.7")
@@ -13,6 +13,7 @@ includes("tasks")
 includes("../lib")
 includes("../platform/osal")
 includes("../platform/sync")
+includes("../platform/ipc")
 includes("../platform/bsp")
 
 --- @target tar_oh_my_robot
@@ -24,7 +25,8 @@ target("tar_oh_my_robot")
     add_deps("tar_awosal_probe", {public = true})
     add_deps("tar_awalgo", {public = true})
     add_deps("tar_awdrivers", {public = true})
-    add_deps("tar_awasync", {public = true})
+    add_deps("tar_async", {public = true})
+    add_deps("tar_ipc", {public = true})
     add_deps("tar_awsystems", {public = true})
     add_deps("tar_bsp", {public = true})
     add_deps("tar_osal", {public = true})
