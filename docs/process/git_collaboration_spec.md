@@ -19,33 +19,101 @@
 ### 3.1 `upstream`（上游中央库）
 
 1. 指向团队官方中央仓库。
-2. 对普通开发者默认只读，仅用于“向下同步”。
+2. 对普通开发者默认只读，仅用于"向下同步"。
 3. 核心动作：`git fetch upstream`。
 
 ### 3.2 `origin`（个人派生库）
 
 1. 指向开发者个人 Fork。
-2. 开发者具备读写权限，仅用于“向上备份与提交流转”。
+2. 开发者具备读写权限，仅用于"向上备份与提交流转"。
 3. 核心动作：`git push origin <feature-branch>`。
 
-### 3.3 初始环境配置（必做）
+### 3.3 工作区根目录 `$WS_ROOT`
 
-1. 先在 GitHub Web 端打开 `https://github.com/oh-my-robot/oh-my-robot-framework`，点击 `Fork`，在个人账号下创建同名派生仓库。
-2. 若个人账号下已存在该 Fork，可跳过创建并直接执行下面命令。
+> **`$WS_ROOT`** 是本文所有本地路径的锚点（例如 `E:\Oh-My-Robot-Lab` 或 `/home/user/oh-my-robot-lab`）。提供两种设置方式：**地标文件 + 发现脚本**（推荐，可验证）或**手动变量**（最简）。
+
+#### 3.3.1 方式一：地标文件 + 发现脚本（推荐）
+
+**第一步：创建地标文件（一次性）**
+
+在工作区根目录放置空文件 `.oh-my-robot-workspace`，作为发现脚本的查找目标：
 
 ```bash
-# 1) 克隆个人派生库（默认远端名为 origin）
-git clone https://github.com/<your-username>/oh-my-robot-framework.git
-cd oh-my-robot-framework
+# 1) 创建工作区根目录
+mkdir -p /home/user/oh-my-robot-lab      # Linux / macOS
+# 或
+mkdir E:\Oh-My-Robot-Lab                  # PowerShell
 
-# 2) 添加官方仓库为 upstream
+# 2) 放置地标文件（空文件即可）
+touch /home/user/oh-my-robot-lab/.oh-my-robot-workspace   # Linux / macOS
+New-Item "E:\Oh-My-Robot-Lab\.oh-my-robot-workspace" -ItemType File  # PowerShell
+```
+
+**第二步：克隆仓库后设置 `$WS_ROOT`**
+
+克隆完成后，从主仓库目录运行发现脚本 `scripts/ws_root.lua`——它从 `os.curdir()` 向上查找地标文件，输出工作区根目录绝对路径：
+
+```bash
+# Bash / Zsh / WSL
+cd /home/user/oh-my-robot-lab/worktrees/oh-my-robot/main
+export WS_ROOT=$(xmake lua scripts/ws_root.lua)
+
+# PowerShell
+cd E:\Oh-My-Robot-Lab\worktrees\oh-my-robot\main
+$env:WS_ROOT = xmake lua scripts/ws_root.lua
+```
+
+验证：执行 `echo $WS_ROOT`（或 `echo $env:WS_ROOT`），应输出工作区根目录绝对路径。
+
+> 如需每次打开终端自动设置，将上述 `export` / `$env:` 一行加入 Shell 配置文件（`~/.bashrc`、`~/.zshrc` 或 `$PROFILE`）。
+
+#### 3.3.2 方式二：手动变量（最简）
+
+若不需要脚本验证，直接设置绝对路径：
+
+```bash
+# Bash / Zsh / WSL
+export WS_ROOT=/home/user/oh-my-robot-lab
+
+# PowerShell
+$env:WS_ROOT = "E:\Oh-My-Robot-Lab"
+```
+
+手动设置同样有效，但更换工作区路径时需手动同步更新。
+
+#### 3.3.3 克隆仓库
+
+1. 先在 GitHub Web 端打开 `https://github.com/oh-my-robot/oh-my-robot-framework`，点击 `Fork`，在个人账号下创建同名派生仓库。
+2. 若个人账号下已存在该 Fork，可跳过创建。初次克隆时 `scripts/ws_root.lua` 尚不可用，直接使用目标路径：
+
+```bash
+# 用你的实际路径替换以下示例
+git clone https://github.com/<your-username>/oh-my-robot-framework.git \
+    /home/user/oh-my-robot-lab/worktrees/oh-my-robot/main
+cd /home/user/oh-my-robot-lab/worktrees/oh-my-robot/main
 git remote add upstream https://github.com/oh-my-robot/oh-my-robot-framework.git
-
-# 3) 验证远端配置
 git remote -v
 ```
 
+克隆完成后按第 3.3.1 节设置 `$WS_ROOT`，后续命令统一使用 `$WS_ROOT/...` 写法。
+
 3. Fork 关系的强制校验以第 `4.1.2` 节为准。
+
+### 3.4 本地主仓库（Main Checkout）
+
+1. `$WS_ROOT/worktrees/oh-my-robot/main/` 是**本地唯一的主仓库 checkout**，拥有完整的 `.git` 目录，是所有 worktree 共享的 Git 对象源。
+2. 主仓本身**不进行日常功能开发**——不在其上 `commit`、`checkout` 或 `merge` 开发内容。
+3. 主仓仅用于以下管理操作：
+   - `git fetch upstream / origin` —— 同步远端。
+   - `git worktree add` —— 从主仓创建任务 worktree。
+   - `git worktree remove` —— 清理已完成任务的 worktree。
+   - `git worktree list` —— 查看当前所有 worktree。
+   - `git worktree prune` —— 清理过期的 worktree 记录。
+4. **严禁**在主仓中直接执行 `git rebase`、`git commit`、`git merge` 等开发操作。所有开发工作在通过 `git worktree add` 创建的子 worktree 中进行。
+5. 既存历史修复：如果你已经从旧规范（非 worktree 方式）遗留了独立的 Git clone，推荐以下迁移步骤：
+   - 执行第 3.3 节创建新的主仓。
+   - 将遗留 clone 中的远端分支推送到 origin，然后删除该遗留 clone。
+   - 在主仓中执行 `git fetch origin` 拉取所有分支，后续通过 `git worktree add` 重建任务 worktree。
 
 ## 4. 分支同步与变基（Rebase）标准规范
 
@@ -136,7 +204,7 @@ git add <冲突文件路径>
 git rebase --continue
 ```
 
-重复执行“解决冲突 -> `git add` -> `git rebase --continue`”直到变基完成。
+重复执行"解决冲突 -> `git add` -> `git rebase --continue`"直到变基完成。
 
 #### 4.3.4 推送变更到个人派生库
 
@@ -148,49 +216,68 @@ git push origin <当前特性分支名> --force-with-lease
 
 ### 阶段一：云端任务发布与认领（Web 端）
 
-1. 所有开发任务必须始于官方仓库 `upstream` 的 Issue，严禁“无 Issue 开发”。
+1. 所有开发任务必须始于官方仓库 `upstream` 的 Issue，严禁"无 Issue 开发"。
 2. Issue 标题规范以 `.github/ISSUE_TEMPLATE/feature_request.yml` 的 `title` 字段为唯一事实来源，本文不再重复定义格式。
 3. 重大架构改动可先进行讨论，但进入开发前必须补开 Issue。
 4. 任务开始前必须设置 `Assignees` 为自己，并补齐对应 `Label`。
 
-### 阶段二：本地环境起步（CLI）
+### 阶段二：分支命名与 worktree 创建工作区
 
-1. 严禁直接在本地已有分支上开工，必须基于 `upstream/integration` 切出专属分支。
+1. 严禁直接在本地已有分支上开工，必须基于 `upstream/integration` 创建专属分支。
 2. 分支命名格式：`feature/<issue编号>-<简短英文描述>`，必须包含 Issue 编号。
 3. 缺陷修复任务的 `fix/*` 与 `hotfix/*` 命名和流转规则，见第 6.1 节。
 
 ```bash
-# 1) 从官方仓库同步最新 integration
+# 从主仓库目录执行以下命令
+cd $WS_ROOT/worktrees/oh-my-robot/main
+
+# 同步上游
 git fetch upstream
 
-# 2) 基于官方 integration 切出任务分支
-git checkout -b feature/15-osal-mutex upstream/integration
+# 创建任务 worktree 与专属分支
+# 注意：若分支名曾创建过（例如中断重试），需先 git branch -D <分支名> 再执行
+git worktree add $WS_ROOT/worktrees/oh-my-robot/<task> \
+    -b feature/<issue编号>-<简短描述> upstream/integration
+
+# 进入任务 worktree 开始开发
+cd $WS_ROOT/worktrees/oh-my-robot/<task>
 ```
 
-#### 阶段二补充：`oh-my-robot` 的 worktree 与项目根推荐组织
+#### 阶段二补充：worktree 与项目根推荐组织
 
-1. `robot/oh-my-robot` 只作为 root 仓中的集成快照使用，不作为 `oh-my-robot` 的日常功能开发 checkout。
-2. `oh-my-robot` 的源码开发应放在 `robot/` 外部的 worktree 中，推荐目录为 `../worktrees/oh-my-robot/<task>/`。
-3. 需要独立编译、调试或生成 `compile_commands.json` 时，不要把项目级构建文件直接堆在源码 worktree 根目录；应额外准备一个项目根目录，推荐放在 `../workspaces/oh-my-robot/<task>/`。
-4. `om_preset.lua` 是项目级配置，必须放在项目根目录，与顶层 `xmake.lua` 同级；不要把它作为用户全局配置，也不要长期维护在源码 worktree 根目录。
-5. 推荐工作分层：
-   - 源码编辑、提交、rebase、push：在 `../worktrees/oh-my-robot/<task>/` 中完成。
-   - 配置、构建、调试：在 `../workspaces/oh-my-robot/<task>/` 中完成。
-6. 若项目根尚未准备好，可在源码 worktree 中执行 `xmake init_workspace` 自动生成轻量项目壳；具体参数与用法见 [`oh-my-robot/docs/build/build_tasks_manual.md`](../build/build_tasks_manual.md)。
+1. 本规范采用 Git Worktree 机制，将**源码编辑**与**构建配置**物理隔离，互不干扰。
+2. 推荐工作分层：
+   - 源码编辑、提交、rebase、push：在 `$WS_ROOT/worktrees/oh-my-robot/<task>/` 中完成。
+   - 配置、构建、调试：在 `$WS_ROOT/workspaces/oh-my-robot/<task>/` 中完成。
+3. 源码 worktree 中**不得**放置 `om_preset.lua` 或构建产物（`.xmake/`、`build/`、`compile_commands.json` 等）。
+4. `om_preset.lua` 是项目级构建配置，**仅**存在于构建 workspace 中，与顶层 `xmake.lua` 同级；不要在源码 worktree 中维护它，更不要把它作为用户全局配置。
+5. 若构建 workspace 尚未准备好，可在源码 worktree 中执行以下命令生成项目壳（`om_preset.lua` 不会在 worktree 中生成，而是写入指定的 `--output` 目录）：
+
+```bash
+cd $WS_ROOT/worktrees/oh-my-robot/<task>
+xmake init_workspace --output=$WS_ROOT/workspaces/oh-my-robot/<task>
+```
+
+随后在生成的 workspace 目录中维护 `om_preset.lua`、执行 `xmake f` / `xmake` / 调试器配置；源码提交仍在 worktree 中完成。`xmake init_workspace` 的具体参数与用法见 `docs/build/build_tasks_manual.md`。
+
+6. 如果你的项目包含多个仓库（例如 robot 主仓 + 框架子仓），框架源码的修改应始终在 `$WS_ROOT/worktrees/oh-my-robot/<task>/` 中进行，不要直接修改集成目录中的框架副本。
 
 推荐目录关系示意：
 
 ```text
-robot/
-├─ oh-my-robot/                             # root 仓中的集成快照
-├─ ...
-../worktrees/oh-my-robot/<task>/           # 日常源码开发 worktree
-../workspaces/oh-my-robot/<task>/          # 独立构建/调试用项目根
+$WS_ROOT/
+├── worktrees/
+│   └── oh-my-robot/
+│       ├── main/                      # 主仓库 checkout（仅管理用，不开发）
+│       └── <task>/                    # 任务 worktree
+└── workspaces/
+    └── oh-my-robot/
+        └── <task>/                    # 独立构建项目根（含 om_preset.lua）
 ```
 
-### 阶段三：开发与原子提交（本地分支）
+### 阶段三：开发与原子提交（worktree 分支）
 
-1. 在专属 `feature/*` 分支开发，遵循 `.clang-format` 与 `.clang-tidy` 规范。
+1. 在任务 worktree 中开发，遵循 `.clang-format` 与 `.clang-tidy` 规范。
 2. 过程推演文档按文档治理规范放入：
    `docs/internal/active/issue_015_osal_mutex/`
 3. 每条 Commit 必须包含 Issue 编号锚点 `(#15)`，以保证 Git 历史可追溯。
@@ -199,16 +286,6 @@ robot/
 git commit -m "feat(osal): 新增互斥锁抽象接口与基础数据结构 (#15)"
 git commit -m "docs(osal): 补充互斥锁使用场景推演草稿 (#15)"
 ```
-
-若当前任务需要独立构建，推荐在阶段三开始前先完成以下准备：
-
-```bash
-git worktree add ../worktrees/oh-my-robot/<task> -b feature/<id>-<slug> upstream/integration
-cd ../worktrees/oh-my-robot/<task>
-xmake init_workspace --output=<项目根目录>
-```
-
-随后在生成的项目根目录中维护 `om_preset.lua`、执行 `xmake f` / `xmake` / 调试器配置；源码提交仍回到当前 worktree 分支完成。
 
 ### 阶段四：变基与推送到个人派生库（CLI）
 
@@ -282,8 +359,8 @@ git push origin feature/15-osal-mutex --force-with-lease
 
 ## 8. 任务驱动原则
 
-1. 分支必须绑定具体 Issue，严禁“无 Issue 开发”。
-2. 禁止按系统层级拆分“半成品分支”互相阻塞。
+1. 分支必须绑定具体 Issue，严禁"无 Issue 开发"。
+2. 禁止按系统层级拆分"半成品分支"互相阻塞。
 3. 单个 `feature/*` 应形成可编译、可验证的纵向切片。
 4. 分支类型前缀与职责以第 2 章为唯一事实来源；Issue 编号与 slug 的拼接规则按第 5 章与第 6.1 节执行。
 
@@ -303,8 +380,8 @@ git push origin feature/15-osal-mutex --force-with-lease
 
 ### 9.3 具体约束
 
-1. 严禁“大杂烩”提交：修复 Bug、新增功能、重构、格式化必须物理隔离。
-2. 任意历史提交切入后，工程都应可编译通过，不得制造“断层提交”。
+1. 严禁"大杂烩"提交：修复 Bug、新增功能、重构、格式化必须物理隔离。
+2. 任意历史提交切入后，工程都应可编译通过，不得制造"断层提交"。
 3. 若修改跨层公共接口（例如头文件签名），所有调用方必须在同一提交内同步闭环。
 4. 业务逻辑提交不得夹带无关注释、空行或排版调整。
 5. 纯格式改动必须独立为 `style` 提交。
@@ -354,3 +431,34 @@ xmake check clang.tidy --fix
 xmake check clang.tidy --fix_errors
 xmake check clang.tidy --fix_notes
 ```
+
+## 13. worktree 维护
+
+任务开发完成后，须及时清理废弃 worktree，避免遗留僵尸目录。
+
+以下命令均在**主仓库**（`$WS_ROOT/worktrees/oh-my-robot/main/`）中执行：
+
+```bash
+# 进入主仓库
+cd $WS_ROOT/worktrees/oh-my-robot/main
+
+# 1) 查看当前所有 worktree
+git worktree list
+
+# 2) 移除已完成的 worktree（目录和 Git 记录一并清除）
+git worktree remove $WS_ROOT/worktrees/oh-my-robot/<task>
+
+# 3) 若对应分支已合并，可删除分支
+git branch -d feature/<issue编号>-<简短描述>
+# 若分支尚未合并（例如放弃开发），用 -D 强制删除
+git branch -D feature/<issue编号>-<简短描述>
+
+# 4) 清理 .git/worktrees 中的过期记录（手动删除 worktree 目录后执行）
+git worktree prune
+```
+
+注意事项：
+
+- `git worktree remove` 仅能移除**干净**（无未提交修改）的 worktree；若有未提交内容，需先提交或丢弃。
+- 切勿手动 `rm -rf` 删除 worktree 目录再 `prune` —— 这会在 `.git/worktrees/<id>/` 中遗留悬挂的 worktree 内部引用文件（`HEAD`、`index` 等）。正确做法是先 `git worktree remove`，它也会同时清理对应的 `.git/worktrees/<id>/` 目录。
+- 定期执行 `git worktree list` 检查是否存在遗忘的 worktree。
