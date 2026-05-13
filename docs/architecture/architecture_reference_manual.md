@@ -180,12 +180,12 @@
 #### [`oh-my-robot/lib/include/atomic/atomic_base.h`](../../lib/include/atomic/atomic_base.h)
 - 外部宏
   - `AW_USE_STDATOMIC`
-  - `AW_MO_RELAXED`
-  - `AW_MO_CONSUME`
-  - `AW_MO_ACQUIRE`
-  - `AW_MO_RELEASE`
-  - `AW_MO_ACQ_REL`
-  - `AW_MO_SEQ_CST`
+  - `MO_RELAXED`
+  - `MO_CONSUME`
+  - `MO_ACQUIRE`
+  - `MO_RELEASE`
+  - `MO_ACQ_REL`
+  - `MO_SEQ_CST`
   - `om_atomic_t`
   - `AW_ATOMIC_VAR_INIT`
   - `AW_INLINE`

@@ -53,12 +53,12 @@
 
 #### 2.1.1 内存序枚举 (`om_memory_order`)
 
-- `AW_MO_RELAXED`: 无同步语义。
-- `AW_MO_CONSUME`: 消费语义。
-- `AW_MO_ACQUIRE`: 获取语义。
-- `AW_MO_RELEASE`: 释放语义。
-- `AW_MO_ACQ_REL`: 获取+释放语义。
-- `AW_MO_SEQ_CST`: 顺序一致性（全屏障）。
+- `MO_RELAXED`: 无同步语义。
+- `MO_CONSUME`: 消费语义。
+- `MO_ACQUIRE`: 获取语义。
+- `MO_RELEASE`: 释放语义。
+- `MO_ACQ_REL`: 获取+释放语义。
+- `MO_SEQ_CST`: 顺序一致性（全屏障）。
 
 #### 2.1.2 基础读写
 
@@ -128,7 +128,7 @@
 - `om_fence_rel()`: 释放屏障。
 - `om_fence_ar()`: 获取释放屏障。
 - `om_fence_seq()`: 全局顺序一致性屏障。
-- `om_compiler_barrier()`: 编译器屏障（通过 `om_signal_fence(AW_MO_ACQ_REL)` 实现）。
+- `om_compiler_barrier()`: 编译器屏障（通过 `om_signal_fence(MO_ACQ_REL)` 实现）。
 
 ------
 

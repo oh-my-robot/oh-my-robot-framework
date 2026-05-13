@@ -45,24 +45,24 @@
 typedef memory_order OmMemoryOrder;
 
 // 映射宏常量
-#define AW_MO_RELAXED memory_order_relaxed
-#define AW_MO_CONSUME memory_order_consume
-#define AW_MO_ACQUIRE memory_order_acquire
-#define AW_MO_RELEASE memory_order_release
-#define AW_MO_ACQ_REL memory_order_acq_rel
-#define AW_MO_SEQ_CST memory_order_seq_cst
+#define MO_RELAXED memory_order_relaxed
+#define MO_CONSUME memory_order_consume
+#define MO_ACQUIRE memory_order_acquire
+#define MO_RELEASE memory_order_release
+#define MO_ACQ_REL memory_order_acq_rel
+#define MO_SEQ_CST memory_order_seq_cst
 
 #else
 // --- 传统/回退模式 ---
 // 定义与 C11 类似的枚举，供特定编译器的实现使用
 typedef enum
 {
-    AW_MO_RELAXED = 0,
-    AW_MO_CONSUME = 1,
-    AW_MO_ACQUIRE = 2,
-    AW_MO_RELEASE = 3,
-    AW_MO_ACQ_REL = 4,
-    AW_MO_SEQ_CST = 5
+    MO_RELAXED = 0,
+    MO_CONSUME = 1,
+    MO_ACQUIRE = 2,
+    MO_RELEASE = 3,
+    MO_ACQ_REL = 4,
+    MO_SEQ_CST = 5
 } OmMemoryOrder;
 
 #endif

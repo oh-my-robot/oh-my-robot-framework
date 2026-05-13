@@ -72,7 +72,7 @@ OmRet om_bitmap_atomic_init(AwBitmapAtomic *bitmap, OmAtomicUlong *buffer, size_
     bitmap->words = buffer;
 
     for (size_t index = 0; index < bitmap->meta.wordCount; index++)
-        OM_STORE(&bitmap->words[index], 0UL, AW_MO_RELAXED);
+        OM_STORE(&bitmap->words[index], 0UL, MO_RELAXED);
     return OM_OK;
 }
 
@@ -118,7 +118,7 @@ bool om_bitmap_atomic_test(const AwBitmapAtomic *bitmap, size_t bit_index)
 
     size_t word_index = om_bitmap_word_index(bit_index);
     unsigned long bit_mask = om_bitmap_bit_mask(bit_index);
-    unsigned long word_value = OM_LOAD(&bitmap->words[word_index], AW_MO_RELAXED);
+    unsigned long word_value = OM_LOAD(&bitmap->words[word_index], MO_RELAXED);
     return (word_value & bit_mask) != 0U;
 }
 
@@ -129,7 +129,7 @@ bool om_bitmap_atomic_try_set(AwBitmapAtomic *bitmap, size_t bit_index)
 
     size_t word_index = om_bitmap_word_index(bit_index);
     unsigned long bit_mask = om_bitmap_bit_mask(bit_index);
-    unsigned long old_value = OM_FETCH_OR(&bitmap->words[word_index], bit_mask, AW_MO_ACQ_REL);
+    unsigned long old_value = OM_FETCH_OR(&bitmap->words[word_index], bit_mask, MO_ACQ_REL);
     return (old_value & bit_mask) == 0U;
 }
 
@@ -140,7 +140,7 @@ void om_bitmap_atomic_clear(AwBitmapAtomic *bitmap, size_t bit_index)
 
     size_t word_index = om_bitmap_word_index(bit_index);
     unsigned long bit_mask = om_bitmap_bit_mask(bit_index);
-    OM_FETCH_AND(&bitmap->words[word_index], ~bit_mask, AW_MO_ACQ_REL);
+    OM_FETCH_AND(&bitmap->words[word_index], ~bit_mask, MO_ACQ_REL);
 }
 
 OmRet om_bitmap_atomic_alloc_first_zero(AwBitmapAtomic *bitmap, size_t start_hint, size_t *bit_out)

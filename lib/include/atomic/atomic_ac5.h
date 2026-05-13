@@ -11,7 +11,7 @@
 // AC5 Barrier Helpers
 AW_INLINE void _om_ac5_barrier(OmMemoryOrder order)
 {
-    if (order != AW_MO_RELAXED)
+    if (order != MO_RELAXED)
     {
         __sync_synchronize(); // AC5 Full Barrier
     }
@@ -34,7 +34,7 @@ AW_INLINE void _om_ac5_barrier(OmMemoryOrder order)
     {                                                                                                                                      \
         _om_ac5_barrier(order);                                                                                                            \
         *(volatile __typeof__(*(ptr))*)(ptr) = (val);                                                                                      \
-        if (order == AW_MO_SEQ_CST)                                                                                                        \
+        if (order == MO_SEQ_CST)                                                                                                        \
             __sync_synchronize();                                                                                                          \
     } while (0)
 
@@ -81,7 +81,7 @@ AW_INLINE void _om_ac5_barrier(OmMemoryOrder order)
 
 // 6. Fences
 #define _om_impl_thread_fence(order)                                                                                                       \
-    if (order != AW_MO_RELAXED)                                                                                                            \
+    if (order != MO_RELAXED)                                                                                                            \
     __sync_synchronize()
 
 #define _om_impl_signal_fence(order) __schedule_barrier()

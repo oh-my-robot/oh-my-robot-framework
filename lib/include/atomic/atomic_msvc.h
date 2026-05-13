@@ -10,16 +10,16 @@
 // ----------------------------------------------------------------------------
 AW_INLINE void _om_msvc_barrier_pre(OmMemoryOrder order)
 {
-    if (order != AW_MO_RELAXED)
+    if (order != MO_RELAXED)
         _ReadWriteBarrier(); // Compiler barrier
-    if (order == AW_MO_SEQ_CST)
+    if (order == MO_SEQ_CST)
         MemoryBarrier(); // Full hardware barrier
 }
 AW_INLINE void _om_msvc_barrier_post(OmMemoryOrder order)
 {
-    if (order != AW_MO_RELAXED)
+    if (order != MO_RELAXED)
         _ReadWriteBarrier();
-    if (order == AW_MO_SEQ_CST)
+    if (order == MO_SEQ_CST)
         MemoryBarrier();
 }
 
@@ -36,7 +36,7 @@ AW_INLINE void _om_msvc_store_8(volatile char* ptr, char val, OmMemoryOrder orde
 {
     _om_msvc_barrier_pre(order);
     *ptr = val;
-    if (order == AW_MO_SEQ_CST)
+    if (order == MO_SEQ_CST)
         MemoryBarrier();
 }
 AW_INLINE char _om_msvc_exchange_8(volatile char* ptr, char val, OmMemoryOrder order)
@@ -82,7 +82,7 @@ AW_INLINE void _om_msvc_store_16(volatile short* ptr, short val, OmMemoryOrder o
 {
     _om_msvc_barrier_pre(order);
     *ptr = val;
-    if (order == AW_MO_SEQ_CST)
+    if (order == MO_SEQ_CST)
         MemoryBarrier();
 }
 AW_INLINE short _om_msvc_exchange_16(volatile short* ptr, short val, OmMemoryOrder order)
@@ -128,7 +128,7 @@ AW_INLINE void _om_msvc_store_32(volatile long* ptr, long val, OmMemoryOrder ord
 {
     _om_msvc_barrier_pre(order);
     *ptr = val;
-    if (order == AW_MO_SEQ_CST)
+    if (order == MO_SEQ_CST)
         MemoryBarrier();
 }
 AW_INLINE long _om_msvc_exchange_32(volatile long* ptr, long val, OmMemoryOrder order)
@@ -174,7 +174,7 @@ AW_INLINE void _om_msvc_store_64(volatile long long* ptr, long long val, OmMemor
 {
     _om_msvc_barrier_pre(order);
     *ptr = val;
-    if (order == AW_MO_SEQ_CST)
+    if (order == MO_SEQ_CST)
         MemoryBarrier();
 }
 AW_INLINE long long _om_msvc_exchange_64(volatile long long* ptr, long long val, OmMemoryOrder order)

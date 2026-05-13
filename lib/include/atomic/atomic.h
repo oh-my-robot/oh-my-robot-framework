@@ -258,9 +258,9 @@ extern "C"
 #define om_thread_fence(order)                                                                                                             \
     do                                                                                                                                     \
     {                                                                                                                                      \
-        if ((order) == AW_MO_SEQ_CST)                                                                                                      \
+        if ((order) == MO_SEQ_CST)                                                                                                      \
             MemoryBarrier();                                                                                                               \
-        else if ((order) != AW_MO_RELAXED)                                                                                                 \
+        else if ((order) != MO_RELAXED)                                                                                                 \
             _ReadWriteBarrier();                                                                                                           \
     } while (0)
 
