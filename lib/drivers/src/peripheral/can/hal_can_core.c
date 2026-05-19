@@ -367,6 +367,20 @@ static void can_status_manager_deinit(HalCanHandler *can)
     }
 }
 
+static inline uint32_t can_adapter_max_payload_bytes(const HalCanHandler *can)
+{
+    if (can == NULL || can->adapterInterface == NULL)
+        return 0u;
+
+    if (can->adapterInterface == hal_can_get_classic_adapter_interface())
+        return 8u;
+
+    if (can->adapterInterface == hal_can_get_canfd_adapter_interface())
+        return 64u;
+
+    return 0u;
+}
+
 DBG_PARAM_DEF(CanMailbox *, dbg_mailbox[3]) = {0};
 
 static OmRet can_txhandler_init(HalCanHandler *can, uint32_t iotype, size_t mailbox_num, uint32_t tx_msg_num)
@@ -449,8 +463,17 @@ static void can_rxhandler_deinit(CanRxHandler *rx_handler)
  * @param msgList CAN消息链表
  * @param pUserRxMsg CAN用户消息指针
  */
-static inline void can_container_copy_to_usermsg(CanMsgList *msg_list, CanUserMsg *p_user_rx_msg)
+static inline void can_container_copy_to_usermsg(HalCanHandler *can, CanMsgList *msg_list, CanUserMsg *p_user_rx_msg)
 {
+    uint32_t max_payload_bytes = 0u;
+
+    if (can == NULL || msg_list == NULL || p_user_rx_msg == NULL || p_user_rx_msg->userBuf == NULL)
+        return;
+
+    max_payload_bytes = can_adapter_max_payload_bytes(can);
+    if (max_payload_bytes == 0u || msg_list->userMsg.dsc.dataLen > max_payload_bytes)
+        return;
+
     msg_list->userMsg.userBuf = p_user_rx_msg->userBuf; // 防止框架层的userBuf覆盖原有的用户内存指针
     *p_user_rx_msg = msg_list->userMsg;
     // 拷贝数据到用户缓冲区
@@ -749,7 +772,7 @@ static void canrx_msg_put(HalCanHandler *can, CanMsgList *hw_rx_msg_list)
  * @retval  1. CAN_ERR_NONE           成功
  * @retval  2. CAN_ERR_FIFO_EMPTY     滤波器无可读消息或接FIFO 为空
  */
-static CanErrorCode canrx_msg_get_noblock(CanRxHandler *rx_handler, CanUserMsg *p_user_rx_msg)
+static CanErrorCode canrx_msg_get_noblock(HalCanHandler *can, CanRxHandler *rx_handler, CanUserMsg *p_user_rx_msg)
 {
     CanFilter *filter;
     size_t filter_handle;
@@ -781,7 +804,7 @@ static CanErrorCode canrx_msg_get_noblock(CanRxHandler *rx_handler, CanUserMsg *
     // 此时除了当前操作之外，已经没有任何代码能访问这个链表项，所以针对MsgList的操作无需考虑竞争
 
     // 将容器中的报文拷贝到用户接收消息指针
-    can_container_copy_to_usermsg(msg_list, p_user_rx_msg);
+    can_container_copy_to_usermsg(can, msg_list, p_user_rx_msg);
     // 将该消息链表项添加回空闲链表
     can_add_free_msg_list(&rx_handler->rxFifo, msg_list);
     return CAN_ERR_NONE;
@@ -867,6 +890,12 @@ static size_t cantx_msg_put_nonblock(HalCanHandler *can, CanUserMsg *p_user_tx_m
     uint32_t int_level;
     size_t msg_counter = 0;
     CanMsgList *p_msg_list = NULL;
+    uint32_t max_payload_bytes = 0u;
+
+    if (can == NULL)
+        return 0u;
+
+    max_payload_bytes = can_adapter_max_payload_bytes(can);
     for (msg_counter = 0; msg_counter < msg_num; msg_counter++)
     {
         // 获取一个空闲消息链表项，用于存储信息
@@ -893,6 +922,14 @@ static size_t cantx_msg_put_nonblock(HalCanHandler *can, CanUserMsg *p_user_tx_m
 
         // 填充用户消息指针
         p_msg_list->userMsg = p_user_tx_msg_buf[msg_counter];
+        if (max_payload_bytes == 0u || p_msg_list->userMsg.dsc.dataLen > max_payload_bytes || p_msg_list->userMsg.userBuf == NULL)
+        {
+            int_level = can_irq_lock();
+            can->statusManager.errCounter.txFailCnt++;
+            can_irq_unlock(int_level);
+            can_add_free_msg_list(&can->txHandler.txFifo, p_msg_list);
+            continue;
+        }
         // 填充CAN消息容器
         memcpy((void *)p_msg_list->container, (void *)p_user_tx_msg_buf[msg_counter].userBuf, p_user_tx_msg_buf[msg_counter].dsc.dataLen);
         p_msg_list->userMsg.userBuf = p_msg_list->container;
@@ -919,9 +956,16 @@ static void cantx_soft_retransmit(HalCanHandler *can, uint32_t mailbox_bank)
     // 因此该流程内对这两类对象的访问不与外部并发冲突（仅限该邮箱与该消息节点）
     CanMailbox *mailbox = &can->txHandler.pMailboxes[mailbox_bank];
     CanMsgList *p_msg_list = mailbox->pMsgList;
-    while (!p_msg_list)
+
+    /* TX_DONE 可能已经先一步回收了邮箱里的消息节点。
+     * 如果错误中断晚到，此时 mailbox 上已经没有有效消息可重传。
+     * 这种情况属于过期错误事件，直接忽略即可，不能在这里自旋。
+     */
+    if (mailbox->isBusy == 0u || p_msg_list == NULL)
     {
-    }; // TODO: assert
+        return;
+    }
+
     p_msg_list->owner = NULL;
     uint32_t int_level;
     int_level = can_irq_lock();
@@ -1042,7 +1086,7 @@ static size_t can_read(Device *dev, void *pos, void *buf, size_t len)
         while (rx_handler->filterTable[filter_handle].isActived == 0)
         {
         }; // TODO: ASSERT "Filter bank %d is not active"
-        ret = canrx_msg_get_noblock(rx_handler, &p_user_rx_msg_buf[cnt]);
+        ret = canrx_msg_get_noblock(can, rx_handler, &p_user_rx_msg_buf[cnt]);
         if (ret != CAN_ERR_NONE)
             break;
     }
@@ -1275,6 +1319,12 @@ void hal_can_isr(HalCanHandler *can, CanIsrEvent event, size_t param)
         ret = can->hwInterface->recvMsg(can, &hw_msg, param);
         if (ret == OM_OK)
         {
+            if (hw_msg.dsc.dataLen > can_adapter_max_payload_bytes(can))
+            {
+                canrx_add_free_msg_list(&can->rxHandler, msg_list);
+                can->statusManager.errCounter.rxFailCnt++;
+                break;
+            }
             int32_t slot = can_find_slot_by_hwbank(can, hw_msg.hwFilterBank);
             if (slot < 0 || IS_CAN_FILTER_INVALID(can, (size_t)slot))
             {
