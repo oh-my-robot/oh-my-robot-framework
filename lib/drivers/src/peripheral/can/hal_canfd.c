@@ -10,6 +10,11 @@ typedef struct CanFdMsgContainer
     uint8_t container[64];
 } OM_PACKED CanFdMsgContainer;
 
+static OmRet canfd_validate_data_len(uint32_t data_len)
+{
+    return (data_len <= 64u) ? OM_OK : OM_ERROR_PARAM;
+}
+
 static void *canfd_msgbuffer_alloc(ListHead *free_list_head, uint32_t msg_num)
 {
     size_t size = msg_num * sizeof(CanFdMsgContainer);
@@ -32,6 +37,7 @@ static void *canfd_msgbuffer_alloc(ListHead *free_list_head, uint32_t msg_num)
 
 static CanAdapterInterface can_fd_adapter_interface = {
     .msgbufferAlloc = canfd_msgbuffer_alloc,
+    .validateDataLen = canfd_validate_data_len,
 };
 
 CanAdapterInterface *hal_can_get_canfd_adapter_interface(void)

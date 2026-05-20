@@ -520,6 +520,13 @@ typedef struct CanAdapterInterface {
      * @return 分配得到的缓存首地址，失败返回 NULL
      */
     void *(*msgbufferAlloc)(ListHead *free_list_head, uint32_t msg_num);
+    /**
+     * @brief 校验当前适配器下的 CAN 载荷长度是否合法
+     * @param data_len 载荷长度（字节）
+     * @retval OM_OK 长度合法
+     * @retval OM_ERROR_PARAM 长度非法
+     */
+    OmRet (*validateDataLen)(uint32_t data_len);
 } CanAdapterInterface;
 
 typedef struct CanHwInterface  CanHwInterface;

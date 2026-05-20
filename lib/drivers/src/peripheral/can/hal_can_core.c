@@ -300,7 +300,7 @@ static OmRet can_rxhandler_init(HalCanHandler *can, uint32_t iotype, uint32_t fi
     uint32_t is_oparam_valid;
     OmRet ret = OM_OK;
     // 至少初始化一个滤波器
-    while (filter_num <= 0 || msg_num <= 0 || !can->adapterInterface->msgbufferAlloc)
+    while (filter_num <= 0 || msg_num <= 0 || !can->adapterInterface->msgbufferAlloc || !can->adapterInterface->validateDataLen)
     {
     }; // TODO: ASSERT
 
@@ -367,18 +367,12 @@ static void can_status_manager_deinit(HalCanHandler *can)
     }
 }
 
-static inline uint32_t can_adapter_max_payload_bytes(const HalCanHandler *can)
+static inline OmRet can_adapter_validate_data_len(const HalCanHandler *can, uint32_t data_len)
 {
-    if (can == NULL || can->adapterInterface == NULL)
-        return 0u;
+    if (can == NULL || can->adapterInterface == NULL || can->adapterInterface->validateDataLen == NULL)
+        return OM_ERROR_PARAM;
 
-    if (can->adapterInterface == hal_can_get_classic_adapter_interface())
-        return 8u;
-
-    if (can->adapterInterface == hal_can_get_canfd_adapter_interface())
-        return 64u;
-
-    return 0u;
+    return can->adapterInterface->validateDataLen(data_len);
 }
 
 DBG_PARAM_DEF(CanMailbox *, dbg_mailbox[3]) = {0};
@@ -465,13 +459,10 @@ static void can_rxhandler_deinit(CanRxHandler *rx_handler)
  */
 static inline void can_container_copy_to_usermsg(HalCanHandler *can, CanMsgList *msg_list, CanUserMsg *p_user_rx_msg)
 {
-    uint32_t max_payload_bytes = 0u;
-
     if (can == NULL || msg_list == NULL || p_user_rx_msg == NULL || p_user_rx_msg->userBuf == NULL)
         return;
 
-    max_payload_bytes = can_adapter_max_payload_bytes(can);
-    if (max_payload_bytes == 0u || msg_list->userMsg.dsc.dataLen > max_payload_bytes)
+    if (can_adapter_validate_data_len(can, msg_list->userMsg.dsc.dataLen) != OM_OK)
         return;
 
     msg_list->userMsg.userBuf = p_user_rx_msg->userBuf; // 防止框架层的userBuf覆盖原有的用户内存指针
@@ -890,12 +881,10 @@ static size_t cantx_msg_put_nonblock(HalCanHandler *can, CanUserMsg *p_user_tx_m
     uint32_t int_level;
     size_t msg_counter = 0;
     CanMsgList *p_msg_list = NULL;
-    uint32_t max_payload_bytes = 0u;
 
     if (can == NULL)
         return 0u;
 
-    max_payload_bytes = can_adapter_max_payload_bytes(can);
     for (msg_counter = 0; msg_counter < msg_num; msg_counter++)
     {
         // 获取一个空闲消息链表项，用于存储信息
@@ -922,7 +911,7 @@ static size_t cantx_msg_put_nonblock(HalCanHandler *can, CanUserMsg *p_user_tx_m
 
         // 填充用户消息指针
         p_msg_list->userMsg = p_user_tx_msg_buf[msg_counter];
-        if (max_payload_bytes == 0u || p_msg_list->userMsg.dsc.dataLen > max_payload_bytes || p_msg_list->userMsg.userBuf == NULL)
+        if (can_adapter_validate_data_len(can, p_msg_list->userMsg.dsc.dataLen) != OM_OK || p_msg_list->userMsg.userBuf == NULL)
         {
             int_level = can_irq_lock();
             can->statusManager.errCounter.txFailCnt++;
@@ -1319,7 +1308,7 @@ void hal_can_isr(HalCanHandler *can, CanIsrEvent event, size_t param)
         ret = can->hwInterface->recvMsg(can, &hw_msg, param);
         if (ret == OM_OK)
         {
-            if (hw_msg.dsc.dataLen > can_adapter_max_payload_bytes(can))
+            if (can_adapter_validate_data_len(can, hw_msg.dsc.dataLen) != OM_OK)
             {
                 canrx_add_free_msg_list(&can->rxHandler, msg_list);
                 can->statusManager.errCounter.rxFailCnt++;
