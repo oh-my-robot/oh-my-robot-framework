@@ -3,6 +3,7 @@
 
 #include "avltree.h"
 #include "corelist.h"
+#include "double_buf.h"
 #include "mpsc_ringbuf.h"
 #include "ringbuffer.h"
 
