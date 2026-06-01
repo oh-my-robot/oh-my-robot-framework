@@ -689,6 +689,10 @@ static void p1010b_internal_rx_callback(Device *device, void *param, CanFilterHa
         memcpy(frame.payload, payload, sizeof(frame.payload));
         frame.dataLength = (uint8_t)rx_message.dsc.dataLen;
         frame.timestampMs = rx_message.dsc.timeStamp;
+        if (frame.timestampMs == 0U)
+        {
+            frame.timestampMs = osal_time_now_monotonic();
+        }
 
         motor_id = (uint8_t)(frame.canId & P1010B_REPLY_ID_LOW_MASK);
         if (!p1010b_internal_is_valid_motor_id(motor_id))
