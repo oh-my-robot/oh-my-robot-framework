@@ -2,6 +2,7 @@
 #define __BSP_H__
 
 #include "bsp_can.h"
+#include "bsp_gpio.h"
 #include "bsp_dwt.h"
 #include "bsp_serial.h"
 

@@ -28,6 +28,7 @@ local board = {
         "boards/rm-c-board/source/core/bsp_cpu.c",
         "boards/rm-c-board/source/core/bsp_dwt.c",
         "boards/rm-c-board/source/peripherals/can/bsp_can_impl.c",
+        "boards/rm-c-board/source/peripherals/gpio/bsp_gpio_impl.c",
         "boards/rm-c-board/source/peripherals/serial/bsp_serial_impl.c",
         "boards/rm-c-board/source/peripherals/serial/bsp_serial_init.c",
         "boards/rm-c-board/source/port/om_port_hw.c",
@@ -36,6 +37,7 @@ local board = {
         -- 这些文件用于覆盖启动文件中的 weak ISR，必须直连最终 binary。
         "boards/rm-c-board/source/peripherals/can/bsp_can_it.c",
         "boards/rm-c-board/source/peripherals/serial/serial_it.c",
+        "boards/rm-c-board/source/peripherals/gpio/bsp_gpio_it.c",
     },
     osal = {
         freertos = "boards/rm-c-board/osal/freertos",
