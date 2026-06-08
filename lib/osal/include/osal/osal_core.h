@@ -56,6 +56,40 @@ OsalIrqIsrState osal_irq_lock_from_isr(void);
 void osal_irq_unlock_from_isr(OsalIrqIsrState state);
 
 /**
+ * @brief 上下文自动分派：进入关中断临界区
+ *
+ * 自动检测当前上下文（线程或 ISR），选择对应的锁原语。
+ * 线程上下文调用 osal_irq_lock_task()，ISR 上下文调用 osal_irq_lock_from_isr()。
+ *
+ * @param[out] key     ISR 上下文时保存的中断状态，线程上下文时填 0。
+ */
+static inline void osal_irq_lock(OsalIrqIsrState *key)
+{
+    if (osal_is_in_isr()) {
+        *key = osal_irq_lock_from_isr();
+    } else {
+        osal_irq_lock_task();
+        *key = 0U;
+    }
+}
+
+/**
+ * @brief 上下文自动分派：退出关中断临界区
+ *
+ * 与 osal_irq_lock() 配对使用。
+ *
+ * @param key     osal_irq_lock() 保存的中断状态。
+ */
+static inline void osal_irq_unlock(OsalIrqIsrState key)
+{
+    if (osal_is_in_isr()) {
+        osal_irq_unlock_from_isr(key);
+    } else {
+        osal_irq_unlock_task();
+    }
+}
+
+/**
  * @brief OSAL 内存申请
  * @param size 申请字节数
  * @return 成功返回指针，失败返回 NULL

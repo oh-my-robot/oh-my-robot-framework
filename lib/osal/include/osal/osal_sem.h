@@ -54,6 +54,23 @@ OsalStatus osal_sem_post(OsalSem* sem);
 OsalStatus osal_sem_post_from_isr(OsalSem* sem);
 
 /**
+ * @brief 上下文自动分派：释放信号量
+ *
+ * 自动检测当前上下文（线程或 ISR），选择对应的 post 变体。
+ * 线程上下文调用 osal_sem_post()，ISR 上下文调用 osal_sem_post_from_isr()。
+ *
+ * @param sem  信号量句柄
+ * @return     `OSAL_OK` 成功；失败返 `OSAL_INVALID/OSAL_NO_RESOURCE`
+ */
+static inline OsalStatus osal_sem_post_auto(OsalSem* sem)
+{
+    if (osal_is_in_isr()) {
+        return osal_sem_post_from_isr(sem);
+    }
+    return osal_sem_post(sem);
+}
+
+/**
  * @brief 获取信号量当前计数（线程上下文）
  * @param sem 信号量句
  * @param out_count 输出计数
