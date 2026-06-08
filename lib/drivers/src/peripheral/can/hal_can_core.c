@@ -1377,12 +1377,13 @@ OmRet hal_can_register(HalCanHandler *can, char *name, void *handle, uint32_t re
     OmRet ret;
     if (!can || !name || !can->adapterInterface)
         return OM_ERROR_PARAM;
+    can->parent.type = DEVICE_TYPE_CAN;
+    can->parent.handle = handle;
+    can->parent.interface = &can_dev_interface;
+    can->cfg = CAN_DEFUALT_CFG;
     ret = device_register(&can->parent, name, regparams);
     if (ret != OM_OK)
         return ret;
 
-    can->parent.handle = handle;
-    can->parent.interface = &can_dev_interface;
-    can->cfg = CAN_DEFUALT_CFG;
     return ret;
 }

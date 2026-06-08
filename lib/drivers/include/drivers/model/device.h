@@ -14,6 +14,14 @@
 extern "C" {
 #endif
 
+/** 设备类型标识，用于 device_find 后的类型安全校验 */
+typedef enum {
+    DEVICE_TYPE_UNKNOWN = 0,
+    DEVICE_TYPE_GPIO,
+    DEVICE_TYPE_CAN,
+    DEVICE_TYPE_SERIAL,
+} DeviceType;
+
 typedef struct DevInterface  DevInterface;
 typedef struct Device  Device;
 
@@ -45,6 +53,7 @@ typedef struct Device {
     DevInterface* interface;
     DevAttr priv;
     void *handle;
+    DeviceType type;
     ListHead list;
 } Device;
 

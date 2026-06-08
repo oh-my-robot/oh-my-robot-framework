@@ -638,6 +638,7 @@ OmRet serial_register(HalSerial *serial, char *name, void *handle, uint32_t regp
 {
     if (!serial || !name)
         return OM_ERROR_PARAM;
+    serial->parent.type = DEVICE_TYPE_SERIAL;
     serial->parent.handle = handle;
     serial->parent.interface = &serial_interface;
     serial->cfg = SERIAL_DEFAULT_CFG;
