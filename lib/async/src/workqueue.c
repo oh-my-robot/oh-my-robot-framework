@@ -21,30 +21,30 @@
  * ```
  *   Workqueue.pending → ListHead (双向循环链表哨兵)
  *   Work.node          → ListHead (嵌入 Work 的节点)
- *   Work.flags         → OmAtomicUint (PENDING | CANCELLED | RUNNING 状态位)
+ *   Work.flags         → volatile uint32_t (PENDING | RUNNING 状态位)
  * ```
  *
  * pending 队列采用双向链表，支持：
- *   - **O(1) 队头出队**: worker 通过 list_first_entry + list_del_init 认领工作
- *   - **O(1) 任意位置删除**: cancel 通过 list_node_is_linked + list_del_init 从队列中间移除
+ *   - **O(1) 队头出队**: worker 通过 list_first_entry + list_del 认领工作
+ *   - **O(1) 任意位置删除**: cancel 通过 list_del 从队列中间移除
  *
  * ## Worker Claim 协议（核心并发合同）
  *
- * Enqueue、Worker、Cancel 三方通过 irq_lock + flags 原子操作协调对 Work 的"所有权"：
+ * Enqueue、Worker、Cancel 三方通过 irq_lock + volatile flags 协调对 Work 的"所有权"：
  *
  * ```
- * enqueue:  [CAS: IDLE→PENDING]  →  [irq_lock: list_add_tail]  →  [sem_post]
- * worker:   [sem_wait]  →  [irq_lock: list_del_init + flags=PENDING→RUNNING]  →  [执行 func]
- * cancel:   [irq_lock: 检查 flags + 设置 CANCELLED + 可能 list_del_init]
+ * enqueue:  [irq_lock: flags 检查 + list_add_tail]  →  [sem_post]
+ * worker:   [sem_wait]  →  [irq_lock: list_del + flags=RUNNING]  →  [执行 func]  →  [flags=IDLE]
+ * cancel:   [irq_lock: 检查 flags + list_del + flags=IDLE]
  * ```
  *
- * **关键不变量**: list_del_init 和 flags 状态转换必须在同一 irq_lock 临界区内完成。
+ * **关键不变量**: flags 检查、链表操作和 flags 状态转换均在同一 irq_lock 临界区内完成。
  * 这确保 cancel 看到 PENDING 时节点必定在链表中，看到 RUNNING 时 worker 已认领。
  *
  * ## 内存序策略
  *
  * - **irq_lock 内**: 临界区提供互斥 + 编译器屏障，flags 使用普通 volatile 读写
- * - **irq_lock 外**: 使用原子操作（enqueue CAS、worker STORE_REL、work_is_busy LOAD_ACQ）
+ * - **irq_lock 外**: 单核上 volatile 读写天然可见（无 store buffer），无需额外内存屏障
  */
 
 #include "async/workqueue.h"
@@ -83,8 +83,7 @@ static void workqueue_worker_entry(void *arg)
 
         /** 2. 循环排空 pending 队列 */
         for (;;) {
-            Work  *w        = NULL;
-            bool   cancelled = false;
+            Work *w = NULL;
 
             /** 2a. 关中断：从链表取出下一个工作项并认领 */
             {
@@ -93,24 +92,8 @@ static void workqueue_worker_entry(void *arg)
 
                 if (!list_empty(&wq->pending)) {
                     w = list_first_entry(&wq->pending, Work, node);
-
-                    /** 从 pending 链表移除并毒化节点。 */
-                    list_del_init(&w->node);
-
-                    /** 认领所有权：PENDING → RUNNING。
-                     *
-                     *  irq_lock 内，cancel 不可能并发修改 flags，
-                     *  直接比较即可检测 cancel 是否设置了 CANCELLED。 */
-                    if (w->flags == WORK_FLAG_PENDING) {
-                        w->flags = WORK_FLAG_RUNNING;
-                        cancelled = false;
-                    } else {
-                        /** flags 已被 cancel 改为 PENDING|CANCELLED。
-                         *  我们已从链表取出（拥有所有权），
-                         *  设置 RUNNING 阻止后续 cancel 竞争。 */
-                        w->flags = WORK_FLAG_RUNNING;
-                        cancelled = true;
-                    }
+                    list_del(&w->node);
+                    w->flags = WORK_FLAG_RUNNING;
                 }
 
                 osal_irq_unlock(k);
@@ -118,26 +101,16 @@ static void workqueue_worker_entry(void *arg)
 
             /** 2b. 无更多工作：检查退出条件 */
             if (!w) {
-                int s = OM_LOAD_ACQ(&wq->state);
-                if (s == WORKQUEUE_STATE_STOPPING) {
-                    /** STOPPING 状态 + 队列已空 → worker 退出 */
+                if (wq->state == WORKQUEUE_STATE_STOPPING) {
                     completion_done(&wq->done);
                     osal_thread_exit();
                 }
-                /** 回到 sem_wait 等待新工作 */
                 break;
             }
 
-            /** 2c. 执行或跳过 */
-            if (cancelled) {
-                /** cancel 已请求取消 → 恢复 IDLE，不执行 func */
-                OM_STORE_REL(&w->flags, WORK_FLAG_IDLE);
-            } else {
-                /** 正常执行工作函数 */
-                w->func(w);
-                /** 执行完毕，恢复 IDLE，允许再次入队 */
-                OM_STORE_REL(&w->flags, WORK_FLAG_IDLE);
-            }
+            /** 2c. 执行工作函数 */
+            w->func(w);
+            w->flags = WORK_FLAG_IDLE;
         }
     }
 }
@@ -159,6 +132,10 @@ static void workqueue_worker_entry(void *arg)
 OmRet workqueue_init(Workqueue *wq, const WorkqueueConfig *cfg)
 {
     if (!wq || !cfg) return OM_ERROR_PARAM;
+    if (!cfg->stack_depth) return OM_ERROR_PARAM;
+
+    /** 防止重复初始化 */
+    if (wq->state != WORKQUEUE_STATE_UNINIT) return OM_ERROR;
 
     /** 初始化 pending 链表为空的哨兵态（自循环） */
     INIT_LIST_HEAD(&wq->pending);
@@ -177,7 +154,7 @@ OmRet workqueue_init(Workqueue *wq, const WorkqueueConfig *cfg)
     }
 
     /** 设置状态为 IDLE */
-    OM_STORE_RLX(&wq->state, (int)WORKQUEUE_STATE_IDLE);
+    wq->state = WORKQUEUE_STATE_IDLE;
     wq->name        = cfg->name ? cfg->name : "wq";
     wq->stack_depth = cfg->stack_depth;
     wq->priority    = cfg->priority;
@@ -199,8 +176,7 @@ OmRet workqueue_deinit(Workqueue *wq)
     if (!wq) return OM_ERROR_PARAM;
 
     /** 必须已 stop */
-    int s = OM_LOAD_RLX(&wq->state);
-    if (s != WORKQUEUE_STATE_IDLE) return OM_ERROR;
+    if (wq->state != WORKQUEUE_STATE_IDLE) return OM_ERROR;
 
     if (wq->sem) {
         osal_sem_delete(wq->sem);
@@ -209,7 +185,7 @@ OmRet workqueue_deinit(Workqueue *wq)
 
     completion_deinit(&wq->done);
 
-    OM_STORE_RLX(&wq->state, (int)WORKQUEUE_STATE_UNINIT);
+    wq->state = WORKQUEUE_STATE_UNINIT;
     wq->name = NULL;
     return OM_OK;
 }
@@ -221,7 +197,7 @@ OmRet workqueue_deinit(Workqueue *wq)
 /**
  * @brief 启动 worker 线程
  *
- * 通过 CAS 将状态从 IDLE 切换到 RUNNING，然后创建 FreeRTOS 任务
+ * 通过 irq_lock 将状态从 IDLE 切换到 RUNNING，然后创建 FreeRTOS 任务
  * 作为 worker 线程。如果线程创建失败，状态回退到 IDLE。
  *
  * @param wq  已初始化的工作队列。
@@ -230,12 +206,18 @@ OmRet workqueue_deinit(Workqueue *wq)
 OmRet workqueue_start(Workqueue *wq)
 {
     if (!wq) return OM_ERROR_PARAM;
-    if (!wq->sem) return OM_ERROR; /** 未初始化或已销毁 */
+    if (!wq->sem) return OM_ERROR;
 
-    /** CAS 原子切换：IDLE → RUNNING */
-    int expected = WORKQUEUE_STATE_IDLE;
-    if (!OM_CAS_AR(&wq->state, &expected, WORKQUEUE_STATE_RUNNING)) {
-        return OM_ERROR; /** 不在 IDLE 状态 */
+    /** irq_lock 内检查并切换状态：IDLE → RUNNING */
+    {
+        OsalIrqIsrState key;
+        osal_irq_lock(&key);
+        if (wq->state != WORKQUEUE_STATE_IDLE) {
+            osal_irq_unlock(key);
+            return OM_ERROR;
+        }
+        wq->state = WORKQUEUE_STATE_RUNNING;
+        osal_irq_unlock(key);
     }
 
     /** 排空上一次循环可能残留的信号量计数 */
@@ -254,7 +236,10 @@ OmRet workqueue_start(Workqueue *wq)
                                        workqueue_worker_entry, wq);
     if (st != OSAL_OK) {
         /** 线程创建失败，状态回退 */
-        OM_STORE_RLX(&wq->state, (int)WORKQUEUE_STATE_IDLE);
+        OsalIrqIsrState key;
+        osal_irq_lock(&key);
+        wq->state = WORKQUEUE_STATE_IDLE;
+        osal_irq_unlock(key);
         return OM_ERROR;
     }
 
@@ -265,20 +250,25 @@ OmRet workqueue_start(Workqueue *wq)
  * @brief 停止 worker 线程
  *
  * 状态从 RUNNING 切换到 STOPPING，唤醒 worker 线程，等待其排空
- * pending 队列并退出。worker 退出后进行防御性清理（理论上队列应为空）。
+ * pending 队列并退出。worker 退出后进行防御性清理。
  *
  * @param wq  正在运行的工作队列。
- * @return    OM_OK 成功，OM_ERROR 状态非法（未在运行），OM_ERROR_PARAM 参数为 NULL。
+ * @return    OM_OK 成功，OM_ERROR 状态非法，OM_ERROR_PARAM 参数为 NULL。
  */
 OmRet workqueue_stop(Workqueue *wq)
 {
     if (!wq) return OM_ERROR_PARAM;
 
-    /** CAS 原子切换：RUNNING → STOPPING */
-    int expected = WORKQUEUE_STATE_RUNNING;
-    if (!OM_CAS_AR(&wq->state, &expected, WORKQUEUE_STATE_STOPPING)) {
-        /** 已停止或未在运行 */
-        return OM_ERROR;
+    /** irq_lock 内检查并切换状态：RUNNING → STOPPING */
+    {
+        OsalIrqIsrState key;
+        osal_irq_lock(&key);
+        if (wq->state != WORKQUEUE_STATE_RUNNING) {
+            osal_irq_unlock(key);
+            return OM_ERROR;
+        }
+        wq->state = WORKQUEUE_STATE_STOPPING;
+        osal_irq_unlock(key);
     }
 
     /** 唤醒 worker 线程，使其开始排空 */
@@ -288,24 +278,22 @@ OmRet workqueue_stop(Workqueue *wq)
     completion_wait(&wq->done, OSAL_WAIT_FOREVER);
     wq->thread = NULL;
 
-    /** 防御性排空：清理可能在 worker 退出与 stop 返回之间入队的工作项。
-     *
-     *  STOPPING 状态下 enqueue 会被拒绝（见 workqueue_enqueue 的状态检查），
-     *  理论上队列应为空，但安全起见，尝试清理所有残留工作项。 */
+    /** 防御性排空：清理残留工作项。
+     *  STOPPING 状态下 enqueue 会被拒绝，理论上队列应为空。 */
     {
         Work            *w, *tmp;
         OsalIrqIsrState  k;
         osal_irq_lock(&k);
         list_for_each_entry_safe(w, tmp, &wq->pending, node)
         {
-            list_del_init(&w->node);
+            list_del(&w->node);
             w->flags = WORK_FLAG_IDLE;
         }
         osal_irq_unlock(k);
     }
 
     /** 状态切换：STOPPING → IDLE */
-    OM_STORE_RLX(&wq->state, (int)WORKQUEUE_STATE_IDLE);
+    wq->state = WORKQUEUE_STATE_IDLE;
 
     return OM_OK;
 }
@@ -313,13 +301,9 @@ OmRet workqueue_stop(Workqueue *wq)
 /* ===================================================================
  * 入队操作（Enqueue）
  *
- * enqueue 分两个阶段：
- *   1. irq_lock 外 CAS(IDLE→PENDING)：原子去重
- *   2. irq_lock 内 list_add_tail：保护链表插入的原子性
- *
- * CAS 在锁外的设计理由：CAS 竞争方（worker 的 flags 修改）在
- * irq_lock 内执行，关中断。单核上两个线程级 enqueue 冲突由 CAS 自身解决。
- * 锁外 CAS 避免了 sem_post 调用时持有 irq_lock（sem_post 可能触发任务切换）。
+ * enqueue 的 flags 检查和链表插入在同一 irq_lock 内完成，
+ * 消除 CAS 与 list_add_tail 之间的 TOCTOU 窗口。
+ * irq_lock 保证 flags 和链表操作的原子性。
  * =================================================================== */
 
 /**
@@ -339,26 +323,23 @@ OmRet workqueue_enqueue(Workqueue *wq, Work *work)
     if (!wq || !work) return OM_ERROR_PARAM;
 
     /** 拒绝：工作队列未在运行 */
-    if (OM_LOAD_ACQ(&wq->state) != WORKQUEUE_STATE_RUNNING) {
+    if (wq->state != WORKQUEUE_STATE_RUNNING) {
         return OM_ERROR;
     }
 
-    /** 去重：原子 CAS 从 IDLE 切换到 PENDING。
-     *
-     *  如果 work 当前是 PENDING 或 RUNNING，CAS 失败 → 返回 BUSY
-     *  (等同于 Linux cmwq 的 WORK_STRUCT_PENDING_BIT 去重机制)。 */
-    {
-        uint32_t expected = WORK_FLAG_IDLE;
-        if (!OM_CAS_RLX(&work->flags, &expected, WORK_FLAG_PENDING)) {
-            return OM_ERROR_BUSY; /** 已在队列中或正在执行 */
-        }
-    }
-
-    /** 关中断：将 work 插入 pending 链表尾部（FIFO 顺序） */
+    /** 关中断：flags 去重检查 + 链表插入在同一临界区内 */
     {
         OsalIrqIsrState key;
         osal_irq_lock(&key);
+
+        if (work->flags != WORK_FLAG_IDLE) {
+            osal_irq_unlock(key);
+            return OM_ERROR_BUSY;
+        }
+
+        work->flags = WORK_FLAG_PENDING;
         list_add_tail(&work->node, &wq->pending);
+
         osal_irq_unlock(key);
     }
 
@@ -371,16 +352,14 @@ OmRet workqueue_enqueue(Workqueue *wq, Work *work)
 /* ===================================================================
  * 取消操作
  *
- * cancel 所有操作（flags 检查、CANCELLED 标记、链表删除）均在 irq_lock
- * 临界区内完成。irq_lock 禁用中断和抢占，flags 和链表操作的原子性
- * 由临界区本身保证，使用普通 volatile 读写即可。
+ * cancel 所有操作（flags 检查、链表删除、flags 恢复）均在 irq_lock
+ * 临界区内完成。irq_lock 禁用中断和抢占，保证 flags 和链表操作的原子性。
  * =================================================================== */
 
 /**
  * @brief 取消一个 pending 工作项
  *
- * 线程安全和 ISR 安全。不从特定 workqueue 上取消，而是通过 Work 自身的
- * flags 和 list node 操作。这意味着调用者无需知道 work 在哪个队列上。
+ * 线程安全和 ISR 安全。调用者无需知道 work 在哪个 workqueue 上。
  *
  * @param work  要取消的工作项。
  * @return      OM_OK 成功取消（work 恢复 IDLE，可重新入队）；
@@ -393,8 +372,6 @@ OmRet workqueue_cancel(Work *work)
     if (!work) return OM_ERROR_PARAM;
 
     OsalIrqIsrState key;
-
-    /** ---- 所有 flags 检查和修改均在 irq_lock 内进行 ---- */
     osal_irq_lock(&key);
 
     uint32_t f = work->flags;
@@ -405,30 +382,16 @@ OmRet workqueue_cancel(Work *work)
         return OM_ERROR_BUSY;
     }
 
-    /** 拒绝：work 不在 pending 状态（可能已执行完毕或从未入队） */
+    /** 拒绝：work 不在 pending 状态 */
     if (!(f & WORK_FLAG_PENDING)) {
         osal_irq_unlock(key);
         return OM_ERROR;
     }
 
-    /** 标记取消意图 */
-    work->flags = f | WORK_FLAG_CANCELLED;
-
-    /** 尝试从 pending 链表移除。
-     *
-     *  因为我们持有 irq_lock，worker 不可能在此期间从链表取走该节点。
-     *  因此在 flags 为 PENDING 的前提下，节点必定仍在链表中。
-     *
-     *  list_del_init 将节点 next/prev 设为 NULL，兼具毒化效果。
-     *  后续 work_init() 会重新 INIT_LIST_HEAD 使节点恢复可用。 */
-    if (list_node_is_linked(&work->node)) {
-        list_del_init(&work->node);
-        /** 成功从链表移除 → 清理所有标志位，work 恢复 IDLE */
-        work->flags = WORK_FLAG_IDLE;
-    }
-    /** 如果节点已不在链表中：worker 已在另一个 irq_lock 临界区中
-     *  将其取出。worker 在检查 flags 时会检测到我们设置的 CANCELLED 位，
-     *  并跳过执行。 */
+    /** 从 pending 链表移除并恢复 IDLE。
+     *  irq_lock 保证 worker 不可能并发取走该节点。 */
+    list_del(&work->node);
+    work->flags = WORK_FLAG_IDLE;
 
     osal_irq_unlock(key);
     return OM_OK;
@@ -437,13 +400,23 @@ OmRet workqueue_cancel(Work *work)
 /* ===================================================================
  * 排空操作（Flush）
  *
- * flush 等待当前 pending 队列中所有工作项执行完毕。
- * 实现原理：通过两次 sem_post/sem_wait 握手确保 worker 已完成至少
- * 一次完整的排空循环。
+ * 参考 Linux 内核 flush_workqueue 的 barrier work 方案：
+ * 向 pending 队列尾部插入一个 barrier work，等待它执行完毕。
+ * FIFO 语义保证 barrier 之前的所有 work 已执行完毕。
  * =================================================================== */
+
+/** barrier work 的回调：通知 flush 调用者 */
+static void flush_barrier_fn(Work *w)
+{
+    Completion *c = (Completion *)w->data;
+    completion_done(c);
+}
 
 /**
  * @brief 排空所有 pending 工作项并同步等待完成
+ *
+ * 向 pending 队列尾部插入一个 barrier work 并阻塞等待其执行。
+ * FIFO 语义保证 barrier 之前的所有 work 已执行完毕（或被取消）。
  *
  * @param wq  正在运行的工作队列。
  * @return    OM_OK 成功，OM_ERROR 状态非法，OM_ERROR_PARAM 参数为 NULL。
@@ -453,22 +426,30 @@ OmRet workqueue_flush(Workqueue *wq)
     if (!wq) return OM_ERROR_PARAM;
 
     /** 工作队列必须处于 RUNNING 状态 */
-    if (OM_LOAD_ACQ(&wq->state) != WORKQUEUE_STATE_RUNNING) {
+    if (wq->state != WORKQUEUE_STATE_RUNNING) {
         return OM_ERROR;
     }
 
-    /** 发送两次信号量并等待 worker 两次消费。
-     *
-     *  第一次信号量触发 worker 排空当前 pending 队列，
-     *  第二次信号量确认 worker 已完成排空并回到了 sem_wait 等待状态。
-     *
-     *  这种双握手确保 worker 至少完成了一次完整的"取出→执行→回到等待"
-     *  循环，因此入队早于 flush 调用的所有 work 已处理完毕。 */
-    osal_sem_post_auto(wq->sem);
-    osal_sem_wait(wq->sem, OSAL_WAIT_FOREVER);
+    /** 初始化 barrier 同步原语 */
+    Completion barrier;
+    OmRet rc = completion_init(&barrier);
+    if (rc != OM_OK) return rc;
 
-    osal_sem_post_auto(wq->sem);
-    osal_sem_wait(wq->sem, OSAL_WAIT_FOREVER);
+    /** 创建并入队 barrier work。
+     *  barrier 排在当前所有 pending work 之后，
+     *  FIFO 语义确保它执行时之前的 work 已全部完成。 */
+    Work bw;
+    work_init(&bw, flush_barrier_fn, &barrier);
+
+    rc = workqueue_enqueue(wq, &bw);
+    if (rc != OM_OK) {
+        completion_deinit(&barrier);
+        return rc;
+    }
+
+    /** 阻塞等待 barrier work 执行完毕 */
+    completion_wait(&barrier, OSAL_WAIT_FOREVER);
+    completion_deinit(&barrier);
 
     return OM_OK;
 }
@@ -486,7 +467,7 @@ OmRet workqueue_flush(Workqueue *wq)
 int workqueue_get_state(const Workqueue *wq)
 {
     if (!wq) return WORKQUEUE_STATE_UNINIT;
-    return OM_LOAD_RLX(&wq->state);
+    return wq->state;
 }
 
 /**

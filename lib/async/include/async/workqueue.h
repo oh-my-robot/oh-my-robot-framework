@@ -29,19 +29,19 @@
  *
  * 双向链表支持两项关键操作：
  * - **O(1) 队头出队**: worker 通过 list_first_entry 获取下一个工作项
- * - **O(1) 任意位置删除**: cancel 通过 list_node_is_linked + list_del_init 从队列中间移除
+ * - **O(1) 任意位置删除**: cancel 通过 list_del 从队列中间移除
  *
  * ## Worker Ownership 协议
  *
- * Enqueue、Worker、Cancel 三方通过 irq_lock + flags 标志位协调对 Work 的"所有权"：
+ * Enqueue、Worker、Cancel 三方通过 irq_lock + flags 协调对 Work 的"所有权"：
  *
  * ```
- * enqueue:  [CAS: IDLE→PENDING]  →  [irq_lock: list_add_tail]  →  [sem_post]
- * worker:   [sem_wait]  →  [irq_lock: list_del + flags=PENDING→RUNNING]  →  [执行 func]
- * cancel:   [irq_lock: 检查 flags + 设置 CANCELLED + 可能 list_del]
+ * enqueue:  [irq_lock: flags 检查 + list_add_tail]  →  [sem_post]
+ * worker:   [sem_wait]  →  [irq_lock: list_del + flags=RUNNING]  →  [执行 func]  →  [flags=IDLE]
+ * cancel:   [irq_lock: 检查 flags + list_del + flags=IDLE]
  * ```
  *
- * **关键不变量**: list_del_init 和 flags 状态转换必须在同一 irq_lock 临界区内完成。
+ * **关键不变量**: flags 检查、链表操作和 flags 状态转换均在同一 irq_lock 临界区内完成。
  * 这确保 cancel 看到 PENDING 时节点必定在链表中，看到 RUNNING 时 worker 已认领。
  *
  * ## 生命周期状态机
@@ -69,21 +69,22 @@ extern "C" {
 #include "osal/osal_core.h"
 #include "osal/osal_sem.h"
 #include "osal/osal_thread.h"
-#include "atomic/atomic_simple.h"
+#include "sync/completion.h"
 
 /* --------------------------------------------------------------------------
- * Work 标志位（内部使用）
+ * Work 标志位
+ *
+ * 被 work_is_busy() 等内联函数使用，必须暴露在公共头文件中。
+ * 所有 flags 修改均在 irq_lock 临界区内完成，调用者不应直接写 flags。
  *
  * 状态迁移规则：
- *   IDLE ──[enqueue CAS]──→ PENDING ──[worker]──→ RUNNING ──[func 结束]──→ IDLE
- *   PENDING ──[cancel]──→ PENDING | CANCELLED ──[cancel list_del]──→ IDLE
- *   PENDING ──[cancel]──→ PENDING | CANCELLED ──[worker 检测到, 跳过]──→ RUNNING → IDLE
+ *   IDLE ──[enqueue irq_lock]──→ PENDING ──[worker irq_lock]──→ RUNNING ──[func 结束]──→ IDLE
+ *   PENDING ──[cancel irq_lock]──→ IDLE
  * -------------------------------------------------------------------------- */
 
 #define WORK_FLAG_IDLE      ((uint32_t)0x00U) /**< 空闲，可被入队 */
 #define WORK_FLAG_PENDING   ((uint32_t)0x01U) /**< 在 pending 队列中等待 */
-#define WORK_FLAG_CANCELLED ((uint32_t)0x02U) /**< 取消请求已发出 */
-#define WORK_FLAG_RUNNING   ((uint32_t)0x04U) /**< worker 正在执行 */
+#define WORK_FLAG_RUNNING   ((uint32_t)0x02U) /**< worker 正在执行 */
 
 /* --------------------------------------------------------------------------
  * Workqueue 生命周期状态
@@ -133,10 +134,10 @@ typedef void (*WorkFunc)(Work *work);
  * - flags: 状态标志位（WORK_FLAG_*），在 irq_lock 内管理
  */
 struct Work {
-    ListHead      node;  /**< 侵入式链表节点，挂在 pending 队列 */
-    WorkFunc      func;  /**< 工作处理函数 */
-    void         *data;  /**< 用户上下文 */
-    OmAtomicUint  flags; /**< 状态标志位 (WORK_FLAG_*) */
+    ListHead        node;  /**< 侵入式链表节点，挂在 pending 队列 */
+    WorkFunc        func;  /**< 工作处理函数 */
+    void           *data;  /**< 用户上下文 */
+    volatile uint32_t flags; /**< 状态标志位 (WORK_FLAG_*) */
 };
 
 /**
@@ -157,16 +158,16 @@ typedef struct WorkqueueConfig {
  *   Workqueue wq;
  *   workqueue_init(&wq, &cfg);
  */
-struct Workqueue {
+typedef struct Workqueue {
     ListHead     pending;      /**< pending 工作项双向链表哨兵 */
     OsalSem     *sem;          /**< 工作到达信号量（计数型，最大1） */
     OsalThread  *thread;       /**< worker 线程句柄 */
     Completion   done;         /**< worker 退出同步原语 */
-    OmAtomicInt  state;        /**< 生命周期状态 (WORKQUEUE_STATE_*) */
+    volatile int state;        /**< 生命周期状态 (WORKQUEUE_STATE_*) */
     uint32_t     stack_depth;  /**< worker 线程栈大小（字节） */
     uint32_t     priority;     /**< worker 线程优先级 */
     const char  *name;         /**< 调试名称 */
-};
+} Workqueue;
 
 /* --------------------------------------------------------------------------
  * API
@@ -274,8 +275,8 @@ OmRet workqueue_cancel(Work *work);
  * 同步等待——返回时，所有当前 pending 的工作项已执行完毕（或被取消）。
  * 工作队列必须处于 RUNNING 状态。
  *
- * 实现通过两次 sem_post/sem_wait 握手确保 worker 已完成至少一次完整的
- * 排空循环。
+ * 实现采用 barrier work 方案：向队列尾部插入一个 barrier 工作项，
+ * FIFO 语义保证 barrier 执行时之前的所有 work 已完成。
  *
  * @param wq  正在运行的工作队列。
  * @return    OM_OK 成功，OM_ERROR 工作队列未在运行，OM_ERROR_PARAM 参数为 NULL。
@@ -319,7 +320,7 @@ static inline void work_init(Work *work, WorkFunc func, void *data)
     INIT_LIST_HEAD(&work->node);
     work->func = func;
     work->data = data;
-    OM_STORE_RLX(&work->flags, WORK_FLAG_IDLE);
+    work->flags = WORK_FLAG_IDLE;
 }
 
 /**
@@ -330,8 +331,7 @@ static inline void work_init(Work *work, WorkFunc func, void *data)
  */
 static inline bool work_is_busy(const Work *work)
 {
-    uint32_t f = OM_LOAD_ACQ(&work->flags);
-    return (f & (WORK_FLAG_PENDING | WORK_FLAG_RUNNING)) != 0U;
+    return (work->flags & (WORK_FLAG_PENDING | WORK_FLAG_RUNNING)) != 0U;
 }
 
 #ifdef __cplusplus
