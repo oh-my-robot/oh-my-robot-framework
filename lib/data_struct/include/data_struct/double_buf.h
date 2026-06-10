@@ -143,6 +143,39 @@ static inline size_t dbuf_get_write_size(DoubleBuf *db)
 void dbuf_commit(DoubleBuf *db, size_t len);
 
 /**
+ * @brief 标记当前写 page 数据就绪，但不交换 page 角色
+ *
+ * 与 dbuf_commit() 的区别：仅设置 len[w_idx]，不翻转 idx。
+ * 通常与 dbuf_swap() 配合使用，用于 DMA 场景——数据已填入写 page，
+ * 但需等当前 DMA 传输完成后才能翻转 page 角色。
+ *
+ * 典型用法：
+ * @code
+ *   // 生产者（帧1 — DMA 空闲）
+ *   buf = dbuf_get_write_ptr(&db);
+ *   fill(buf, N);
+ *   dbuf_commit(&db, N);        // 翻转 idx，启动 DMA
+ *
+ *   // 生产者（帧2 — DMA 运行中，CPU 并行填充另一页）
+ *   buf = dbuf_get_write_ptr(&db);
+ *   fill(buf, M);
+ *   dbuf_mark_written(&db, M);  // 只标记，不翻转
+ *
+ *   // DMA 完成 → ISR 调用 dbuf_swap(&db) → 帧2 对消费者可见
+ * @endcode
+ *
+ * @param db  双缓冲区对象指针
+ * @param len 写入的有效数据长度（超过 page_size 时自动截断）
+ */
+static inline void dbuf_mark_written(DoubleBuf *db, size_t len)
+{
+    unsigned int w_idx = OM_LOAD_RLX(&db->idx);
+    if (len > db->page_size)
+        len = db->page_size;
+    db->len[w_idx] = len;
+}
+
+/**
  * @brief 仅交换 page 角色（适用于 DMA 等由硬件管理数据长度的场景）
  * @param db 双缓冲区对象指针
  */
@@ -242,6 +275,23 @@ size_t dbuf_get_read_len(DoubleBuf *db);
  *         false 写 page 中有未消费数据，此时写入将导致丢帧
  */
 bool dbuf_is_write_ready(DoubleBuf *db);
+
+/**
+ * @brief 检查写 page 是否有已标记就绪但尚未翻转的数据
+ *
+ * 用于 DMA 场景：生产者已通过 dbuf_mark_written() 标记数据，
+ * 但因 DMA 仍在传输上一帧而推迟了 swap。调用者（如 ISR）可在当前
+ * DMA 完成后检查此接口，决定是否需要 dbuf_swap() 来让新帧可见。
+ *
+ * @param db 双缓冲区对象指针
+ * @return true  写 page 中有待翻转的数据（len[w_idx] != 0）
+ *         false 写 page 空闲
+ */
+static inline bool dbuf_is_pending(DoubleBuf *db)
+{
+    unsigned int w_idx = OM_LOAD_ACQ(&db->idx);
+    return db->len[w_idx] != 0U;
+}
 
 /**
  * @brief 获取单个 page 的容量
