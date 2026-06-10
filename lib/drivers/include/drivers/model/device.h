@@ -20,6 +20,7 @@ typedef enum {
     DEVICE_TYPE_GPIO,
     DEVICE_TYPE_CAN,
     DEVICE_TYPE_SERIAL,
+    DEVICE_TYPE_SPI,
 } DeviceType;
 
 typedef struct DevInterface  DevInterface;

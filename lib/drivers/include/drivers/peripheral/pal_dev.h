@@ -16,4 +16,8 @@
 #include "gpio/pal_gpio_dev.h"
 #endif
 
+#ifdef OM_USE_HAL_SPI
+#include "spi/pal_spi_dev.h"
+#endif
+
 #endif // __PAL_DEV_H__
