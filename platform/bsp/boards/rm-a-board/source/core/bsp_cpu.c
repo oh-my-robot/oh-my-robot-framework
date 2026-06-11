@@ -94,6 +94,7 @@ void om_board_init(void)
     DWT_Init(__OM_CPU_FREQ_MHZ);
     bsp_serial_register();
     bsp_can_register();
+    bsp_gpio_register();
 }
 
 /**
