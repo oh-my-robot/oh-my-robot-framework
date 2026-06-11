@@ -58,7 +58,6 @@
 /* #define HAL_GFXMMU_MODULE_ENABLED   */
 /* #define HAL_JPEG_MODULE_ENABLED   */
 /* #define HAL_OPAMP_MODULE_ENABLED   */
-/* #define HAL_OSPI_MODULE_ENABLED   */
 /* #define HAL_I2S_MODULE_ENABLED   */
 /* #define HAL_SMBUS_MODULE_ENABLED   */
 /* #define HAL_IWDG_MODULE_ENABLED   */
@@ -80,7 +79,6 @@
 /* #define HAL_IRDA_MODULE_ENABLED   */
 /* #define HAL_SMARTCARD_MODULE_ENABLED   */
 /* #define HAL_WWDG_MODULE_ENABLED   */
-/* #define HAL_PCD_MODULE_ENABLED   */
 /* #define HAL_HCD_MODULE_ENABLED   */
 /* #define HAL_DFSDM_MODULE_ENABLED   */
 /* #define HAL_DSI_MODULE_ENABLED   */
@@ -398,9 +396,6 @@
 #include "stm32h7xx_hal_opamp.h"
 #endif /* HAL_OPAMP_MODULE_ENABLED */
 
-#ifdef HAL_OSPI_MODULE_ENABLED
- #include "stm32h7xx_hal_ospi.h"
-#endif /* HAL_OSPI_MODULE_ENABLED */
 
 #ifdef HAL_OTFDEC_MODULE_ENABLED
 #include "stm32h7xx_hal_otfdec.h"
@@ -482,9 +477,6 @@
  #include "stm32h7xx_hal_wwdg.h"
 #endif /* HAL_WWDG_MODULE_ENABLED */
 
-#ifdef HAL_PCD_MODULE_ENABLED
- #include "stm32h7xx_hal_pcd.h"
-#endif /* HAL_PCD_MODULE_ENABLED */
 
 #ifdef HAL_HCD_MODULE_ENABLED
  #include "stm32h7xx_hal_hcd.h"
