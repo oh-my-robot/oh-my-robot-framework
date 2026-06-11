@@ -83,6 +83,7 @@ target("tar_awapi_driver")
     add_deps("tar_awapi_osal", {public = true})
     add_deps("tar_awapi_sync", {public = true})
     add_deps("tar_awapi_ipc", {public = true})
+    add_deps("tar_awapi_async", {public = true})
 target_end()
 
 --- @target tar_awalgo
