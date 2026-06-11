@@ -37,8 +37,8 @@ static OmRet bsp_gpio_pin_configure(GpioController *ctrl, uint8_t offset,
         init.Mode = (cfg->drive == GPIO_DRIVE_OPEN_DRAIN)
                         ? GPIO_MODE_OUTPUT_OD
                         : GPIO_MODE_OUTPUT_PP;
-        init.Speed = (cfg->speed == GPIO_SPEED_HIGH)    ? GPIO_SPEED_FREQ_VERY_HIGH
-                   : (cfg->speed == GPIO_SPEED_MEDIUM) ? GPIO_SPEED_FREQ_MEDIUM
+        init.Speed = (cfg->speed == GPIO_DRIVE_STRENGTH_HIGH)    ? GPIO_SPEED_FREQ_VERY_HIGH
+                   : (cfg->speed == GPIO_DRIVE_STRENGTH_MEDIUM) ? GPIO_SPEED_FREQ_MEDIUM
                                                        : GPIO_SPEED_FREQ_LOW;
         if (cfg->init_high)
             HAL_GPIO_WritePin(bsp->port, init.Pin, GPIO_PIN_SET);

@@ -271,7 +271,7 @@ bool    gpio_pin_valid(GpioPin pin);
 typedef enum { GPIO_DIR_INPUT, GPIO_DIR_OUTPUT } GpioDirection;
 typedef enum { GPIO_PULL_NONE, GPIO_PULL_UP, GPIO_PULL_DOWN } GpioPull;
 typedef enum { GPIO_DRIVE_PUSH_PULL, GPIO_DRIVE_OPEN_DRAIN } GpioDrive;
-typedef enum { GPIO_SPEED_LOW, GPIO_SPEED_MEDIUM, GPIO_SPEED_HIGH } GpioDriveStrength;
+typedef enum { GPIO_DRIVE_STRENGTH_LOW, GPIO_DRIVE_STRENGTH_MEDIUM, GPIO_DRIVE_STRENGTH_HIGH } GpioDriveStrength;
 
 typedef struct {
     GpioDirection direction;

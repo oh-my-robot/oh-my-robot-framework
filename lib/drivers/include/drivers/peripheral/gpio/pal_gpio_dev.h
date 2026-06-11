@@ -68,9 +68,9 @@ typedef enum {
 
 /** 驱动强度（硬件相关，不支持时 BSP 返回 OM_ENOTSUP） */
 typedef enum {
-    GPIO_SPEED_LOW    = 0U,  /**< 低驱动强度 */
-    GPIO_SPEED_MEDIUM = 1U,  /**< 中驱动强度 */
-    GPIO_SPEED_HIGH   = 2U,  /**< 高驱动强度 */
+    GPIO_DRIVE_STRENGTH_LOW    = 0U,  /**< 低驱动强度 */
+    GPIO_DRIVE_STRENGTH_MEDIUM = 1U,  /**< 中驱动强度 */
+    GPIO_DRIVE_STRENGTH_HIGH   = 2U,  /**< 高驱动强度 */
 } GpioDriveStrength;
 
 /** 中断触发模式 */
