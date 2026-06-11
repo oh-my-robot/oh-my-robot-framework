@@ -474,9 +474,18 @@ OmRet gpio_pin_irq_enable(GpioPin pin, bool enable);
 
 /**
  * @name 端口级批量操作
- * @details 端口级 API 直接操作硬件寄存器，使用**物理电平**语义：
- *          value 的每一位直接对应引脚的物理电平，不经过 ACTIVE_LOW 反转。
- *          如需逻辑电平操作，请使用引脚级 API（gpio_pin_write 等）。
+ * @details 端口级 API 以控制器为粒度，通过 32 位位掩码一次性操作多个引脚。
+ *
+ *          **位映射约定**（所有参数统一）：
+ *          - `pins` 和 `mask` 均为**位选择器**：bit N = 1 表示选中控制器内偏移为 N 的引脚，
+ *            bit N = 0 表示跳过该引脚。两者含义相同，命名差异仅在于是否需要独立的 `value` 参数。
+ *          - `value` 中的有效位由 `mask` 限定：仅在 `mask` 的 bit N = 1 时，`value` 的
+ *            bit N 才有意义（0 = 物理低电平，1 = 物理高电平）。
+ *          - `port_read` 返回的每个 bit N 对应引脚 N 的物理电平。
+ *          - 框架层会将所有输入参数截断到 `[0, pin_count)` 范围内，超出 `pin_count`
+ *            的位自动清除，BSP 不会收到越界的位掩码。
+ *          - 所有端口级 API 采用**物理电平**语义，不经过 `GPIO_FLAG_ACTIVE_LOW` 反转。
+ *            如需逻辑电平操作，请使用引脚级 API（gpio_pin_write 等）。
  *
  *          Zephyr 提供了 gpio_port_set_masked（逻辑）和 _raw 变体（物理），
  *          当前设计出于简洁性考虑仅提供物理接口，后续可按需扩展。
@@ -501,41 +510,70 @@ static inline bool gpio_port_valid(GpioPort port)
 
 /**
  * @brief  掩码写入端口
+ * @details 根据 @p mask 和 @p value 同时更新多个引脚的物理电平。
+ *          对于 mask 中每个为 1 的位 N：将引脚 N 写为 value 的 bit N。
+ *          mask 为 0 的位对应的引脚保持不变。
+ *
+ *          示例：mask=0x0005, value=0x0001 → 引脚 0 拉高，引脚 2 拉低，其余不变
+ *
+ *          是 gpio_port_set_bits / gpio_port_clear_bits 的超集。
+ *          若支持原子 BSRR（如 STM32），mask 和 value 可合并为一次寄存器写入。
+ *
  * @param[in] port   有效的端口句柄
- * @param[in] mask   写入掩码，仅 mask 为 1 的位被更新
- * @param[in] value  待写入的值
+ * @param[in] mask   位选择器，bit N=1 表示引脚 N 被写入
+ * @param[in] value  目标电平值，bit N 仅在 mask 的 bit N=1 时有意义
  * @return OM_OK 成功，OM_ERROR_PARAM 控制器不支持此操作或参数无效
  */
 OmRet gpio_port_write_masked(GpioPort port, uint32_t mask, uint32_t value);
 
 /**
- * @brief  原子置位指定引脚
+ * @brief  原子置位指定引脚（全部拉高）
+ * @details 将 @p pins 中为 1 的位对应的引脚物理电平拉高，其余引脚不变。
+ *          等效于 `gpio_port_write_masked(port, pins, pins)`。
+ *
+ *          示例：pins=0x000A → 引脚 1 和引脚 3 拉高，其余不变
+ *
  * @param[in] port  有效的端口句柄
- * @param[in] pins  目标引脚位掩码
+ * @param[in] pins  位选择器，bit N=1 表示引脚 N 被拉高
  * @return OM_OK 成功，OM_ERROR_PARAM 控制器不支持此操作或参数无效
  */
 OmRet gpio_port_set_bits(GpioPort port, uint32_t pins);
 
 /**
- * @brief  原子清零指定引脚
+ * @brief  原子清零指定引脚（全部拉低）
+ * @details 将 @p pins 中为 1 的位对应的引脚物理电平拉低，其余引脚不变。
+ *          等效于 `gpio_port_write_masked(port, pins, 0)`。
+ *
+ *          示例：pins=0x000A → 引脚 1 和引脚 3 拉低，其余不变
+ *
  * @param[in] port  有效的端口句柄
- * @param[in] pins  目标引脚位掩码
+ * @param[in] pins  位选择器，bit N=1 表示引脚 N 被拉低
  * @return OM_OK 成功，OM_ERROR_PARAM 控制器不支持此操作或参数无效
  */
 OmRet gpio_port_clear_bits(GpioPort port, uint32_t pins);
 
 /**
  * @brief  原子翻转指定引脚
+ * @details 将 @p pins 中为 1 的位对应的引脚物理电平取反，其余引脚不变。
+ *
+ *          示例：pins=0x000A → 引脚 1 和引脚 3 电平翻转，其余不变
+ *
+ * @warning STM32F4 的 ODR ^= pins 是读-改-写操作，非原子。
+ *          调用者需保证不对同一控制器在多个上下文中并发调用此函数。
+ *
  * @param[in] port  有效的端口句柄
- * @param[in] pins  目标引脚位掩码
+ * @param[in] pins  位选择器，bit N=1 表示引脚 N 被翻转
  * @return OM_OK 成功，OM_ERROR_PARAM 控制器不支持此操作或参数无效
  */
 OmRet gpio_port_toggle_bits(GpioPort port, uint32_t pins);
 
 /**
- * @brief  读取整个端口电平
+ * @brief  读取整个端口物理电平
+ * @details 返回 32 位值，bit N 对应引脚 N 的当前物理电平（0=低，1=高）。
+ *          超出 pin_count 的高位被框架层清零。
+ *
  * @param[in] port  有效的端口句柄
- * @return 端口电平值，每位对应一个引脚；控制器不支持时返回 0
+ * @return 端口电平值（bit N = 引脚 N 的物理电平），控制器不支持时返回 0
  */
 uint32_t gpio_port_read(GpioPort port);
 

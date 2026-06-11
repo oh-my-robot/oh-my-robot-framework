@@ -251,50 +251,61 @@ GpioPort gpio_port_get(const char *controller)
 
 /**
  * @brief  委托 BSP ops 掩码写入端口
+ * @details mask 中超出 pin_count 的位在框架层被截断，BSP 收到的 mask 仅含有效位。
  */
 OmRet gpio_port_write_masked(GpioPort port, uint32_t mask, uint32_t value)
 {
     if (!port.ctrl || !port.ctrl->ops->port_write_masked)
         return OM_ERROR_PARAM;
-    return port.ctrl->ops->port_write_masked(port.ctrl, mask, value);
+    uint32_t valid_mask = (1U << port.ctrl->pin_count) - 1;
+    return port.ctrl->ops->port_write_masked(port.ctrl, mask & valid_mask,
+                                             value);
 }
 
 /**
  * @brief  委托 BSP ops 原子置位引脚
+ * @details pins 中超出 pin_count 的位在框架层被截断，BSP 收到的 pins 仅含有效位。
  */
 OmRet gpio_port_set_bits(GpioPort port, uint32_t pins)
 {
     if (!port.ctrl || !port.ctrl->ops->port_set_bits)
         return OM_ERROR_PARAM;
-    return port.ctrl->ops->port_set_bits(port.ctrl, pins);
+    uint32_t valid_mask = (1U << port.ctrl->pin_count) - 1;
+    return port.ctrl->ops->port_set_bits(port.ctrl, pins & valid_mask);
 }
 
 /**
  * @brief  委托 BSP ops 原子清零引脚
+ * @details pins 中超出 pin_count 的位在框架层被截断，BSP 收到的 pins 仅含有效位。
  */
 OmRet gpio_port_clear_bits(GpioPort port, uint32_t pins)
 {
     if (!port.ctrl || !port.ctrl->ops->port_clear_bits)
         return OM_ERROR_PARAM;
-    return port.ctrl->ops->port_clear_bits(port.ctrl, pins);
+    uint32_t valid_mask = (1U << port.ctrl->pin_count) - 1;
+    return port.ctrl->ops->port_clear_bits(port.ctrl, pins & valid_mask);
 }
 
 /**
  * @brief  委托 BSP ops 原子翻转引脚
+ * @details pins 中超出 pin_count 的位在框架层被截断，BSP 收到的 pins 仅含有效位。
  */
 OmRet gpio_port_toggle_bits(GpioPort port, uint32_t pins)
 {
     if (!port.ctrl || !port.ctrl->ops->port_toggle_bits)
         return OM_ERROR_PARAM;
-    return port.ctrl->ops->port_toggle_bits(port.ctrl, pins);
+    uint32_t valid_mask = (1U << port.ctrl->pin_count) - 1;
+    return port.ctrl->ops->port_toggle_bits(port.ctrl, pins & valid_mask);
 }
 
 /**
  * @brief  委托 BSP ops 读取端口电平
+ * @details 返回值为 BSP 返回值经 pin_count 掩码截断，高位噪声已清除。
  */
 uint32_t gpio_port_read(GpioPort port)
 {
     if (!port.ctrl || !port.ctrl->ops->port_read)
         return 0;
-    return port.ctrl->ops->port_read(port.ctrl);
+    uint32_t valid_mask = (1U << port.ctrl->pin_count) - 1;
+    return port.ctrl->ops->port_read(port.ctrl) & valid_mask;
 }
