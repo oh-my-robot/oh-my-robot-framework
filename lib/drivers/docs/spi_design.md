@@ -260,6 +260,7 @@ typedef struct SpiAsyncRequest {
     OmRet            status;           /* 传输结果（ISR→bus→worker 填入）       */
     void           (*asyncCb)(void *param, struct SpiAsyncRequest *req); /* 完成回调  */
     void            *asyncParam;       /* 回调参数                     */
+    uint32_t         epoch;            /* 入队时的 bus->asyncEpoch 快照（防悬垂复用）  */
     Work             work;             /* workqueue 调度单元（含链表节点）*/
 } SpiAsyncRequest;
 
@@ -299,13 +300,15 @@ typedef struct SpiBus {
     OmRet            lastStatus;       /* ISR 写入的传输结果            */
 
     /* ---- 硬件传输状态 ---- */
-    uint8_t          busy;             /* 硬件传输进行中（poll/IRQ/DMA）*/
+    volatile uint8_t busy;             /* 硬件传输进行中（poll/IRQ/DMA）*/
 
     /* ---- Peek 预填充追踪 ---- */
     SpiAsyncRequest *prefillTarget;    /* 预填充目标请求（NULL=无预填） */
+    uint32_t         prefillEpoch;     /* 预填充时的请求 epoch（防悬垂复用） */
 
-    /* ---- 异步 work 调度（框架自建 per-bus）---- */
+    /* ---- 异步调度（框架自建 per-bus workqueue）---- */
     Workqueue        asyncWq;          /* workqueue 引擎（其内部 pending 队列 = 请求队列） */
+    uint32_t         asyncEpoch;       /* 异步请求递增序号（每个 transfer_async +1） */
 
     /* ---- 总线级 suspend ref-counting ---- */
     uint8_t          suspendedCount;   /* 已挂起的从设备数量            */
@@ -339,6 +342,7 @@ typedef struct SpiDeviceCfg {
     uint32_t        maxHz;              /* 最大 SCLK 频率 (Hz)          */
     uint8_t         dataWidth;          /* SPI_DATA_WIDTH_8/16          */
     uint8_t         bitOrder;           /* SPI_MSB_FIRST / SPI_LSB_FIRST*/
+    uint32_t        transferOverheadMs; /* 传输超时附加余量（ms），补偿 BSP 启动/ISR/调度延迟 */
 } SpiDeviceCfg;
 ```
 
@@ -545,7 +549,7 @@ hal_spi_transfer(dev, xfer)
   ├─ transfer(bus, xfer->txBuf, xfer->rxBuf, xfer->txLen) — 启动硬件（非阻塞）
   │    └─ ret != OM_OK → spi_cs_deassert, unlock, return ret
   ├─ busy = 1
-  ├─ 动态计算超时 = (xfer->txLen * 8000 / dev->cfg.maxHz) + OVERHEAD_MS
+  ├─ 动态计算超时 = (xfer->txLen * 8000 / dev->cfg.maxHz) + cfg.transferOverheadMs
   ├─ completion_wait(&bus->transferDone, computed_timeout)
   │    ├─ timeout → busy=0; completion_wait(&bus->transferDone, 0);  // drain 残余
   │    │             spi_cs_deassert(dev); unlock; return ERR_SPI_TRANSFER_TIMEOUT
@@ -568,7 +572,8 @@ hal_spi_transfer_async(dev, req)  // req 由调用者分配，tx/rx/len 已填�
   ├─ 参数校验（dev/req/asyncCb非NULL, req->len>0, tx或rx非NULL）
   ├─ if (dev->suspended) → return ERR_SPI_DEV_SUSPENDED
   ├─ if (DoubleBuf 已启用且 req->len > dbuf_page_size) → return OM_ERR_PARAM
-  ├─ req->dev = dev; req->status = OM_OK
+  ├─ req->dev = dev; req->status = OM_OK; req->transferred = 0
+  ├─ req->epoch = ++bus->asyncEpoch   // irq_lock 保护递增原子性
   ├─ work_init(&req->work, spi_async_worker_func, req)
   └─ workqueue_enqueue(&bus->asyncWq, &req->work) → return OM_OK
 
@@ -581,8 +586,9 @@ spi_async_worker_func(req):
 
   ├─== DoubleBuf 数据就位 ==
   │   if (DoubleBuf 启用) {
-  │       if (dbuf_is_pending(&bus->txDbuf) && req == bus->prefillTarget) {
-  │           // 上轮预填充目标匹配 → 仅翻转（零拷贝）
+  │       if (dbuf_is_pending(&bus->txDbuf) && req == bus->prefillTarget
+  │           && req->epoch == bus->prefillEpoch) {
+  │           // 上轮预填充目标匹配且 epoch 未过期 → 仅翻转（零拷贝）
   │           dbuf_swap(&bus->txDbuf);
   │           bus->prefillTarget = NULL;
   │       } else {
@@ -612,11 +618,12 @@ spi_async_worker_func(req):
   │           memcpy(dbuf_get_write_ptr(&bus->txDbuf), next->tx, next->len);
   │           dbuf_mark_written(&bus->txDbuf, next->len);
   │           bus->prefillTarget = next;    // 记录预填充目标
+  │           bus->prefillEpoch  = next->epoch;  // 记录 epoch 快照
   │       }
   │       osal_irq_unlock(k);
   │   }
 
-  ├─ 动态计算超时 = (req->len * 8000 / req->dev->cfg.maxHz) + OVERHEAD_MS
+  ├─ 动态计算超时 = (req->len * 8000 / req->dev->cfg.maxHz) + cfg.transferOverheadMs
   ├─ completion_wait(&bus->transferDone, computed_timeout)
   │    ├─ timeout → osal_irq_lock; busy=0;               // ISR gate: 阻止迟到 ISR 投递
   │    │             completion_wait(&bus->transferDone, 0); // drain 残留在途信号
@@ -723,6 +730,7 @@ Frame 1 (初次，写 page 无预填数据):
       memcpy(dbuf_get_write_ptr, fb2, FB_SIZE)                        // CPU 填充 P1（与 DMA P0 并行！）
       dbuf_mark_written(&txDbuf, FB_SIZE)                             // 标记 P1 就绪但不翻转
       bus->prefillTarget = &lcdReq2                                   // 记录预填目标
+      bus->prefillEpoch  = lcdReq2.epoch                              // 记录 epoch 快照
       completion_wait(&bus->transferDone)                             // ← worker 阻塞
 
 DMA ISR (Frame 1 完成):
@@ -732,7 +740,8 @@ DMA ISR (Frame 1 完成):
   → return → worker 内循环取出 lcdReq2:
 
 Frame 2 (prefillTarget 匹配):
-      dbuf_is_pending(&txDbuf) && req == bus->prefillTarget → true   // P1 就绪 + 目标匹配
+      dbuf_is_pending(&txDbuf) && req == bus->prefillTarget
+          && req->epoch == bus->prefillEpoch → true                   // P1 就绪 + 目标匹配 + epoch 未过期
       dbuf_swap(&txDbuf)                                              // 翻转 → P1 可读（零拷贝！）
       bus->prefillTarget = NULL
       transfer(bus, dbuf_get_read_ptr, NULL, FB_SIZE)                 // 立即 kick DMA from P1
@@ -740,6 +749,7 @@ Frame 2 (prefillTarget 匹配):
       Peek: memcpy(dbuf_get_write_ptr, fb3, FB_SIZE)                  // CPU 填充 P0（与 DMA P1 并行！）
       dbuf_mark_written(&txDbuf, FB_SIZE)
       bus->prefillTarget = &lcdReq3
+      bus->prefillEpoch  = lcdReq3.epoch
       completion_wait(...)
 
 DMA ISR (Frame 2 完成):
@@ -747,7 +757,7 @@ DMA ISR (Frame 2 完成):
   → 队列空（Frame 3 未到）: worker 回到 sem_wait
 
 后续帧以此类推。若 lcdReq2 被 cancel，worker 取出 lcdReq3 时:
-  prefillTarget (&lcdReq2) != &lcdReq3 → dbuf_flush (丢弃失效预填) → memcpy + commit 正常路径
+  prefillTarget (&lcdReq2) != &lcdReq3 或 epoch 不匹配 → dbuf_flush (丢弃失效预填) → memcpy + commit 正常路径
 ```
 
 ### 5.7 低功耗挂起/恢复
@@ -757,14 +767,17 @@ hal_spi_device_suspend(dev):
   ├─ osal_mutex_lock(bus->lock)
   ├─ if (dev->suspended) → unlock, return  // 幂等
   ├─ dev->suspended = true; bus->suspendedCount++
-  ├─ if (bus->suspendedCount == bus->deviceCount): bus->hw_clock_disable()
+  ├─ if (bus->suspendedCount == bus->deviceCount):
+  │      bus->interface->control(bus, SPI_CMD_SUSPEND, NULL)  // 关闭 SPI 外设时钟
   └─ osal_mutex_unlock(bus->lock)
 
 hal_spi_device_resume(dev):
   ├─ osal_mutex_lock(bus->lock)
   ├─ if (!dev->suspended) → unlock, return  // 幂等
-  ├─ if (bus->suspendedCount == bus->deviceCount): bus->hw_clock_enable()
+  ├─ if (bus->suspendedCount == bus->deviceCount):
+  │      bus->interface->control(bus, SPI_CMD_RESUME, NULL)  // 开启 SPI 外设时钟
   ├─ bus->suspendedCount--; dev->suspended = false
+  ├─ bus->cachedDevice = NULL  // suspend 期间配置可能已丢失，失效缓存
   └─ osal_mutex_unlock(bus->lock)
 ```
 
