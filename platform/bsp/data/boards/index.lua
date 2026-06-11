@@ -5,4 +5,5 @@
 om_board_index = {
     "rm-a-board",
     "rm-c-board",
+    "dm-mc-board",
 }
