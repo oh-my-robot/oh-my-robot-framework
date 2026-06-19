@@ -1,0 +1,16 @@
+; Scatter file for STM32H723VGTx, DM-MC02 / DM-MC-Board02
+
+LR_IROM1 0x08000000 0x00100000  {
+  ER_IROM1 0x08000000 0x00100000  {
+   *.o (RESET, +First)
+   *(InRoot$$Sections)
+   .ANY (+RO)
+   .ANY (+XO)
+  }
+  RW_IRAM1 0x24000000 0x00050000  {
+   .ANY (+RW +ZI)
+  }
+  RW_D2SRAM 0x30000000 0x00008000  {
+   *(.dma_buffer)
+  }
+}
