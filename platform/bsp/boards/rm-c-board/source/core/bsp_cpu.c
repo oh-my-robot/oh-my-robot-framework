@@ -87,6 +87,7 @@ void om_board_init(void)
     bsp_serial_register();
     bsp_can_register();
     bsp_gpio_register();
+    bsp_pwm_register();
 }
 
 /**

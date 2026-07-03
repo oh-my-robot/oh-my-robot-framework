@@ -4,6 +4,7 @@
 #include "bsp_can.h"
 #include "bsp_gpio.h"
 #include "bsp_dwt.h"
+#include "bsp_pwm.h"
 #include "bsp_serial.h"
 
 #include "core/om_cpu.h"
