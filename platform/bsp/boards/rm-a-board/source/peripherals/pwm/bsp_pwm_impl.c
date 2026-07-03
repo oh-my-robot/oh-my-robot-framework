@@ -231,6 +231,10 @@ void bsp_pwm_register(void)
     __HAL_RCC_TIM5_CLK_ENABLE();
 
     for (uint8_t i = 0; i < BSP_PWM_COUNT; i++) {
+        gBspPwm[i].timHandle.Init.Prescaler         = 0;
+        gBspPwm[i].timHandle.Init.Period            = 0xFFFF;
+        gBspPwm[i].timHandle.Init.CounterMode       = TIM_COUNTERMODE_UP;
+        gBspPwm[i].timHandle.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
         gBspPwm[i].timHandle.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
         HAL_TIM_PWM_Init(&gBspPwm[i].timHandle);
         pwm_controller_register(

@@ -130,8 +130,12 @@ void bsp_pwm_register(void)
     HAL_TIMEx_ConfigBreakDeadTime(&gBspPwm[0].timHandle, &bdtr);  /* TIM1 */
     HAL_TIMEx_ConfigBreakDeadTime(&gBspPwm[1].timHandle, &bdtr);  /* TIM8 */
     for (uint8_t i = 0; i < BSP_PWM_COUNT; i++) {
+        /* 一次性初始化定时器时基——channelConfig 中不再调 HAL_TIM_PWM_Init */
+        gBspPwm[i].timHandle.Init.Prescaler         = 0;
+        gBspPwm[i].timHandle.Init.Period            = 0xFFFF;
+        gBspPwm[i].timHandle.Init.CounterMode       = TIM_COUNTERMODE_UP;
+        gBspPwm[i].timHandle.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
         gBspPwm[i].timHandle.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-        /* 一次性初始化定时器时基（不在此之后调用 HAL_TIM_PWM_Init） */
         HAL_TIM_PWM_Init(&gBspPwm[i].timHandle);
         pwm_controller_register(&gBspPwm[i].parent, gBspPwm[i].name,
                                  &gPwmCap[i], &gPwmOps, &gBspPwm[i],
