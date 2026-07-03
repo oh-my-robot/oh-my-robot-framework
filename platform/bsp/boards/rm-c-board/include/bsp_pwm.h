@@ -32,6 +32,7 @@ typedef struct {
     PwmController       parent;
     const char         *name;
     PwmChannelState     chState[4];     /**< per-channel 状态，框架层读写 */
+    uint32_t            timerHz;       /**< 预计算定时器时钟，ISR 直接读取 */
 } BspPwm;
 
 void bsp_pwm_init_gpio(void);

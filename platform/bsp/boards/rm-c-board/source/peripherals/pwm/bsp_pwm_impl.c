@@ -35,7 +35,7 @@ static uint32_t bsp_pwm_get_timer_clock(TIM_TypeDef *instance)
            ? tim_apb2 : tim_apb1;
 }
 
-static void bsp_pwm_calc_psc_arr(uint32_t timer_hz, uint32_t period_cycles, uint32_t *psc, uint32_t *arr)
+static void bsp_pwm_calc_psc_arr(uint32_t period_cycles, uint32_t *psc, uint32_t *arr)
 {
     if (period_cycles <= 0xFFFFU) { *psc = 0; *arr = (period_cycles > 0) ? (period_cycles - 1) : 0; return; }
     uint32_t psc_val = 0;
@@ -65,7 +65,7 @@ static OmRet bsp_pwm_channel_config(PwmController *ctrl, uint8_t channel,
     uint32_t tim_period = bsp_pwm_to_timer_cycles(timer_hz, period_cycles, cap_hz);
     uint32_t tim_pulse  = bsp_pwm_to_timer_cycles(timer_hz, pulse_cycles, cap_hz);
     uint32_t psc, arr;
-    bsp_pwm_calc_psc_arr(timer_hz, tim_period, &psc, &arr);
+    bsp_pwm_calc_psc_arr(tim_period, &psc, &arr);
 
     /* 仅更新时基寄存器（不调 HAL_TIM_PWM_Init——它写 TIM_EGR_UG 会复位计数器，
      * 在定时器运行时调用会导致其他通道输出毛刺）。预装载机制保证原子切换。 */
@@ -97,9 +97,8 @@ static OmRet bsp_pwm_channel_disable(PwmController *ctrl, uint8_t channel)
 static OmRet bsp_pwm_channel_set_pulse(PwmController *ctrl, uint8_t channel, uint32_t pulse_cycles)
 {
     BspPwm *bsp = bsp_pwm_get_priv(ctrl);
-    uint32_t timer_hz = bsp_pwm_get_timer_clock(bsp->timHandle.Instance);
     uint32_t cap_hz   = ctrl->cap->resolutionHz;
-    uint32_t tim_pulse = bsp_pwm_to_timer_cycles(timer_hz, pulse_cycles, cap_hz);
+    uint32_t tim_pulse = bsp_pwm_to_timer_cycles(bsp->timerHz, pulse_cycles, cap_hz);
     __HAL_TIM_SET_COMPARE(&bsp->timHandle, bsp_pwm_hal_channel(channel), tim_pulse);
     return OM_OK;
 }
@@ -137,6 +136,8 @@ void bsp_pwm_register(void)
         gBspPwm[i].timHandle.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
         gBspPwm[i].timHandle.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
         HAL_TIM_PWM_Init(&gBspPwm[i].timHandle);
+        /* 预计算定时器时钟，ISR 中 setPulse 直接读取，避免调 HAL_RCC_GetXXXFreq() */
+        gBspPwm[i].timerHz = bsp_pwm_get_timer_clock(gBspPwm[i].timHandle.Instance);
         pwm_controller_register(&gBspPwm[i].parent, gBspPwm[i].name,
                                  &gPwmCap[i], &gPwmOps, &gBspPwm[i],
                                  gBspPwm[i].chState);
