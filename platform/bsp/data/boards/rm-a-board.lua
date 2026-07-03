@@ -34,6 +34,8 @@ local board = {
         "boards/rm-a-board/source/peripherals/serial/bsp_serial_init.c",
         "boards/rm-a-board/source/peripherals/spi/bsp_spi_impl.c",
         "boards/rm-a-board/source/peripherals/spi/bsp_spi_init.c",
+        "boards/rm-a-board/source/peripherals/pwm/bsp_pwm_impl.c",
+        "boards/rm-a-board/source/peripherals/pwm/bsp_pwm_init.c",
         "boards/rm-a-board/source/port/om_port_hw.c",
     },
     override_sources = {
