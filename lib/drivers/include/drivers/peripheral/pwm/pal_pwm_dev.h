@@ -302,8 +302,7 @@ struct PwmController {
     Device              parent;         /**< 内嵌 Device，参与设备链表管理 */
     const PwmOps       *ops;            /**< BSP 注入的硬件操作函数表 */
     const PwmCapability *cap;           /**< BSP 注入的能力声明（只读） */
-    void               *priv;           /**< BSP 私有数据指针 */
-    PwmChannelState    *chState;        /**< per-channel 状态数组，BSP 提供存储 */
+    PwmChannelState    *chState;        /**< per-channel 状态数组，BSP 提供存储 */        /**< per-channel 状态数组，BSP 提供存储 */
 };
 
 /* ================================================================
