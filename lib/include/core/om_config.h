@@ -8,6 +8,7 @@
 #define OM_USE_HAL_SERIALS
 #define OM_USE_HAL_CAN
 #define OM_USE_HAL_SPI
+#define OM_USE_HAL_PWM
 
 /*
  * sync 加速开关（统一入口）：
