@@ -405,23 +405,22 @@ const PwmCapability *pwm_channel_get_capability(PwmChannel ch);
  * @details BSP 层在初始化时调用此函数，将硬件 PWM 外设注册为框架控制器。
  *          注册后，应用层可通过 PwmChannelSpec + pwm_channel_get() 引用。
  *
- *          **可选优化**：传非 NULL 的 nsCache / cyclesCache 启用 ISR 快速路径缓存。
- *          启用后 pwm_channel_set_pulse 使用 config 时缓存的比例，避免每次 64 位除法。
- *          适用场景：ISR 中高频更新占空比（FOC 电机控制），
- *          尤其在无硬件除法器的平台上（Cortex-M0+）收益显著。
- *          传 NULL = 不使用缓存，set_pulse 每次现场执行 ns→cycles 转换。
+ *          chState 数组存储 per-channel 状态（周期/脉宽/极性/启停），
+ *          框架在 channelConfig/enable/disable/setPulse 时自动更新。
+ *          pwm_channel_set_pulse 使用缓存的 ns/cycles 比例避免 ISR 中 64 位除法。
  *
- * @param[in] ctrl        控制器结构体指针（BSP 层分配），不可为 NULL
- * @param[in] name        控制器名称（如 "pwm1"），不可为 NULL
- * @param[in] cap         能力声明，不可为 NULL
- * @param[in] ops         硬件操作函数表，不可为 NULL
- * @param[in] priv        BSP 私有数据指针，可为 NULL
- * @param[in] nsCache     可选：per-channel periodNs 缓存数组，大小 ≥ numChannels。
- *                         两个缓存必须同时为 NULL 或同时非 NULL，任一为 NULL 则缓存不生效。
- * @param[in] cyclesCache 可选：per-channel periodCycles 缓存数组，大小 ≥ numChannels。
- *                         与 nsCache 成对使用——仅提供其中一个无效。
+ *          **硬件约束**：同一 TIM 的通道共享 ARR/PSC（时基）。
+ *          同一控制器各通道必须使用相同周期，后配的覆盖先配的。
+ *
+ * @param[in] ctrl     控制器结构体指针（BSP 分配），不可为 NULL
+ * @param[in] name     控制器名称（如 "pwm1"），不可为 NULL
+ * @param[in] cap      能力声明，不可为 NULL
+ * @param[in] ops      硬件操作函数表，不可为 NULL
+ * @param[in] priv     BSP 私有数据指针，存入 parent.handle
+ * @param[in] chState  per-channel 状态数组，大小 >= numChannels，不可为 NULL。
+ *                     框架层读写内容，BSP 不应直接修改。
  * @return OM_OK 成功，OM_ERR_INVALID_ARG 参数无效
- * @note   仅在初始化阶段调用。缓存一旦注册即固定，不可运行时修改。
+ * @note   仅在初始化阶段调用
  */
 OmRet pwm_controller_register(PwmController *ctrl, const char *name,
                                const PwmCapability *cap,
