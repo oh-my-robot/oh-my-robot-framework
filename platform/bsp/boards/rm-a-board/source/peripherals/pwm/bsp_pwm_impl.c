@@ -150,12 +150,10 @@ static OmRet bsp_pwm_channel_config(PwmController *ctrl, uint8_t channel,
     uint32_t psc, arr;
     bsp_pwm_calc_psc_arr(timer_hz, tim_period, &psc, &arr);
 
-    htim->Init.Prescaler         = psc;
-    htim->Init.CounterMode       = TIM_COUNTERMODE_UP;
-    htim->Init.Period            = arr;
-    htim->Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
-    htim->Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-    HAL_TIM_PWM_Init(htim);
+    /* 仅更新时基寄存器（不调 HAL_TIM_PWM_Init——它写 TIM_EGR_UG 会复位计数器） */
+    htim->Instance->PSC = psc;
+    htim->Instance->ARR = arr;
+    htim->Instance->CR1 |= TIM_CR1_ARPE;
 
     TIM_OC_InitTypeDef oc = {0};
     oc.OCMode     = TIM_OCMODE_PWM1;
@@ -234,6 +232,7 @@ void bsp_pwm_register(void)
 
     for (uint8_t i = 0; i < BSP_PWM_COUNT; i++) {
         gBspPwm[i].timHandle.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+        HAL_TIM_PWM_Init(&gBspPwm[i].timHandle);
         pwm_controller_register(
             &gBspPwm[i].parent,
             gBspPwm[i].name,
