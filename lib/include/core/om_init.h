@@ -175,14 +175,31 @@ typedef uint8_t OmInitLevel;
 OmRet om_do_initcalls(OmInitLevel level_lo, OmInitLevel level_hi);
 
 /**
- * @brief 系统启动编排（kernel 层，正常不返回）
+ * @brief 启动前段：调度器前 om_do_initcalls(EARLIEST, SERVICE)——板级自举 + 外设注册 + 驱动
+ *        （不可阻塞），结束后"硬件就绪、驱动已注册、调度器未启"。
+ * @return OM_OK 或首个失败回调的错误码——调用方决定 om_fatal_error 或降级继续
+ */
+OmRet om_startup_pre_scheduler(void);
+
+/**
+ * @brief 启动后段：建 init 线程（CRITICAL 带，跑 SERVICE+SYSTEM+APPLICATION+LATE，可阻塞/
+ *        IPC）→ osal_kernel_start() 启动调度器，**不返回**。
+ * @details 依赖 om_startup_pre_scheduler() 已执行（顺序契约，文档约束，无运行时校验）；
+ *          init 线程创建失败 / 调度器启动失败 → om_fatal_error(OM_FATAL_STARTUP)；
+ *          线程内 SERVICE..LATE 任一 initcall 失败同样 fatal（启动期失败一律显式停机，
+ *          由 handler 决定受控恢复——带病启动比停机更危险）。
+ *          供自定义启动序列（强 main，ADR-0013 L1）在两段之间插入决策逻辑。
+ */
+void om_startup_post_scheduler(void);
+
+/**
+ * @brief 系统启动编排（kernel 层，正常不返回）——= om_startup_pre_scheduler() +
+ *        om_startup_post_scheduler() 的默认组合接线；pre 失败 → om_fatal_error。
  * @details 用户默认不写 main：框架经 oh_my_robot.selfreg 注入弱 main（lib/source/core/
- *          om_main.c），启动文件调 main 即进入本编排。内部：调度器前跑 EARLIEST+BOARD+
- *          DRIVER（不可阻塞），建 init 线程跑 SERVICE+SYSTEM+APPLICATION+LATE（可阻塞/
- *          IPC/建线程），最后 osal_kernel_start() 启动调度器（不返回）。app 自身启动
- *          设置（建业务线程等）与其它模块一样经 OM_INIT_APPLICATION 分散加载，无需显式
- *          注册。需要自定义启动序列的用户可定义强 main 覆盖并在其中调用本函数（逃生
- *          通道，见 ADR-0013）。实现在 lib/source/core/om_system_startup.c（tar_awkernel）。
+ *          om_main.c），启动文件调 main 即进入本编排。app 自身启动设置（建业务线程等）
+ *          与其它模块一样经 OM_INIT_APPLICATION 分散加载，无需显式注册。需要自定义
+ *          启动序列的用户可定义强 main 覆盖并自行组合 pre/post（逃生通道，见 ADR-0013、
+ *          ADR-0014）。实现在 lib/source/core/om_system_startup.c（tar_awkernel）。
  */
 void om_system_startup(void);
 
