@@ -52,7 +52,8 @@ extern "C" {
 #define DJI_ASSERT(cond) \
     do {                 \
         if (!(cond)) {   \
-            while (1);   \
+            while (1)    \
+                ;        \
         }                \
     } while (0)
 #endif

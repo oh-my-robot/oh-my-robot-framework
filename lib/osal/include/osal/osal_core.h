@@ -9,13 +9,13 @@
 /* OSAL 统一状态码（Phase 1 合同）*/
 typedef int32_t OsalStatus;
 
-#define OSAL_OK (0)               /* 成功 */
-#define OSAL_TIMEOUT (-1)         /* 超时（timeout > 0 的 WAIT_FOREVER 语义超时）*/
-#define OSAL_WOULD_BLOCK (-2)     /* 非阻塞调用（timeout=0）条件不满足 */
-#define OSAL_NO_RESOURCE (-3)     /* 资源不足（内存/句柄/队列槽位）*/
-#define OSAL_INVALID (-4)         /* 参数/句柄/上下文非法*/
-#define OSAL_NOT_SUPPORTED (-5)   /* 端口不支持*/
-#define OSAL_INTERNAL (-6)        /* 内部错误 */
+#define OSAL_OK            (0)  /* 成功 */
+#define OSAL_TIMEOUT       (-1) /* 超时（timeout > 0 的 WAIT_FOREVER 语义超时）*/
+#define OSAL_WOULD_BLOCK   (-2) /* 非阻塞调用（timeout=0）条件不满足 */
+#define OSAL_NO_RESOURCE   (-3) /* 资源不足（内存/句柄/队列槽位）*/
+#define OSAL_INVALID       (-4) /* 参数/句柄/上下文非法*/
+#define OSAL_NOT_SUPPORTED (-5) /* 端口不支持*/
+#define OSAL_INTERNAL      (-6) /* 内部错误 */
 
 /**
  * @brief 判断当前是否处于中断上下文
@@ -95,26 +95,23 @@ static inline void osal_irq_unlock(OsalIrqIsrState key)
  * @return 成功返回指针，失败返回 NULL
  * @note 严格模式下禁止在 ISR 中调用；若误用则触发断言，运行时返回 NULL
  */
-void* osal_malloc(size_t size);
+void *osal_malloc(size_t size);
 
 /**
  * @brief OSAL 内存释放
  * @param ptr 指针
  * @note 严格模式下禁止在 ISR 中调用；若误用则触发断言，运行时直接返回
  */
-void osal_free(void* ptr);
+void osal_free(void *ptr);
 
 #ifdef __OM_USE_ASSERT
 /* 断言失败后进入死循环，便于调试定位*/
-#define OSAL_ASSERT(expr)                                                                                                                  \
-    do                                                                                                                                     \
-    {                                                                                                                                      \
-        if (!(expr))                                                                                                                       \
-        {                                                                                                                                  \
-            for (;;)                                                                                                                       \
-            {                                                                                                                              \
-            }                                                                                                                              \
-        }                                                                                                                                  \
+#define OSAL_ASSERT(expr) \
+    do {                  \
+        if (!(expr)) {    \
+            for (;;) {    \
+            }             \
+        }                 \
     } while (0)
 #else
 #define OSAL_ASSERT(expr) ((void)0)

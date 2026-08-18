@@ -17,7 +17,7 @@
 /* ===== ns -> cycles 转换 ===== */
 
 static OmRet ns_to_cycles(const PwmCapability *cap, uint32_t period_ns,
-                           uint32_t *period_cycles)
+                          uint32_t *period_cycles)
 {
     uint64_t cycles = (uint64_t)period_ns * cap->resolutionHz / 1000000000ULL;
     if (cycles > UINT32_MAX)
@@ -38,7 +38,8 @@ static OmRet pwm_dev_init(Device *dev)
 static OmRet pwm_dev_open(Device *dev, uint32_t oparam)
 {
     /* 控制器级打开：声明使用权限。通道启停由 pwm_channel_enable/disable 控制。 */
-    (void)dev; (void)oparam;
+    (void)dev;
+    (void)oparam;
     return OM_OK;
 }
 
@@ -63,30 +64,30 @@ static OmRet pwm_dev_control(Device *dev, size_t cmd, void *arg)
     PwmController *ctrl = (PwmController *)dev;
 
     switch (cmd) {
-    case PWM_CMD_GET_CAPABILITY:
-        if (!arg) return OM_ERR_INVALID_ARG;
-        *(const PwmCapability **)arg = ctrl->cap;
-        return OM_OK;
+        case PWM_CMD_GET_CAPABILITY:
+            if (!arg) return OM_ERR_INVALID_ARG;
+            *(const PwmCapability **)arg = ctrl->cap;
+            return OM_OK;
 
-    case PWM_CMD_SUSPEND:
-        for (uint8_t i = 0; i < ctrl->cap->numChannels; i++) {
-            if (ctrl->chState[i].enabled) {
-                ctrl->ops->channelDisable(ctrl, i);
-                /* enabled 保持 true，标记"待恢复" */
+        case PWM_CMD_SUSPEND:
+            for (uint8_t i = 0; i < ctrl->cap->numChannels; i++) {
+                if (ctrl->chState[i].enabled) {
+                    ctrl->ops->channelDisable(ctrl, i);
+                    /* enabled 保持 true，标记"待恢复" */
+                }
             }
-        }
-        return OM_OK;
+            return OM_OK;
 
-    case PWM_CMD_RESUME:
-        for (uint8_t i = 0; i < ctrl->cap->numChannels; i++) {
-            if (ctrl->chState[i].enabled) {
-                ctrl->ops->channelEnable(ctrl, i);
+        case PWM_CMD_RESUME:
+            for (uint8_t i = 0; i < ctrl->cap->numChannels; i++) {
+                if (ctrl->chState[i].enabled) {
+                    ctrl->ops->channelEnable(ctrl, i);
+                }
             }
-        }
-        return OM_OK;
+            return OM_OK;
 
-    default:
-        return OM_ERR_NOT_SUPPORTED;
+        default:
+            return OM_ERR_NOT_SUPPORTED;
     }
 }
 
@@ -94,23 +95,22 @@ static DevInterface pwm_dev_interface = {
     .init    = pwm_dev_init,
     .open    = pwm_dev_open,
     .close   = pwm_dev_close,
-    .read    = NULL,         /* PWM 不是数据流外设 */
-    .write   = NULL,         /* 用 pwm_channel_set_pulse 直接 API */
+    .read    = NULL, /* PWM 不是数据流外设 */
+    .write   = NULL, /* 用 pwm_channel_set_pulse 直接 API */
     .control = pwm_dev_control,
 };
 
 /* ===== 控制器注册 ===== */
 
 OmRet pwm_controller_register(PwmController *ctrl, const char *name,
-                               const PwmCapability *cap,
-                               const PwmOps *ops, void *priv,
-                               PwmChannelState *chState)
+                              const PwmCapability *cap,
+                              const PwmOps *ops, void *priv,
+                              PwmChannelState *chState)
 {
     if (!ctrl || !name || !cap || !ops || !chState)
         return OM_ERR_INVALID_ARG;
 
-    if (!ops->channelConfig || !ops->channelEnable
-        || !ops->channelDisable || !ops->channelSetPulse)
+    if (!ops->channelConfig || !ops->channelEnable || !ops->channelDisable || !ops->channelSetPulse)
         return OM_ERR_INVALID_ARG;
 
     if (cap->numChannels == 0 || cap->resolutionHz == 0)
@@ -123,8 +123,8 @@ OmRet pwm_controller_register(PwmController *ctrl, const char *name,
     ctrl->parent.handle    = priv;
     ctrl->parent.interface = &pwm_dev_interface;
     ctrl->ops              = ops;
-    ctrl->cap               = cap;
-    ctrl->chState           = chState;
+    ctrl->cap              = cap;
+    ctrl->chState          = chState;
 
     /* 初始化所有通道状态为"未配置" */
     for (uint8_t i = 0; i < cap->numChannels; i++) {
@@ -187,16 +187,16 @@ OmRet pwm_channel_config(PwmChannel ch, const PwmChannelConfig *cfg)
         return OM_ERR_RANGE;
 
     switch (cfg->polarity) {
-    case PWM_POLARITY_NORMAL:
-        if (!(cap->caps & PWM_CAP_POLARITY_NORMAL))
-            return OM_ERR_NOT_SUPPORTED;
-        break;
-    case PWM_POLARITY_INVERSED:
-        if (!(cap->caps & PWM_CAP_POLARITY_INVERSED))
-            return OM_ERR_NOT_SUPPORTED;
-        break;
-    default:
-        return OM_ERR_INVALID_ARG;
+        case PWM_POLARITY_NORMAL:
+            if (!(cap->caps & PWM_CAP_POLARITY_NORMAL))
+                return OM_ERR_NOT_SUPPORTED;
+            break;
+        case PWM_POLARITY_INVERSED:
+            if (!(cap->caps & PWM_CAP_POLARITY_INVERSED))
+                return OM_ERR_NOT_SUPPORTED;
+            break;
+        default:
+            return OM_ERR_INVALID_ARG;
     }
 
     uint32_t period_cycles, pulse_cycles;
@@ -207,8 +207,8 @@ OmRet pwm_channel_config(PwmChannel ch, const PwmChannelConfig *cfg)
     if (ret != OM_OK) return ret;
 
     ret = ch.ctrl->ops->channelConfig(ch.ctrl, ch.channel,
-                                       period_cycles, pulse_cycles,
-                                       cfg->polarity);
+                                      period_cycles, pulse_cycles,
+                                      cfg->polarity);
     if (ret != OM_OK) return ret;
 
     /* 更新通道状态（osal_irq_lock 保护 ISR 并发读） */
@@ -288,8 +288,7 @@ OmRet pwm_channel_set_pulse(PwmChannel ch, uint32_t pulse_ns)
     } else if (pulse_ns == s->periodNs) {
         pulse_cycles = s->periodCycles;
     } else {
-        pulse_cycles = (uint32_t)((uint64_t)pulse_ns * s->periodCycles
-                                   / s->periodNs);
+        pulse_cycles = (uint32_t)((uint64_t)pulse_ns * s->periodCycles / s->periodNs);
     }
 
     return ch.ctrl->ops->channelSetPulse(ch.ctrl, ch.channel, pulse_cycles);

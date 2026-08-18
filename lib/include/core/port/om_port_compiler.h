@@ -2,8 +2,7 @@
 #define __OM_PORT_COMPILER_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 // 编译器类型检测
@@ -40,7 +39,7 @@ extern "C"
 #endif
 
 #define AW_STR_HELPER(x) #x
-#define AW_STR(x) AW_STR_HELPER(x)
+#define AW_STR(x)        AW_STR_HELPER(x)
 
 // MSVC 实现
 #if defined(_MSC_VER)
@@ -57,19 +56,19 @@ extern "C"
 
 #if defined(AW_COMPILER_GCC_LIKE) || defined(__ARMCC_VERSION)
 #define __port_attribute(x) __attribute__(x)
-#define __port_used __port_attribute((used))
-#define __port_weak __port_attribute((weak))
-#define __port_section(x) __port_attribute((section(x)))
-#define __port_align(n) __port_attribute((aligned(n)))
-#define __port_noreturn __port_attribute((noreturn))
-#define __port_packed __port_attribute((packed))
+#define __port_used         __port_attribute((used))
+#define __port_weak         __port_attribute((weak))
+#define __port_section(x)   __port_attribute((section(x)))
+#define __port_align(n)     __port_attribute((aligned(n)))
+#define __port_noreturn     __port_attribute((noreturn))
+#define __port_packed       __port_attribute((packed))
 #elif defined(__ICCARM__)
 /* IAR EWARM — 使用原生语法 */
 #define __port_attribute(x)
 #define __port_used       __root
 #define __port_weak       __weak
-#define __port_section(x) @ x
-#define __port_align(n)   _Pragma(AW_STR(data_alignment=n))
+#define __port_section(x) @x
+#define __port_align(n)   _Pragma(AW_STR(data_alignment = n))
 #define __port_noreturn   __noreturn
 #define __port_packed     __packed
 #elif defined(_MSC_VER)
@@ -92,12 +91,12 @@ extern "C"
 
 /* 兼容别名，统一映射到 __port_* 主宏。 */
 #define PORT_ATTRIBUTE(x) __port_attribute(x)
-#define PORT_USED __port_used
-#define PORT_WEAK __port_weak
-#define PORT_SECTION(x) __port_section(x)
-#define PORT_ALIGN(n) __port_align(n)
-#define PORT_NORETURN __port_noreturn
-#define PORT_PACKED __port_packed
+#define PORT_USED         __port_used
+#define PORT_WEAK         __port_weak
+#define PORT_SECTION(x)   __port_section(x)
+#define PORT_ALIGN(n)     __port_align(n)
+#define PORT_NORETURN     __port_noreturn
+#define PORT_PACKED       __port_packed
 
 /*===========================================================================
  * 架构能力声明
@@ -110,7 +109,7 @@ extern "C"
 /** @brief 目标架构缺乏硬件原子指令，需软件原子桩 */
 #if defined(__ARM_ARCH_6M__)
 /* 无硬件原子指令的架构（软件原子桩）；部分编译器不提供 libatomic */
-#define OM_PORT_SOFTWARE_ATOMICS  1
+#define OM_PORT_SOFTWARE_ATOMICS 1
 #endif
 
 /* 未来:

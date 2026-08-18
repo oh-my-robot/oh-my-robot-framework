@@ -30,13 +30,13 @@
 
 #include "stdint.h"
 
-#define CRC8_SZ 1
+#define CRC8_SZ  1
 #define CRC16_SZ 2
 
-uint8_t verify_crc8_check_sum(uint8_t* pch_message, uint16_t dw_length);
-uint8_t verify_crc16_check_sum(uint8_t* pch_message, uint32_t dw_length);
+uint8_t verify_crc8_check_sum(uint8_t *pch_message, uint16_t dw_length);
+uint8_t verify_crc16_check_sum(uint8_t *pch_message, uint32_t dw_length);
 
-void append_crc8_check_sum(uint8_t* pch_message, uint16_t dw_length);
-void append_crc16_check_sum(uint8_t* pch_message, uint32_t dw_length);
+void append_crc8_check_sum(uint8_t *pch_message, uint16_t dw_length);
+void append_crc16_check_sum(uint8_t *pch_message, uint32_t dw_length);
 
 #endif

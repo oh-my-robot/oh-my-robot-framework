@@ -24,9 +24,9 @@ extern "C" {
  * 适用场景：Task↔Task、ISR→Task、Task→ISR 的字节流传输。
  */
 typedef struct Pipe {
-    Ringbuf  rb;        /* 底层环形缓冲区 */
-    OsalSem* read_sem;  /* 可读通知信号量（max=1, init=0） */
-    OsalSem* write_sem; /* 可写通知信号量（max=1, init=1） */
+    Ringbuf rb;         /* 底层环形缓冲区 */
+    OsalSem *read_sem;  /* 可读通知信号量（max=1, init=0） */
+    OsalSem *write_sem; /* 可写通知信号量（max=1, init=1） */
 } Pipe;
 
 /**
@@ -37,7 +37,7 @@ typedef struct Pipe {
  * @return `OM_OK` 成功；`OM_ERROR_PARAM` 参数非法；`OM_ERROR_MEMORY` 信号量创建失败
  * @note 禁止在 ISR 中调用
  */
-OmRet pipe_init(Pipe* pipe, uint8_t* buf, unsigned int capacity);
+OmRet pipe_init(Pipe *pipe, uint8_t *buf, unsigned int capacity);
 
 /**
  * @brief 动态分配缓冲区创建 Pipe
@@ -47,7 +47,7 @@ OmRet pipe_init(Pipe* pipe, uint8_t* buf, unsigned int capacity);
  * @return `OM_OK` 成功；`OM_ERROR_PARAM` 参数非法；`OM_ERROR_MEMORY` 分配或信号量创建失败
  * @note 禁止在 ISR 中调用
  */
-OmRet pipe_alloc(Pipe* pipe, unsigned int capacity, void* (*pmalloc)(size_t));
+OmRet pipe_alloc(Pipe *pipe, unsigned int capacity, void *(*pmalloc)(size_t));
 
 /**
  * @brief 销毁使用 pipe_init 创建的 Pipe
@@ -55,7 +55,7 @@ OmRet pipe_alloc(Pipe* pipe, unsigned int capacity, void* (*pmalloc)(size_t));
  * @note 禁止在 ISR 中调用
  * @note 调用方需确保无并发访问和无等待者
  */
-void pipe_deinit(Pipe* pipe);
+void pipe_deinit(Pipe *pipe);
 
 /**
  * @brief 销毁使用 pipe_alloc 创建的 Pipe 并释放缓冲区
@@ -64,7 +64,7 @@ void pipe_deinit(Pipe* pipe);
  * @note 禁止在 ISR 中调用
  * @note 调用方需确保无并发访问和无等待者
  */
-void pipe_free(Pipe* pipe, void (*pfree)(void*));
+void pipe_free(Pipe *pipe, void (*pfree)(void *));
 
 /**
  * @brief 向 Pipe 写入字节数据（阻塞超时）
@@ -76,7 +76,7 @@ void pipe_free(Pipe* pipe, void (*pfree)(void*));
  * @note 禁止在 ISR 中调用，请使用 pipe_write_from_isr
  * @note SPSC：同一时刻仅允许一个写者
  */
-int pipe_write(Pipe* pipe, const void* data, int len, uint32_t timeout_ms);
+int pipe_write(Pipe *pipe, const void *data, int len, uint32_t timeout_ms);
 
 /**
  * @brief 向 Pipe 写入字节数据（ISR 安全，非阻塞）
@@ -87,7 +87,7 @@ int pipe_write(Pipe* pipe, const void* data, int len, uint32_t timeout_ms);
  * @note 仅允许在 ISR 中调用
  * @note SPSC：同一时刻仅允许一个写者
  */
-int pipe_write_from_isr(Pipe* pipe, const void* data, int len);
+int pipe_write_from_isr(Pipe *pipe, const void *data, int len);
 
 /**
  * @brief 从 Pipe 读取字节数据（消费式，阻塞超时）
@@ -99,7 +99,7 @@ int pipe_write_from_isr(Pipe* pipe, const void* data, int len);
  * @note 禁止在 ISR 中调用
  * @note SPSC：同一时刻仅允许一个读者
  */
-int pipe_read(Pipe* pipe, void* buf, int len, uint32_t timeout_ms);
+int pipe_read(Pipe *pipe, void *buf, int len, uint32_t timeout_ms);
 
 /**
  * @brief 从 Pipe 窥视字节数据（非消费式，阻塞超时）
@@ -111,7 +111,7 @@ int pipe_read(Pipe* pipe, void* buf, int len, uint32_t timeout_ms);
  * @note 禁止在 ISR 中调用
  * @note 窥视后数据保留在 Pipe 中，需配合 pipe_skip 消费
  */
-int pipe_peek(Pipe* pipe, void* buf, int len, uint32_t timeout_ms);
+int pipe_peek(Pipe *pipe, void *buf, int len, uint32_t timeout_ms);
 
 /**
  * @brief 跳过 Pipe 中的数据（移动读指针，不拷贝）
@@ -120,7 +120,7 @@ int pipe_peek(Pipe* pipe, void* buf, int len, uint32_t timeout_ms);
  * @return `OM_OK` 至少跳过了 1 字节；`OM_ERROR_EMPTY` Pipe 为空；`OM_ERROR_PARAM` 参数非法
  * @note 禁止在 ISR 中调用，请使用 pipe_skip_from_isr
  */
-OmRet pipe_skip(Pipe* pipe, int len);
+OmRet pipe_skip(Pipe *pipe, int len);
 
 /**
  * @brief 从 Pipe 读取字节数据（ISR 安全，非阻塞，消费式）
@@ -133,7 +133,7 @@ OmRet pipe_skip(Pipe* pipe, int len);
  * @note 读取后若 Pipe 从满变为非满，通过 `osal_sem_post_from_isr` 通知写端
  * @note SPSC：同一时刻仅允许一个读者
  */
-int pipe_read_from_isr(Pipe* pipe, void* buf, int len);
+int pipe_read_from_isr(Pipe *pipe, void *buf, int len);
 
 /**
  * @brief 从 Pipe 窥视字节数据（ISR 安全，非阻塞，非消费式）
@@ -146,7 +146,7 @@ int pipe_read_from_isr(Pipe* pipe, void* buf, int len);
  * @note 窥视后数据保留在 Pipe 中，需配合 pipe_skip_from_isr 消费
  * @note SPSC：同一时刻仅允许一个读者
  */
-int pipe_peek_from_isr(Pipe* pipe, void* buf, int len);
+int pipe_peek_from_isr(Pipe *pipe, void *buf, int len);
 
 /**
  * @brief 跳过 Pipe 中的数据（ISR 安全，非阻塞，移动读指针不拷贝）
@@ -157,31 +157,31 @@ int pipe_peek_from_isr(Pipe* pipe, void* buf, int len);
  * @note 跳过成功后若 Pipe 从满变为非满，通过 `osal_sem_post_from_isr` 通知写端
  * @note SPSC：同一时刻仅允许一个读者
  */
-OmRet pipe_skip_from_isr(Pipe* pipe, int len);
+OmRet pipe_skip_from_isr(Pipe *pipe, int len);
 
 /* ---- 状态查询（inline，零系统调用开销） ---- */
 
-static inline int pipe_len(Pipe* pipe)
+static inline int pipe_len(Pipe *pipe)
 {
     return (int)ringbuf_len(&pipe->rb);
 }
 
-static inline int pipe_avail(Pipe* pipe)
+static inline int pipe_avail(Pipe *pipe)
 {
     return (int)ringbuf_avail(&pipe->rb);
 }
 
-static inline int pipe_cap(Pipe* pipe)
+static inline int pipe_cap(Pipe *pipe)
 {
     return (int)ringbuf_cap(&pipe->rb);
 }
 
-static inline bool pipe_is_empty(Pipe* pipe)
+static inline bool pipe_is_empty(Pipe *pipe)
 {
     return ringbuf_is_empty(&pipe->rb);
 }
 
-static inline bool pipe_is_full(Pipe* pipe)
+static inline bool pipe_is_full(Pipe *pipe)
 {
     return ringbuf_is_full(&pipe->rb);
 }

@@ -197,15 +197,15 @@ typedef struct
  */
 typedef struct
 {
-    uint8_t motorId;                         /**< 电机 ID（1~8） */
-    uint32_t requestTimeoutMs;               /**< 同步事务超时（ms） */
-    uint8_t maxRetryCount;                   /**< 最大重试次数（预留） */
+    uint8_t motorId;                       /**< 电机 ID（1~8） */
+    uint32_t requestTimeoutMs;             /**< 同步事务超时（ms） */
+    uint8_t maxRetryCount;                 /**< 最大重试次数（预留） */
     P1010BMode defaultMode;                /**< 默认模式 */
     P1010BActiveReportConfig activeReport; /**< 默认主动上报配置（仅缓存，不在 register 自动下发） */
-    int32_t currentLimitRaw;                 /**< 电流限幅（原始量，预留） */
-    int32_t speedLimitRaw;                   /**< 速度限幅（原始量，预留） */
-    int32_t positionLimitRaw;                /**< 位置限幅（原始量，预留） */
-    int32_t voltageLimitRaw;                 /**< 电压限幅（原始量，预留） */
+    int32_t currentLimitRaw;               /**< 电流限幅（原始量，预留） */
+    int32_t speedLimitRaw;                 /**< 速度限幅（原始量，预留） */
+    int32_t positionLimitRaw;              /**< 位置限幅（原始量，预留） */
+    int32_t voltageLimitRaw;               /**< 电压限幅（原始量，预留） */
 } P1010BConfig;
 
 /**
@@ -213,7 +213,7 @@ typedef struct
  * @note 默认槽位：速度 / IQ 电流 / 母线电压 / 绝对位置。
  */
 #define P1010B_ACTIVE_REPORT_DEFAULT_CONFIG                \
-    ((P1010BActiveReportConfig){                         \
+    ((P1010BActiveReportConfig){                           \
         .enable        = true,                             \
         .periodMs      = 10U,                              \
         .dataTypeSlots = {                                 \
@@ -229,7 +229,7 @@ typedef struct
  * @param _motorId 目标电机 ID（1~8）
  */
 #define P1010B_DEFAULT_CONFIG(_motorId)                          \
-    ((P1010BConfig){                                           \
+    ((P1010BConfig){                                             \
         .motorId          = (_motorId),                          \
         .requestTimeoutMs = 20U,                                 \
         .maxRetryCount    = 1U,                                  \
@@ -394,7 +394,7 @@ typedef void (*P1010BOnlineCallback)(P1010BDriver *driver, bool is_online);
  * @note 该回调在 ISR 上下文触发，回调实现必须保持非阻塞。
  */
 typedef void (*P1010BParamReadCallback)(P1010BDriver *driver, uint8_t parameter_id, int32_t parameter_value, OmRet result,
-                                          uint32_t timestamp_ms);
+                                        uint32_t timestamp_ms);
 
 /**
  * @brief 请求执行等待模式
@@ -444,10 +444,10 @@ typedef OmRet (*P1010BEncodeFunction)(P1010BDriver *driver, const P1010BRequest 
 typedef bool (*P1010BAckMatchFunction)(const P1010BDriver *driver, const P1010BRawFrame *frame);
 /** @brief 同步应答解码函数类型 */
 typedef void (*P1010BDecodeAckFunction)(P1010BDriver *driver, const P1010BRawFrame *frame, P1010BResponse *response,
-                                    P1010BIsrCallbackContext *callback_context);
+                                        P1010BIsrCallbackContext *callback_context);
 /** @brief 命令执行后处理函数类型 */
 typedef void (*P1010BPostCommitFunction)(P1010BDriver *driver, const P1010BRequest *request, OmRet result,
-                                     const P1010BResponse *response);
+                                         const P1010BResponse *response);
 
 /**
  * @brief 命令描述符
@@ -491,12 +491,12 @@ typedef struct
  */
 typedef struct
 {
-    Device* canDevice;             /**< 绑定的 CAN 设备 */
-    CanFilterHandle filterHandle; /**< 过滤器句柄 */
-    bool filterAllocated;           /**< 过滤器是否已分配 */
-    int16_t groupTargetsRaw[2][4];  /**< 组帧缓存（2 组 x 每组 4 槽） */
-    uint32_t rxDroppedCount;        /**< 线程解析格式丢弃计数（非标准帧或 DLC!=8） */
-    uint32_t rxLateReadParamCount;  /**< 同步应答迟到/未匹配计数 */
+    Device *canDevice;             /**< 绑定的 CAN 设备 */
+    CanFilterHandle filterHandle;  /**< 过滤器句柄 */
+    bool filterAllocated;          /**< 过滤器是否已分配 */
+    int16_t groupTargetsRaw[2][4]; /**< 组帧缓存（2 组 x 每组 4 槽） */
+    uint32_t rxDroppedCount;       /**< 线程解析格式丢弃计数（非标准帧或 DLC!=8） */
+    uint32_t rxLateReadParamCount; /**< 同步应答迟到/未匹配计数 */
 
     P1010BDriver *driverTable[P1010B_MOTOR_ID_MAX + 1U]; /**< 按 motorId 索引驱动实例 */
 } P1010BBus;
@@ -509,7 +509,7 @@ typedef struct
     P1010BMode currentMode;                /**< 当前模式 */
     P1010BState state;                     /**< 当前状态机状态 */
     P1010BRejectReason lastRejectReason;   /**< 最近拒绝原因 */
-    float targetScale;                       /**< 当前模式目标缩放系数（注册/设模时确定） */
+    float targetScale;                     /**< 当前模式目标缩放系数（注册/设模时确定） */
     P1010BActiveReportConfig activeReport; /**< 生效中的主动上报配置 */
 } P1010BDriverRuntime;
 
@@ -518,8 +518,8 @@ typedef struct
  */
 typedef struct
 {
-    P1010BFeedback feedback;         /**< 最近反馈快照 */
-    P1010BFaultState faultState;     /**< 最近故障快照 */
+    P1010BFeedback feedback;           /**< 最近反馈快照 */
+    P1010BFaultState faultState;       /**< 最近故障快照 */
     bool online;                       /**< 在线状态（仅由接收边沿更新，不含超时检测） */
     uint32_t lastSuccessRxTimestampMs; /**< 最近成功接收时间 */
     uint32_t lastSuccessTxTimestampMs; /**< 最近成功发送时间 */
@@ -530,13 +530,13 @@ typedef struct
  */
 typedef struct
 {
-    bool pending;                   /**< 是否存在未决同步事务 */
+    bool pending;                 /**< 是否存在未决同步事务 */
     P1010BCommand pendingCommand; /**< 当前同步事务命令 */
-    uint8_t expectedReplyBaseId;    /**< 期望应答基地址 */
-    uint8_t expectedParameterId;    /**< 期望参数 ID（参数读写事务使用） */
-    uint8_t expectedStateCommand;   /**< 期望状态命令（0x38 事务使用） */
-    OmRet result;               /**< 当前同步事务结果 */
-    uint32_t timestampMs;           /**< 当前同步事务完成时间戳 */
+    uint8_t expectedReplyBaseId;  /**< 期望应答基地址 */
+    uint8_t expectedParameterId;  /**< 期望参数 ID（参数读写事务使用） */
+    uint8_t expectedStateCommand; /**< 期望状态命令（0x38 事务使用） */
+    OmRet result;                 /**< 当前同步事务结果 */
+    uint32_t timestampMs;         /**< 当前同步事务完成时间戳 */
     P1010BResponse response;      /**< 同步事务应答缓存 */
     Completion completion;        /**< 同步事务 completion */
 } P1010BDriverSync;
@@ -578,7 +578,7 @@ struct P1010BDriver {
  * @param can_device 已打开的 CAN 设备句柄
  * @return `OM_OK` 成功，其他返回值表示失败原因
  */
-OmRet p1010b_bus_init(P1010BBus *bus, Device* can_device);
+OmRet p1010b_bus_init(P1010BBus *bus, Device *can_device);
 
 /**
  * @brief 释放总线上下文资源
@@ -682,8 +682,8 @@ OmRet p1010b_set_active_report(P1010BDriver *driver, const P1010BActiveReportCon
  * @return `OM_OK` 成功，其他值表示失败原因
  */
 OmRet p1010b_active_query_slots(P1010BDriver *driver, P1010BReportDataType slot0, P1010BReportDataType slot1,
-                                    P1010BReportDataType slot2, P1010BReportDataType slot3, uint32_t timeout_ms,
-                                    P1010BResponse *response);
+                                P1010BReportDataType slot2, P1010BReportDataType slot3, uint32_t timeout_ms,
+                                P1010BResponse *response);
 
 /**
  * @brief 写参数（构造+执行一体，同步）
@@ -695,7 +695,7 @@ OmRet p1010b_active_query_slots(P1010BDriver *driver, P1010BReportDataType slot0
  * @return `OM_OK` 成功，其他值表示失败原因
  */
 OmRet p1010b_write_parameter(P1010BDriver *driver, uint8_t parameter_id, int32_t parameter_value, uint32_t timeout_ms,
-                                 P1010BResponse *response);
+                             P1010BResponse *response);
 
 /**
  * @brief 读参数（构造+执行一体，同步）
@@ -760,7 +760,7 @@ static inline P1010BRequest p1010b_request_make(P1010BCommand command, uint8_t f
  */
 static inline P1010BRequest p1010b_req_state_control(uint8_t state_command)
 {
-    P1010BRequest request           = p1010b_request_make(P1010B_COMMAND_STATE_CONTROL, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
+    P1010BRequest request             = p1010b_request_make(P1010B_COMMAND_STATE_CONTROL, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
     request.args.stateControl.command = state_command;
     return request;
 }
@@ -791,7 +791,7 @@ static inline P1010BRequest p1010b_req_disable(void)
  */
 static inline P1010BRequest p1010b_req_set_mode(P1010BMode mode)
 {
-    P1010BRequest request   = p1010b_request_make(P1010B_COMMAND_SET_MODE, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
+    P1010BRequest request     = p1010b_request_make(P1010B_COMMAND_SET_MODE, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
     request.args.setMode.mode = mode;
     return request;
 }
@@ -823,7 +823,7 @@ static inline P1010BRequest p1010b_req_set_active_report(const P1010BActiveRepor
  */
 static inline P1010BRequest p1010b_req_set_target(float target_value)
 {
-    P1010BRequest request            = p1010b_request_make(P1010B_COMMAND_SET_TARGET, (uint8_t)P1010B_REQUEST_FLAG_ASYNC);
+    P1010BRequest request              = p1010b_request_make(P1010B_COMMAND_SET_TARGET, (uint8_t)P1010B_REQUEST_FLAG_ASYNC);
     request.args.setTarget.targetValue = target_value;
     return request;
 }
@@ -837,9 +837,9 @@ static inline P1010BRequest p1010b_req_set_target(float target_value)
  * @return 已填充的 `P1010B_COMMAND_ACTIVE_QUERY` 同步请求对象
  */
 static inline P1010BRequest p1010b_req_active_query_slots(P1010BReportDataType slot0, P1010BReportDataType slot1,
-                                                            P1010BReportDataType slot2, P1010BReportDataType slot3)
+                                                          P1010BReportDataType slot2, P1010BReportDataType slot3)
 {
-    P1010BRequest request                   = p1010b_request_make(P1010B_COMMAND_ACTIVE_QUERY, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
+    P1010BRequest request                     = p1010b_request_make(P1010B_COMMAND_ACTIVE_QUERY, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
     request.args.activeQuery.dataTypeSlots[0] = (uint8_t)slot0;
     request.args.activeQuery.dataTypeSlots[1] = (uint8_t)slot1;
     request.args.activeQuery.dataTypeSlots[2] = (uint8_t)slot2;
@@ -855,7 +855,7 @@ static inline P1010BRequest p1010b_req_active_query_slots(P1010BReportDataType s
  */
 static inline P1010BRequest p1010b_req_write_parameter(uint8_t parameter_id, int32_t parameter_value)
 {
-    P1010BRequest request                    = p1010b_request_make(P1010B_COMMAND_WRITE_PARAMETER, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
+    P1010BRequest request                      = p1010b_request_make(P1010B_COMMAND_WRITE_PARAMETER, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
     request.args.writeParameter.parameterId    = parameter_id;
     request.args.writeParameter.parameterValue = parameter_value;
     return request;
@@ -868,7 +868,7 @@ static inline P1010BRequest p1010b_req_write_parameter(uint8_t parameter_id, int
  */
 static inline P1010BRequest p1010b_req_read_parameter(uint8_t parameter_id)
 {
-    P1010BRequest request                = p1010b_request_make(P1010B_COMMAND_READ_PARAMETER, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
+    P1010BRequest request                  = p1010b_request_make(P1010B_COMMAND_READ_PARAMETER, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
     request.args.readParameter.parameterId = parameter_id;
     return request;
 }
@@ -883,8 +883,8 @@ static inline P1010BRequest p1010b_req_read_parameter(uint8_t parameter_id)
  */
 static inline P1010BRequest p1010b_req_save_parameters(bool set_absolute_zero)
 {
-    P1010BRequest request               = p1010b_request_make(P1010B_COMMAND_SAVE_PARAMETERS, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
-    request.args.saveParameters.command   = set_absolute_zero ? P1010B_SAVE_PARAM_CMD_SET_ABSOLUTE_ZERO : P1010B_SAVE_PARAM_CMD_SAVE;
+    P1010BRequest request                         = p1010b_request_make(P1010B_COMMAND_SAVE_PARAMETERS, (uint8_t)P1010B_REQUEST_FLAG_SYNC);
+    request.args.saveParameters.command           = set_absolute_zero ? P1010B_SAVE_PARAM_CMD_SET_ABSOLUTE_ZERO : P1010B_SAVE_PARAM_CMD_SAVE;
     request.args.saveParameters.data.absoluteZero = set_absolute_zero;
     for (uint8_t index = 0U; index < P1010B_SAVE_PARAM_RESERVED_BYTES; index++) {
         request.args.saveParameters.data.reservedPayload[index] = 0U;

@@ -55,8 +55,7 @@ typedef memory_order OmMemoryOrder;
 #else
 // --- 传统/回退模式 ---
 // 定义与 C11 类似的枚举，供特定编译器的实现使用
-typedef enum
-{
+typedef enum {
     MO_RELAXED = 0,
     MO_CONSUME = 1,
     MO_ACQUIRE = 2,
@@ -84,12 +83,12 @@ typedef enum
 
 #ifdef AW_USE_STDATOMIC
 // C11 标准模式
-#define OM_ATOMIC_T(type) _Atomic(type)
+#define OM_ATOMIC_T(type)       _Atomic(type)
 #define AW_ATOMIC_VAR_INIT(val) (val) // ATOMIC_VAR_INIT(val)在C11中是标准，但在C17后就被放弃了，因此采用直接返回值
 #else
 // MSVC / GCC Legacy / AC5 模式
 // 在这些编译器中，原子操作函数通常期望传入 volatile 指针
-#define OM_ATOMIC_T(type) volatile type
+#define OM_ATOMIC_T(type)       volatile type
 #define AW_ATOMIC_VAR_INIT(val) (val)
 #endif
 
@@ -100,7 +99,7 @@ typedef OM_ATOMIC_T(long) OmAtomicLong;
 typedef OM_ATOMIC_T(unsigned long) OmAtomicUlong;
 typedef OM_ATOMIC_T(long long) OmAtomicLlong;
 typedef OM_ATOMIC_T(unsigned long long) OmAtomicUllong;
-typedef OM_ATOMIC_T(void*) OmAtomicPtr;
+typedef OM_ATOMIC_T(void *) OmAtomicPtr;
 typedef OM_ATOMIC_T(size_t) OmAtomicSize;
 
 // ============================================================================

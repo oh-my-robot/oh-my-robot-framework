@@ -21,18 +21,17 @@ extern "C" {
 
 /** @brief 致命错误原因类别（只增不改；按触发源追加，如硬件故障） */
 typedef enum {
-    OM_FATAL_STARTUP = 0,       /**< 启动期失败：initcall 返回错误 / init 线程创建失败 / 调度器启动失败 */
-    OM_FATAL_ASSERT = 1,        /**< 断言失败（OM_ASSERT / FreeRTOS configASSERT）：状态不变量被违反 */
+    OM_FATAL_STARTUP        = 0, /**< 启动期失败：initcall 返回错误 / init 线程创建失败 / 调度器启动失败 */
+    OM_FATAL_ASSERT         = 1, /**< 断言失败（OM_ASSERT / FreeRTOS configASSERT）：状态不变量被违反 */
     OM_FATAL_STACK_OVERFLOW = 2, /**< 任务栈溢出（FreeRTOS 检测） */
-    OM_FATAL_HW_FAULT = 3,      /**< CPU 硬件异常（HardFault 等） */
+    OM_FATAL_HW_FAULT       = 3, /**< CPU 硬件异常（HardFault 等） */
 } OmFatalReason;
 
 /** @brief 致命错误触发点上下文——handler 的诊断信息（无则全零/NULL） */
-typedef struct OmFatalContext
-{
+typedef struct OmFatalContext {
     const char *file;   /**< 触发点文件（断言用 __FILE__） */
-    int         line;   /**< 触发点行号（断言用 __LINE__） */
-    uintptr_t   pc;     /**< 触发点 PC（硬件异常返回地址），无则 0 */
+    int line;           /**< 触发点行号（断言用 __LINE__） */
+    uintptr_t pc;       /**< 触发点 PC（硬件异常返回地址），无则 0 */
     const char *detail; /**< 附加说明（如溢出任务名），无则 NULL */
 } OmFatalContext;
 

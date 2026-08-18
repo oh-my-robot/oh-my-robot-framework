@@ -15,7 +15,7 @@ typedef struct Completion {
 } Completion;
 
 OmRet completion_init(Completion *c);
-void  completion_deinit(Completion *c);
+void completion_deinit(Completion *c);
 OmRet completion_wait(Completion *c, size_t timeout_ms);
 OmRet completion_done(Completion *c);
 

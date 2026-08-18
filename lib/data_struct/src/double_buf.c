@@ -12,12 +12,12 @@ bool dbuf_init(DoubleBuf *db, void *mem, size_t page_size)
     if ((db == NULL) || (mem == NULL) || (page_size == 0U))
         return false;
 
-    db->page[0] = (uint8_t *)mem;
-    db->page[1] = (uint8_t *)mem + page_size;
+    db->page[0]   = (uint8_t *)mem;
+    db->page[1]   = (uint8_t *)mem + page_size;
     db->page_size = page_size;
-    db->len[0] = 0U;
-    db->len[1] = 0U;
-    db->owned = false;
+    db->len[0]    = 0U;
+    db->len[1]    = 0U;
+    db->owned     = false;
     OM_STORE_RLX(&db->idx, 0U);
     OM_STORE_RLX(&db->drop_cnt, 0U);
 
@@ -29,12 +29,12 @@ bool dbuf_init_split(DoubleBuf *db, void *page0, void *page1, size_t page_size)
     if ((db == NULL) || (page0 == NULL) || (page1 == NULL) || (page_size == 0U))
         return false;
 
-    db->page[0] = (uint8_t *)page0;
-    db->page[1] = (uint8_t *)page1;
-    db->owned = false;
+    db->page[0]   = (uint8_t *)page0;
+    db->page[1]   = (uint8_t *)page1;
+    db->owned     = false;
     db->page_size = page_size;
-    db->len[0] = 0U;
-    db->len[1] = 0U;
+    db->len[0]    = 0U;
+    db->len[1]    = 0U;
     OM_STORE_RLX(&db->idx, 0U);
     OM_STORE_RLX(&db->drop_cnt, 0U);
 
@@ -58,12 +58,12 @@ bool dbuf_alloc(DoubleBuf *db, size_t page_size, void *(*pmalloc)(size_t))
 
     memset(mem, 0, 2U * page_size);
 
-    db->page[0] = mem;
-    db->page[1] = mem + page_size;
+    db->page[0]   = mem;
+    db->page[1]   = mem + page_size;
     db->page_size = page_size;
-    db->len[0] = 0U;
-    db->len[1] = 0U;
-    db->owned = true;
+    db->len[0]    = 0U;
+    db->len[1]    = 0U;
+    db->owned     = true;
     OM_STORE_RLX(&db->idx, 0U);
     OM_STORE_RLX(&db->drop_cnt, 0U);
 
@@ -80,10 +80,10 @@ void dbuf_free(DoubleBuf *db, void (*pfree)(void *))
     else
         pfree(db->page[0]);
 
-    db->page[0] = NULL;
-    db->page[1] = NULL;
+    db->page[0]   = NULL;
+    db->page[1]   = NULL;
     db->page_size = 0U;
-    db->owned = false;
+    db->owned     = false;
 }
 
 /*===========================================================================
@@ -104,8 +104,7 @@ uint8_t *dbuf_get_write_ptr(DoubleBuf *db)
      * 在此处（生产者独占的写入侧）清零并计数，避免在 commit 中
      * 与消费者的 get_read_ptr 产生竞争。
      */
-    if (db->len[w_idx] != 0U)
-    {
+    if (db->len[w_idx] != 0U) {
         OM_INC_RLX(&db->drop_cnt);
         db->len[w_idx] = 0U;
     }
@@ -172,7 +171,7 @@ void dbuf_consume(DoubleBuf *db)
     if (db == NULL)
         return;
 
-    r_idx = OM_LOAD_ACQ(&db->idx) ^ 1U;
+    r_idx          = OM_LOAD_ACQ(&db->idx) ^ 1U;
     db->len[r_idx] = 0U;
 }
 

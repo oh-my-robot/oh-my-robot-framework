@@ -36,8 +36,7 @@ static void om_init_thread(void *arg)
 {
     (void)arg;
     OmRet ret = om_do_initcalls(OM_INIT_LEVEL_SERVICE, OM_INIT_LEVEL_COUNT);
-    if (ret != OM_OK)
-    {
+    if (ret != OM_OK) {
         /* 启动期任何级别 initcall 失败均为致命（与 pre 段对称）：带病启动比显式停机更危险
          * （机器人场景），由 handler 决定受控恢复（亮灯/软复位/跳 bootloader）。
          * detail 携带失败回调名（om_init_last_fail_name），handler 可定位失败点。 */
@@ -57,14 +56,13 @@ void om_startup_post_scheduler(void)
 {
     /* init 线程：CRITICAL 带，确保 SERVICE/SYSTEM/APPLICATION/LATE 先于业务线程完成。
      * app 的启动设置（建业务线程等）应注册为 OM_INIT_APPLICATION，由此自动执行。 */
-    OsalThread *init_task = NULL;
+    OsalThread *init_task    = NULL;
     OsalThreadAttr init_attr = {
-        .name = "om_init",
-        .priority = OSAL_PRIO_CRITICAL_BASE,
+        .name      = "om_init",
+        .priority  = OSAL_PRIO_CRITICAL_BASE,
         .stackSize = OM_INIT_THREAD_STACK_SIZE,
     };
-    if (osal_thread_create(&init_task, &init_attr, om_init_thread, NULL) != OSAL_OK)
-    {
+    if (osal_thread_create(&init_task, &init_attr, om_init_thread, NULL) != OSAL_OK) {
         om_fatal_error(OM_FATAL_STARTUP, OM_ERR_NO_MEM, NULL);
     }
 
@@ -76,8 +74,7 @@ void om_startup_post_scheduler(void)
 void om_system_startup(void)
 {
     OmRet ret = om_startup_pre_scheduler();
-    if (ret != OM_OK)
-    {
+    if (ret != OM_OK) {
         const OmFatalContext ctx = {.detail = om_init_last_fail_name()};
         om_fatal_error(OM_FATAL_STARTUP, ret, &ctx);
     }

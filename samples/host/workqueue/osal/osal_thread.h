@@ -8,8 +8,8 @@ typedef void (*OsalThreadEntryFunction)(void *arg);
 
 typedef struct {
     const char *name;
-    uint32_t    stackSize;
-    uint32_t    priority;
+    uint32_t stackSize;
+    uint32_t priority;
 } OsalThreadAttr;
 
 OsalStatus osal_thread_create(OsalThread **thread, const OsalThreadAttr *attr,

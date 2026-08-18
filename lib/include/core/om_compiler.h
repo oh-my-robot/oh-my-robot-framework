@@ -12,11 +12,11 @@
 #include "port/om_port_compiler.h"
 
 /* 编译器特性 —— 统一命名，屏蔽 GCC/Clang/armclang/IAR/MSVC 差异 */
-#define OM_SECTION(x)  __port_section(x)
-#define OM_USED        __port_used
-#define OM_WEAK        __port_weak
-#define OM_ALIGN(n)    __port_align(n)
-#define OM_NORETURN    __port_noreturn
-#define OM_PACKED      __port_packed
+#define OM_SECTION(x) __port_section(x)
+#define OM_USED       __port_used
+#define OM_WEAK       __port_weak
+#define OM_ALIGN(n)   __port_align(n)
+#define OM_NORETURN   __port_noreturn
+#define OM_PACKED     __port_packed
 
 #endif /* __OM_COMPILER_H__ */

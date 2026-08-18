@@ -19,9 +19,9 @@ typedef struct
     volatile uint32_t done;
 } OsalSemTestResult;
 
-static OsalSem* g_sem = NULL;
-static OsalThread* g_test_thread = NULL;
-static OsalThread* g_post_thread = NULL;
+static OsalSem *g_sem                 = NULL;
+static OsalThread *g_test_thread      = NULL;
+static OsalThread *g_post_thread      = NULL;
 static OsalSemTestResult g_sem_result = {0u, 0u, 0u};
 
 /**
@@ -39,7 +39,7 @@ static void osal_sem_expect(int condition)
  * @brief 辅助线程：延时后 post 一次
  * @note 用于触发 `wait(OSAL_WAIT_FOREVER)` 的唤醒路径
  */
-static void osal_sem_post_once_thread(void* arg)
+static void osal_sem_post_once_thread(void *arg)
 {
     (void)arg;
     (void)osal_sleep_ms(20u);
@@ -55,10 +55,10 @@ static void osal_sem_post_once_thread(void* arg)
  * 3) 满计数行为（post 返回 `OSAL_NO_RESOURCE`）
  * 4) `OSAL_WAIT_FOREVER` 语义（由辅助线程 post 唤醒）
  */
-static void osal_sem_test_thread_entry(void* arg)
+static void osal_sem_test_thread_entry(void *arg)
 {
-    OsalSem* invalid_sem = NULL;
-    uint32_t sem_count = 0u;
+    OsalSem *invalid_sem     = NULL;
+    uint32_t sem_count       = 0u;
     OsalThreadAttr post_attr = {
         "osal_sem_poster",
         512u * OSAL_STACK_WORD_BYTES,

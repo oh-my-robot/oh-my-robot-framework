@@ -30,8 +30,8 @@
 
 #if OM_PORT_SOFTWARE_ATOMICS
 
-#define CRITICAL_ENTER(key)   uint32_t key = om_hw_disable_interrupt()
-#define CRITICAL_EXIT(key)    om_hw_restore_interrupt(key)
+#define CRITICAL_ENTER(key) uint32_t key = om_hw_disable_interrupt()
+#define CRITICAL_EXIT(key)  om_hw_restore_interrupt(key)
 
 /* --- 1-byte atomics --- */
 
@@ -53,20 +53,22 @@ void __atomic_store_1(volatile void *ptr, uint8_t val, int memorder)
 }
 
 uint8_t __atomic_compare_exchange_1(volatile void *ptr, void *expected,
-                                     uint8_t desired, int weak,
-                                     int success, int failure)
+                                    uint8_t desired, int weak,
+                                    int success, int failure)
 {
-    (void)weak; (void)success; (void)failure;
+    (void)weak;
+    (void)success;
+    (void)failure;
     CRITICAL_ENTER(k);
     uint8_t *exp = (uint8_t *)expected;
-    uint8_t  cur = *(volatile uint8_t *)ptr;
-    uint8_t  ok;
+    uint8_t cur  = *(volatile uint8_t *)ptr;
+    uint8_t ok;
     if (cur == *exp) {
         *(volatile uint8_t *)ptr = desired;
-        ok = 1;
+        ok                       = 1;
     } else {
         *exp = cur;
-        ok = 0;
+        ok   = 0;
     }
     CRITICAL_EXIT(k);
     return ok;
@@ -95,7 +97,7 @@ uint32_t __atomic_fetch_or_4(volatile void *ptr, uint32_t val, int memorder)
 {
     (void)memorder;
     CRITICAL_ENTER(k);
-    uint32_t old = *(volatile uint32_t *)ptr;
+    uint32_t old              = *(volatile uint32_t *)ptr;
     *(volatile uint32_t *)ptr = old | val;
     CRITICAL_EXIT(k);
     return old;
@@ -105,7 +107,7 @@ uint32_t __atomic_fetch_and_4(volatile void *ptr, uint32_t val, int memorder)
 {
     (void)memorder;
     CRITICAL_ENTER(k);
-    uint32_t old = *(volatile uint32_t *)ptr;
+    uint32_t old              = *(volatile uint32_t *)ptr;
     *(volatile uint32_t *)ptr = old & val;
     CRITICAL_EXIT(k);
     return old;
@@ -115,7 +117,7 @@ uint32_t __atomic_fetch_add_4(volatile void *ptr, uint32_t val, int memorder)
 {
     (void)memorder;
     CRITICAL_ENTER(k);
-    uint32_t old = *(volatile uint32_t *)ptr;
+    uint32_t old              = *(volatile uint32_t *)ptr;
     *(volatile uint32_t *)ptr = old + val;
     CRITICAL_EXIT(k);
     return old;
@@ -125,7 +127,7 @@ uint32_t __atomic_fetch_sub_4(volatile void *ptr, uint32_t val, int memorder)
 {
     (void)memorder;
     CRITICAL_ENTER(k);
-    uint32_t old = *(volatile uint32_t *)ptr;
+    uint32_t old              = *(volatile uint32_t *)ptr;
     *(volatile uint32_t *)ptr = old - val;
     CRITICAL_EXIT(k);
     return old;

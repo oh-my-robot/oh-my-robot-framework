@@ -84,12 +84,10 @@ static inline int32_t p1010b_internal_read_be_i32(const uint8_t *buffer)
  */
 static inline int16_t p1010b_internal_clamp_i16(int32_t value)
 {
-    if (value > INT16_MAX)
-    {
+    if (value > INT16_MAX) {
         return INT16_MAX;
     }
-    if (value < INT16_MIN)
-    {
+    if (value < INT16_MIN) {
         return INT16_MIN;
     }
     return (int16_t)value;
@@ -105,12 +103,9 @@ static inline int16_t p1010b_internal_clamp_i16(int32_t value)
 static inline int16_t p1010b_internal_scale_target(float scale, float target_value)
 {
     float scaled = target_value * scale;
-    if (scaled >= 0.0f)
-    {
+    if (scaled >= 0.0f) {
         scaled += 0.5f;
-    }
-    else
-    {
+    } else {
         scaled -= 0.5f;
     }
     return p1010b_internal_clamp_i16((int32_t)scaled);
@@ -139,17 +134,16 @@ static inline uint8_t p1010b_internal_get_slot_index(uint8_t motor_id)
  */
 static inline bool p1010b_internal_is_parameter_whitelisted(uint8_t parameter_id)
 {
-    switch (parameter_id)
-    {
-    case P1010B_PARAM_FAULT_MASK:
-    case P1010B_PARAM_HEARTBEAT_ENABLE:
-    case P1010B_PARAM_WORK_MODE:
-    case P1010B_PARAM_MOTOR_ID:
-    case P1010B_PARAM_CAN_BAUD_MODE:
-    case P1010B_PARAM_HEARTBEAT_TIME:
-        return true;
-    default:
-        return false;
+    switch (parameter_id) {
+        case P1010B_PARAM_FAULT_MASK:
+        case P1010B_PARAM_HEARTBEAT_ENABLE:
+        case P1010B_PARAM_WORK_MODE:
+        case P1010B_PARAM_MOTOR_ID:
+        case P1010B_PARAM_CAN_BAUD_MODE:
+        case P1010B_PARAM_HEARTBEAT_TIME:
+            return true;
+        default:
+            return false;
     }
 }
 
@@ -160,10 +154,9 @@ static inline bool p1010b_internal_is_parameter_whitelisted(uint8_t parameter_id
  */
 static void p1010b_internal_pack_group_payload(const P1010BBus *bus, uint8_t group_index, uint8_t payload[P1010B_CAN_DLC])
 {
-    for (uint8_t slot = 0; slot < P1010B_GROUP_SLOT_COUNT; slot++)
-    {
-        int16_t raw_value = bus->groupTargetsRaw[group_index][slot];
-        payload[(slot * 2U)] = (uint8_t)(((uint16_t)raw_value >> 8U) & 0xFFU);
+    for (uint8_t slot = 0; slot < P1010B_GROUP_SLOT_COUNT; slot++) {
+        int16_t raw_value         = bus->groupTargetsRaw[group_index][slot];
+        payload[(slot * 2U)]      = (uint8_t)(((uint16_t)raw_value >> 8U) & 0xFFU);
         payload[(slot * 2U) + 1U] = (uint8_t)((uint16_t)raw_value & 0xFFU);
     }
 }
@@ -181,9 +174,9 @@ static OmRet p1010b_internal_send_can_frame(P1010BBus *bus, uint16_t can_id, con
 
     if (!bus || !bus->canDevice || !payload)
         return OM_ERROR_PARAM;
-    message.dsc = CAN_DATA_MSG_DSC_INIT(can_id, CAN_IDE_STD, P1010B_CAN_DLC);
+    message.dsc          = CAN_DATA_MSG_DSC_INIT(can_id, CAN_IDE_STD, P1010B_CAN_DLC);
     message.filterHandle = 0;
-    message.userBuf = (uint8_t *)payload;
+    message.userBuf      = (uint8_t *)payload;
     if (device_write(bus->canDevice, 0, &message, 1) == 0U)
         return OM_ERROR;
     return OM_OK;
@@ -194,16 +187,15 @@ static OmRet p1010b_internal_send_can_frame(P1010BBus *bus, uint16_t can_id, con
  */
 static float p1010b_internal_update_target_scale_cache(P1010BMode mode)
 {
-    switch (mode)
-    {
-    case P1010B_MODE_OPEN_LOOP:
-    case P1010B_MODE_CURRENT:
-    case P1010B_MODE_POSITION:
-        return P1010B_TARGET_SCALE_X100;
-    case P1010B_MODE_SPEED:
-        return P1010B_TARGET_SCALE_X10;
-    default:
-        return P1010B_TARGET_SCALE_INVALID;
+    switch (mode) {
+        case P1010B_MODE_OPEN_LOOP:
+        case P1010B_MODE_CURRENT:
+        case P1010B_MODE_POSITION:
+            return P1010B_TARGET_SCALE_X100;
+        case P1010B_MODE_SPEED:
+            return P1010B_TARGET_SCALE_X10;
+        default:
+            return P1010B_TARGET_SCALE_INVALID;
     }
 }
 
@@ -212,17 +204,14 @@ static float p1010b_internal_update_target_scale_cache(P1010BMode mode)
  */
 static inline void p1010b_internal_mark_online(P1010BDriver *driver, bool online)
 {
-    if (!driver)
-    {
+    if (!driver) {
         return;
     }
-    if (driver->telemetry.online == online)
-    {
+    if (driver->telemetry.online == online) {
         return;
     }
     driver->telemetry.online = online;
-    if (driver->callbacks.onOnlineChanged)
-    {
+    if (driver->callbacks.onOnlineChanged) {
         driver->callbacks.onOnlineChanged(driver, online);
     }
 }
@@ -232,12 +221,10 @@ static inline void p1010b_internal_mark_online(P1010BDriver *driver, bool online
  */
 static inline uint32_t p1010b_internal_resolve_sync_timeout_ms(const P1010BDriver *driver, uint32_t timeout_ms)
 {
-    if (timeout_ms > 0U)
-    {
+    if (timeout_ms > 0U) {
         return timeout_ms;
     }
-    if (driver && driver->config.requestTimeoutMs > 0U)
-    {
+    if (driver && driver->config.requestTimeoutMs > 0U) {
         return driver->config.requestTimeoutMs;
     }
     return P1010B_DEFAULT_SYNC_TIMEOUT_MS;
@@ -248,14 +235,13 @@ static inline uint32_t p1010b_internal_resolve_sync_timeout_ms(const P1010BDrive
  */
 static inline void p1010b_internal_clear_sync_transaction_locked(P1010BDriver *driver)
 {
-    if (!driver)
-    {
+    if (!driver) {
         return;
     }
-    driver->sync.pending = false;
-    driver->sync.pendingCommand = P1010B_COMMAND_NONE;
-    driver->sync.expectedReplyBaseId = 0U;
-    driver->sync.expectedParameterId = 0U;
+    driver->sync.pending              = false;
+    driver->sync.pendingCommand       = P1010B_COMMAND_NONE;
+    driver->sync.expectedReplyBaseId  = 0U;
+    driver->sync.expectedParameterId  = 0U;
     driver->sync.expectedStateCommand = 0U;
 }
 
@@ -264,14 +250,13 @@ static inline void p1010b_internal_clear_sync_transaction_locked(P1010BDriver *d
  */
 static inline void p1010b_internal_init_response(P1010BResponse *response, P1010BCommand command, OmRet result)
 {
-    if (!response)
-    {
+    if (!response) {
         return;
     }
 
     memset(response, 0, sizeof(P1010BResponse));
     response->command = command;
-    response->result = result;
+    response->result  = result;
 }
 
 /**
@@ -291,29 +276,26 @@ static void p1010b_internal_cancel_sync_transaction(P1010BDriver *driver)
  */
 static OmRet p1010b_internal_begin_sync_transaction(P1010BDriver *driver, P1010BCommand command, const P1010BEncodedRequest *encoded)
 {
-    if (!driver || !encoded)
-    {
+    if (!driver || !encoded) {
         return OM_ERROR_PARAM;
     }
 
     /* 清空可能遗留的完成量信号，确保本次 wait 只对应当前事务*/
-    while (completion_wait(&driver->sync.completion, 0U) == OM_OK)
-    {
+    while (completion_wait(&driver->sync.completion, 0U) == OM_OK) {
     }
 
     osal_irq_lock_task();
-    if (driver->sync.pending)
-    {
+    if (driver->sync.pending) {
         osal_irq_unlock_task();
         return OM_ERROR_BUSY;
     }
-    driver->sync.pending = true;
-    driver->sync.pendingCommand = command;
-    driver->sync.expectedReplyBaseId = encoded->ackBaseId;
-    driver->sync.expectedParameterId = encoded->expectedParameterId;
+    driver->sync.pending              = true;
+    driver->sync.pendingCommand       = command;
+    driver->sync.expectedReplyBaseId  = encoded->ackBaseId;
+    driver->sync.expectedParameterId  = encoded->expectedParameterId;
     driver->sync.expectedStateCommand = encoded->expectedStateCommand;
-    driver->sync.result = OM_ERROR_TIMEOUT;
-    driver->sync.timestampMs = 0U;
+    driver->sync.result               = OM_ERROR_TIMEOUT;
+    driver->sync.timestampMs          = 0U;
     p1010b_internal_init_response(&driver->sync.response, command, OM_ERROR_TIMEOUT);
     osal_irq_unlock_task();
     return OM_OK;
@@ -327,13 +309,11 @@ static OmRet p1010b_internal_wait_sync_transaction(P1010BDriver *driver, uint32_
     OmRet ret;
 
     ret = completion_wait(&driver->sync.completion, p1010b_internal_resolve_sync_timeout_ms(driver, timeout_ms));
-    if (ret != OM_OK)
-    {
+    if (ret != OM_OK) {
         p1010b_internal_cancel_sync_transaction(driver);
         if (ret == OM_ERROR_TIMEOUT)
             /* 超时后消费可能迟到的 done 信号，避免污染下一次同步事务*/
-            while (completion_wait(&driver->sync.completion, 0U) == OM_OK)
-            {
+            while (completion_wait(&driver->sync.completion, 0U) == OM_OK) {
             }
         return ret;
     }
@@ -355,15 +335,13 @@ static OmRet p1010b_internal_send_sync_transaction(P1010BDriver *driver, const P
     uint32_t attempt_count;
 
     attempt_count = (uint32_t)driver->config.maxRetryCount + 1U;
-    for (uint32_t attempt_index = 0U; attempt_index < attempt_count; attempt_index++)
-    {
+    for (uint32_t attempt_index = 0U; attempt_index < attempt_count; attempt_index++) {
         ret = p1010b_internal_begin_sync_transaction(driver, request->command, encoded);
         if (ret != OM_OK)
             break;
 
         ret = p1010b_internal_send_can_frame(driver->bus, encoded->requestCanId, encoded->payload);
-        if (ret != OM_OK)
-        {
+        if (ret != OM_OK) {
             p1010b_internal_cancel_sync_transaction(driver);
             break;
         }
@@ -384,23 +362,19 @@ static bool p1010b_internal_is_sync_reply_matched_by_descriptor(const P1010BComm
 {
     uint8_t reply_base_id;
 
-    if (!descriptor || !driver || !frame)
-    {
+    if (!descriptor || !driver || !frame) {
         return false;
     }
-    if (descriptor->ackBaseId == P1010B_CAN_ACK_NONE)
-    {
+    if (descriptor->ackBaseId == P1010B_CAN_ACK_NONE) {
         return false;
     }
 
     reply_base_id = (uint8_t)(frame->canId & P1010B_REPLY_ID_MASK);
-    if (reply_base_id != descriptor->ackBaseId)
-    {
+    if (reply_base_id != descriptor->ackBaseId) {
         return false;
     }
 
-    if (!descriptor->ackMatchFn)
-    {
+    if (!descriptor->ackMatchFn) {
         return true;
     }
     return descriptor->ackMatchFn(driver, frame);
@@ -411,16 +385,14 @@ static bool p1010b_internal_is_sync_reply_matched_by_descriptor(const P1010BComm
  */
 static void p1010b_internal_decode_sync_reply_by_descriptor_in_isr(const P1010BCommandDescriptor *descriptor, P1010BDriver *driver, const P1010BRawFrame *frame, P1010BIsrCallbackContext *callback_context)
 {
-    if (!descriptor || !driver || !frame)
-    {
+    if (!descriptor || !driver || !frame) {
         return;
     }
 
     p1010b_internal_init_response(&driver->sync.response, descriptor->command, OM_OK);
     driver->sync.response.timestampMs = frame->timestampMs;
     memcpy(driver->sync.response.ackPayload, frame->payload, sizeof(frame->payload));
-    if (descriptor->decodeAckFn)
-    {
+    if (descriptor->decodeAckFn) {
         descriptor->decodeAckFn(driver, frame, &driver->sync.response, callback_context);
     }
 }
@@ -432,40 +404,34 @@ static void p1010b_internal_try_complete_sync_transaction(P1010BBus *bus, P1010B
 {
     OsalIrqIsrState irq_state;
     const P1010BCommandDescriptor *descriptor = NULL;
-    bool matched = false;
+    bool matched                              = false;
     P1010BIsrCallbackContext callback_context = {0};
 
-    if (!bus || !driver || !frame)
-    {
+    if (!bus || !driver || !frame) {
         return;
     }
 
     irq_state = osal_irq_lock_from_isr();
-    if (!driver->sync.pending)
-    {
+    if (!driver->sync.pending) {
         osal_irq_unlock_from_isr(irq_state);
         return;
     }
 
     descriptor = p1010b_internal_find_command_descriptor(driver->sync.pendingCommand);
-    matched = p1010b_internal_is_sync_reply_matched_by_descriptor(descriptor, driver, frame);
-    if (matched)
-    {
+    matched    = p1010b_internal_is_sync_reply_matched_by_descriptor(descriptor, driver, frame);
+    if (matched) {
         p1010b_internal_decode_sync_reply_by_descriptor_in_isr(descriptor, driver, frame, &callback_context);
-        driver->sync.result = OM_OK;
+        driver->sync.result      = OM_OK;
         driver->sync.timestampMs = frame->timestampMs;
         /* 先清 pending，再 done，避免线程侧唤醒后读到未收敛状态*/
         p1010b_internal_clear_sync_transaction_locked(driver);
         (void)completion_done(&driver->sync.completion);
-    }
-    else
-    {
+    } else {
         bus->rxLateReadParamCount++;
     }
     osal_irq_unlock_from_isr(irq_state);
 
-    if (callback_context.triggerParamReadCallback && driver->callbacks.onParamRead)
-    {
+    if (callback_context.triggerParamReadCallback && driver->callbacks.onParamRead) {
         /* 回调放在解锁后执行，缩短 ISR 临界区*/
         driver->callbacks.onParamRead(driver, callback_context.callbackParameterId, callback_context.callbackParameterValue, OM_OK,
                                       frame->timestampMs);
@@ -478,14 +444,13 @@ static void p1010b_internal_try_complete_sync_transaction(P1010BBus *bus, P1010B
  */
 static void p1010b_internal_update_feedback(P1010BDriver *driver, const P1010BRawFrame *frame)
 {
-    driver->telemetry.feedback.speedRpm = (float)p1010b_internal_read_be_i16(&frame->payload[0]) / 10.0f;
-    driver->telemetry.feedback.iqAmpere = (float)p1010b_internal_read_be_i16(&frame->payload[2]) / 100.0f;
+    driver->telemetry.feedback.speedRpm         = (float)p1010b_internal_read_be_i16(&frame->payload[0]) / 10.0f;
+    driver->telemetry.feedback.iqAmpere         = (float)p1010b_internal_read_be_i16(&frame->payload[2]) / 100.0f;
     driver->telemetry.feedback.absolutePosition = (uint16_t)p1010b_internal_read_be_i16(&frame->payload[4]);
-    driver->telemetry.feedback.busVoltage = (float)p1010b_internal_read_be_i16(&frame->payload[6]) / 10.0f;
-    driver->telemetry.feedback.timestampMs = frame->timestampMs;
+    driver->telemetry.feedback.busVoltage       = (float)p1010b_internal_read_be_i16(&frame->payload[6]) / 10.0f;
+    driver->telemetry.feedback.timestampMs      = frame->timestampMs;
 
-    if (driver->callbacks.onFeedback)
-    {
+    if (driver->callbacks.onFeedback) {
         driver->callbacks.onFeedback(driver, &driver->telemetry.feedback);
     }
 }
@@ -503,8 +468,7 @@ static inline uint32_t p1010b_internal_pack_fault_signature(const P1010BFaultSta
 {
     uint32_t signature = 0U;
 
-    if (!fault_state)
-    {
+    if (!fault_state) {
         return 0U;
     }
 
@@ -530,20 +494,18 @@ static void p1010b_internal_update_fault_state(P1010BDriver *driver, const P1010
      * DATA[2]=CMD，DATA[3]=校准状态，DATA[4]=故障码，DATA[5]=报警码，DATA[6..7]=保留
      */
     driver->telemetry.faultState.calibrated = ((frame->payload[3] & 0x01U) != 0U);
-    driver->telemetry.faultState.faultCode = (uint16_t)frame->payload[4];
-    driver->telemetry.faultState.alarmCode = (uint16_t)frame->payload[5];
+    driver->telemetry.faultState.faultCode  = (uint16_t)frame->payload[4];
+    driver->telemetry.faultState.alarmCode  = (uint16_t)frame->payload[5];
     driver->telemetry.faultState.statusBits = (uint32_t)(((uint32_t)frame->payload[6] << 8U) | frame->payload[7]);
 
-    if (driver->telemetry.faultState.faultCode != 0U)
-    {
-        driver->runtime.state = P1010B_STATE_FAULT_LOCKED;
+    if (driver->telemetry.faultState.faultCode != 0U) {
+        driver->runtime.state            = P1010B_STATE_FAULT_LOCKED;
         driver->runtime.lastRejectReason = P1010B_REJECT_FAULT_LOCKED;
     }
 
     old_fault_signature = p1010b_internal_pack_fault_signature(&old_fault_state);
     new_fault_signature = p1010b_internal_pack_fault_signature(&driver->telemetry.faultState);
-    if (driver->callbacks.onFaultChanged && ((old_fault_signature ^ new_fault_signature) != 0U))
-    {
+    if (driver->callbacks.onFaultChanged && ((old_fault_signature ^ new_fault_signature) != 0U)) {
         driver->callbacks.onFaultChanged(driver, &driver->telemetry.faultState);
     }
 }
@@ -553,8 +515,7 @@ static void p1010b_internal_update_fault_state(P1010BDriver *driver, const P1010
  */
 static void p1010b_internal_mark_rx_seen(P1010BDriver *driver, uint32_t timestamp_ms)
 {
-    if (!driver)
-    {
+    if (!driver) {
         return;
     }
     driver->telemetry.lastSuccessRxTimestampMs = timestamp_ms;
@@ -569,14 +530,12 @@ static int32_t p1010b_internal_reply_base_to_dispatch_index(uint8_t reply_base_i
 {
     uint8_t reply_nibble;
 
-    if ((reply_base_id & P1010B_REPLY_ID_LOW_MASK) != 0U)
-    {
+    if ((reply_base_id & P1010B_REPLY_ID_LOW_MASK) != 0U) {
         return -1;
     }
 
     reply_nibble = (uint8_t)(reply_base_id >> 4U);
-    if (reply_nibble < P1010B_REPLY_BASE_MIN_NIBBLE || reply_nibble > P1010B_REPLY_BASE_MAX_NIBBLE)
-    {
+    if (reply_nibble < P1010B_REPLY_BASE_MIN_NIBBLE || reply_nibble > P1010B_REPLY_BASE_MAX_NIBBLE) {
         return -1;
     }
 
@@ -590,39 +549,39 @@ static int32_t p1010b_internal_reply_base_to_dispatch_index(uint8_t reply_base_i
  */
 static const P1010BRxDispatchDescriptor g_p1010b_rx_dispatch_table[P1010B_REPLY_DISPATCH_ENTRY_COUNT] = {
     [P1010B_REPLY_DISPATCH_INDEX(P1010B_CAN_ACK_DRIVE_BASE)] = {
-        .replyBaseId = P1010B_CAN_ACK_DRIVE_BASE,
+        .replyBaseId     = P1010B_CAN_ACK_DRIVE_BASE,
         .mayCompleteSync = false,
-        .sideEffectFn = p1010b_internal_update_feedback,
+        .sideEffectFn    = p1010b_internal_update_feedback,
     },
     [P1010B_REPLY_DISPATCH_INDEX(P1010B_CAN_ACK_REPORT_MODE)] = {
-        .replyBaseId = P1010B_CAN_ACK_REPORT_MODE,
+        .replyBaseId     = P1010B_CAN_ACK_REPORT_MODE,
         .mayCompleteSync = true,
-        .sideEffectFn = NULL,
+        .sideEffectFn    = NULL,
     },
     [P1010B_REPLY_DISPATCH_INDEX(P1010B_CAN_ACK_ACTIVE_QUERY)] = {
-        .replyBaseId = P1010B_CAN_ACK_ACTIVE_QUERY,
+        .replyBaseId     = P1010B_CAN_ACK_ACTIVE_QUERY,
         .mayCompleteSync = true,
-        .sideEffectFn = NULL,
+        .sideEffectFn    = NULL,
     },
     [P1010B_REPLY_DISPATCH_INDEX(P1010B_CAN_ACK_WRITE_PARAM)] = {
-        .replyBaseId = P1010B_CAN_ACK_WRITE_PARAM,
+        .replyBaseId     = P1010B_CAN_ACK_WRITE_PARAM,
         .mayCompleteSync = true,
-        .sideEffectFn = NULL,
+        .sideEffectFn    = NULL,
     },
     [P1010B_REPLY_DISPATCH_INDEX(P1010B_CAN_ACK_READ_PARAM)] = {
-        .replyBaseId = P1010B_CAN_ACK_READ_PARAM,
+        .replyBaseId     = P1010B_CAN_ACK_READ_PARAM,
         .mayCompleteSync = true,
-        .sideEffectFn = NULL,
+        .sideEffectFn    = NULL,
     },
     [P1010B_REPLY_DISPATCH_INDEX(P1010B_CAN_ACK_STATE_CONTROL)] = {
-        .replyBaseId = P1010B_CAN_ACK_STATE_CONTROL,
+        .replyBaseId     = P1010B_CAN_ACK_STATE_CONTROL,
         .mayCompleteSync = true,
-        .sideEffectFn = p1010b_internal_update_fault_state,
+        .sideEffectFn    = p1010b_internal_update_fault_state,
     },
     [P1010B_REPLY_DISPATCH_INDEX(P1010B_CAN_ACK_SAVE_PARAM)] = {
-        .replyBaseId = P1010B_CAN_ACK_SAVE_PARAM,
+        .replyBaseId     = P1010B_CAN_ACK_SAVE_PARAM,
         .mayCompleteSync = true,
-        .sideEffectFn = NULL,
+        .sideEffectFn    = NULL,
     },
 };
 
@@ -636,14 +595,12 @@ static const P1010BRxDispatchDescriptor *p1010b_internal_find_rx_dispatch_descri
     const P1010BRxDispatchDescriptor *dispatch_descriptor;
 
     dispatch_index = p1010b_internal_reply_base_to_dispatch_index(reply_base_id);
-    if (dispatch_index < 0)
-    {
+    if (dispatch_index < 0) {
         return NULL;
     }
 
     dispatch_descriptor = &g_p1010b_rx_dispatch_table[(uint32_t)dispatch_index];
-    if (dispatch_descriptor->replyBaseId != reply_base_id)
-    {
+    if (dispatch_descriptor->replyBaseId != reply_base_id) {
         return NULL;
     }
     return dispatch_descriptor;
@@ -661,60 +618,50 @@ static void p1010b_internal_rx_callback(Device *device, void *param, CanFilterHa
     CanUserMsg rx_message;
     uint8_t payload[P1010B_CAN_DLC];
 
-    if (!bus || !device || !bus->canDevice)
-    {
+    if (!bus || !device || !bus->canDevice) {
         return;
     }
 
     rx_message.filterHandle = filter_handle;
-    rx_message.userBuf = payload;
-    for (size_t message_index = 0U; message_index < message_count; message_index++)
-    {
+    rx_message.userBuf      = payload;
+    for (size_t message_index = 0U; message_index < message_count; message_index++) {
         P1010BRawFrame frame;
         uint8_t motor_id;
         uint8_t reply_base_id;
         P1010BDriver *target_driver;
 
-        if (device_read(device, 0, &rx_message, 1) == 0U)
-        {
+        if (device_read(device, 0, &rx_message, 1) == 0U) {
             break;
         }
-        if (rx_message.dsc.idType != CAN_IDE_STD || rx_message.dsc.dataLen != P1010B_CAN_DLC)
-        {
+        if (rx_message.dsc.idType != CAN_IDE_STD || rx_message.dsc.dataLen != P1010B_CAN_DLC) {
             bus->rxDroppedCount++;
             continue;
         }
 
         frame.canId = rx_message.dsc.id;
         memcpy(frame.payload, payload, sizeof(frame.payload));
-        frame.dataLength = (uint8_t)rx_message.dsc.dataLen;
+        frame.dataLength  = (uint8_t)rx_message.dsc.dataLen;
         frame.timestampMs = rx_message.dsc.timeStamp;
-        if (frame.timestampMs == 0U)
-        {
+        if (frame.timestampMs == 0U) {
             frame.timestampMs = osal_time_now_monotonic();
         }
 
         motor_id = (uint8_t)(frame.canId & P1010B_REPLY_ID_LOW_MASK);
-        if (!p1010b_internal_is_valid_motor_id(motor_id))
-        {
+        if (!p1010b_internal_is_valid_motor_id(motor_id)) {
             continue;
         }
         target_driver = bus->driverTable[motor_id];
-        if (!target_driver)
-        {
+        if (!target_driver) {
             continue;
         }
         reply_base_id = (uint8_t)(frame.canId & P1010B_REPLY_ID_MASK);
         {
             const P1010BRxDispatchDescriptor *dispatch_descriptor = p1010b_internal_find_rx_dispatch_descriptor(reply_base_id);
-            if (dispatch_descriptor)
-            {
-                if (dispatch_descriptor->sideEffectFn)
-                {
+            if (dispatch_descriptor) {
+                if (dispatch_descriptor->sideEffectFn) {
                     dispatch_descriptor->sideEffectFn(target_driver, &frame);
                 }
-                if (dispatch_descriptor->mayCompleteSync)
-                {
+                if (dispatch_descriptor->mayCompleteSync) {
                     p1010b_internal_try_complete_sync_transaction(bus, target_driver, &frame);
                 }
             }
@@ -734,8 +681,7 @@ OmRet p1010b_bus_init(P1010BBus *bus, Device *can_device)
     OmRet ret;
     CanFilterAllocArg filter_alloc_arg;
 
-    if (!bus || !can_device)
-    {
+    if (!bus || !can_device) {
         return OM_ERROR_PARAM;
     }
 
@@ -750,11 +696,10 @@ OmRet p1010b_bus_init(P1010BBus *bus, Device *can_device)
     filter_alloc_arg.request =
         CAN_FILTER_REQUEST_INIT(CAN_FILTER_MODE_MASK, CAN_FILTER_ID_STD, 0U, 0U, p1010b_internal_rx_callback, bus);
     ret = device_ctrl(can_device, CAN_CMD_FILTER_ALLOC, &filter_alloc_arg);
-    if (ret != OM_OK)
-    {
+    if (ret != OM_OK) {
         return ret;
     }
-    bus->filterHandle = filter_alloc_arg.handle;
+    bus->filterHandle    = filter_alloc_arg.handle;
     bus->filterAllocated = true;
 
     return OM_OK;
@@ -767,21 +712,17 @@ OmRet p1010b_bus_deinit(P1010BBus *bus)
 {
     OmRet ret = OM_OK;
 
-    if (!bus)
-    {
+    if (!bus) {
         return OM_ERROR_PARAM;
     }
-    for (uint8_t motor_id = P1010B_MOTOR_ID_MIN; motor_id <= P1010B_MOTOR_ID_MAX; motor_id++)
-    {
+    for (uint8_t motor_id = P1010B_MOTOR_ID_MIN; motor_id <= P1010B_MOTOR_ID_MAX; motor_id++) {
         P1010BDriver *driver = bus->driverTable[motor_id];
-        if (!driver)
-        {
+        if (!driver) {
             continue;
         }
         completion_deinit(&driver->sync.completion);
     }
-    if (bus->filterAllocated && bus->canDevice)
-    {
+    if (bus->filterAllocated && bus->canDevice) {
         ret = device_ctrl(bus->canDevice, CAN_CMD_FILTER_FREE, &bus->filterHandle);
     }
     memset(bus, 0, sizeof(P1010BBus));
@@ -797,36 +738,31 @@ OmRet p1010b_register(P1010BBus *bus, P1010BDriver *driver, const P1010BConfig *
     OmRet ret;
     uint8_t motor_id;
 
-    if (!bus || !driver || !bus->canDevice || !bus->filterAllocated)
-    {
+    if (!bus || !driver || !bus->canDevice || !bus->filterAllocated) {
         return OM_ERROR_PARAM;
     }
 
     memset(driver, 0, sizeof(P1010BDriver));
-    driver->bus = bus;
+    driver->bus    = bus;
     driver->config = P1010B_DEFAULT_CONFIG(P1010B_MOTOR_ID_MIN);
-    if (config)
-    {
+    if (config) {
         driver->config = *config;
     }
-    if (!p1010b_internal_is_valid_motor_id(driver->config.motorId))
-    {
+    if (!p1010b_internal_is_valid_motor_id(driver->config.motorId)) {
         return OM_ERROR_PARAM;
     }
     motor_id = driver->config.motorId;
-    if (bus->driverTable[motor_id] && bus->driverTable[motor_id] != driver)
-    {
+    if (bus->driverTable[motor_id] && bus->driverTable[motor_id] != driver) {
         return OM_ERR_CONFLICT;
     }
 
-    driver->runtime.state = P1010B_STATE_DISABLED;
-    driver->runtime.currentMode = driver->config.defaultMode;
-    driver->runtime.targetScale = p1010b_internal_update_target_scale_cache(driver->runtime.currentMode);
+    driver->runtime.state            = P1010B_STATE_DISABLED;
+    driver->runtime.currentMode      = driver->config.defaultMode;
+    driver->runtime.targetScale      = p1010b_internal_update_target_scale_cache(driver->runtime.currentMode);
     driver->runtime.lastRejectReason = P1010B_REJECT_NONE;
-    driver->runtime.activeReport = driver->config.activeReport;
-    ret = completion_init(&driver->sync.completion);
-    if (ret != OM_OK)
-    {
+    driver->runtime.activeReport     = driver->config.activeReport;
+    ret                              = completion_init(&driver->sync.completion);
+    if (ret != OM_OK) {
         return ret;
     }
     bus->driverTable[motor_id] = driver;
@@ -839,14 +775,13 @@ OmRet p1010b_register(P1010BBus *bus, P1010BDriver *driver, const P1010BConfig *
 void p1010b_set_callbacks(P1010BDriver *driver, P1010BFeedbackCallback feedback_cb, P1010BFaultCallback fault_cb,
                           P1010BOnlineCallback online_cb, P1010BParamReadCallback param_read_cb)
 {
-    if (!driver)
-    {
+    if (!driver) {
         return;
     }
-    driver->callbacks.onFeedback = feedback_cb;
-    driver->callbacks.onFaultChanged = fault_cb;
+    driver->callbacks.onFeedback      = feedback_cb;
+    driver->callbacks.onFaultChanged  = fault_cb;
     driver->callbacks.onOnlineChanged = online_cb;
-    driver->callbacks.onParamRead = param_read_cb;
+    driver->callbacks.onParamRead     = param_read_cb;
 }
 
 /**
@@ -854,15 +789,14 @@ void p1010b_set_callbacks(P1010BDriver *driver, P1010BFeedbackCallback feedback_
  */
 static bool p1010b_internal_is_mode_supported(P1010BMode mode)
 {
-    switch (mode)
-    {
-    case P1010B_MODE_OPEN_LOOP:
-    case P1010B_MODE_CURRENT:
-    case P1010B_MODE_SPEED:
-    case P1010B_MODE_POSITION:
-        return true;
-    default:
-        return false;
+    switch (mode) {
+        case P1010B_MODE_OPEN_LOOP:
+        case P1010B_MODE_CURRENT:
+        case P1010B_MODE_SPEED:
+        case P1010B_MODE_POSITION:
+            return true;
+        default:
+            return false;
     }
 }
 
@@ -886,12 +820,10 @@ static OmRet p1010b_internal_resolve_request_flags(const P1010BCommandDescriptor
     uint8_t request_flags;
 
     request_flags = request->flags;
-    if (request_flags == (uint8_t)P1010B_REQUEST_FLAG_NONE)
-    {
+    if (request_flags == (uint8_t)P1010B_REQUEST_FLAG_NONE) {
         request_flags = descriptor->defaultRequestFlags;
     }
-    if (!p1010b_internal_is_request_flags_valid(request_flags))
-    {
+    if (!p1010b_internal_is_request_flags_valid(request_flags)) {
         return OM_ERROR_PARAM;
     }
 
@@ -906,18 +838,15 @@ static OmRet p1010b_internal_resolve_request_flags(const P1010BCommandDescriptor
  */
 static OmRet p1010b_internal_guard_target(P1010BDriver *driver, const P1010BRequest *request)
 {
-    if (driver->runtime.state == P1010B_STATE_FAULT_LOCKED || driver->telemetry.faultState.faultCode != 0U)
-    {
+    if (driver->runtime.state == P1010B_STATE_FAULT_LOCKED || driver->telemetry.faultState.faultCode != 0U) {
         driver->runtime.lastRejectReason = P1010B_REJECT_FAULT_LOCKED;
         return OM_ERROR;
     }
-    if (driver->runtime.state != P1010B_STATE_ENABLED)
-    {
+    if (driver->runtime.state != P1010B_STATE_ENABLED) {
         driver->runtime.lastRejectReason = P1010B_REJECT_NOT_ENABLED;
         return OM_ERROR_BUSY;
     }
-    if (request->command == P1010B_COMMAND_SET_TARGET && driver->runtime.targetScale <= 0.0f)
-    {
+    if (request->command == P1010B_COMMAND_SET_TARGET && driver->runtime.targetScale <= 0.0f) {
         driver->runtime.lastRejectReason = P1010B_REJECT_INVALID_TARGET;
         return OM_ERROR_PARAM;
     }
@@ -931,12 +860,10 @@ static OmRet p1010b_internal_guard_target(P1010BDriver *driver, const P1010BRequ
  */
 static OmRet p1010b_internal_guard_set_active_report(P1010BDriver *driver, const P1010BRequest *request)
 {
-    if (request->args.setActiveReport.config.periodMs == 0U)
-    {
+    if (request->args.setActiveReport.config.periodMs == 0U) {
         return OM_ERROR_PARAM;
     }
-    if (driver->runtime.state != P1010B_STATE_DISABLED)
-    {
+    if (driver->runtime.state != P1010B_STATE_DISABLED) {
         driver->runtime.lastRejectReason = P1010B_REJECT_CONFIG_ONLY_WHEN_DISABLED;
         return OM_ERROR_BUSY;
     }
@@ -950,13 +877,11 @@ static OmRet p1010b_internal_guard_set_active_report(P1010BDriver *driver, const
  */
 static OmRet p1010b_internal_guard_write_parameter(P1010BDriver *driver, const P1010BRequest *request)
 {
-    if (driver->runtime.state != P1010B_STATE_DISABLED)
-    {
+    if (driver->runtime.state != P1010B_STATE_DISABLED) {
         driver->runtime.lastRejectReason = P1010B_REJECT_CONFIG_ONLY_WHEN_DISABLED;
         return OM_ERROR_BUSY;
     }
-    if (!p1010b_internal_is_parameter_whitelisted(request->args.writeParameter.parameterId))
-    {
+    if (!p1010b_internal_is_parameter_whitelisted(request->args.writeParameter.parameterId)) {
         driver->runtime.lastRejectReason = P1010B_REJECT_PARAM_NOT_WHITELISTED;
         return OM_ERROR_NOT_SUPPORT;
     }
@@ -970,8 +895,7 @@ static OmRet p1010b_internal_guard_write_parameter(P1010BDriver *driver, const P
 static OmRet p1010b_internal_guard_read_parameter(P1010BDriver *driver, const P1010BRequest *request)
 {
     (void)driver;
-    if (request->args.readParameter.parameterId == 0U)
-    {
+    if (request->args.readParameter.parameterId == 0U) {
         return OM_ERROR_PARAM;
     }
     return OM_OK;
@@ -988,13 +912,11 @@ static OmRet p1010b_internal_guard_state_control(P1010BDriver *driver, const P10
     uint8_t state_command;
 
     state_command = request->args.stateControl.command;
-    if (state_command != P1010B_STATE_CMD_ENABLE && state_command != P1010B_STATE_CMD_DISABLE)
-    {
+    if (state_command != P1010B_STATE_CMD_ENABLE && state_command != P1010B_STATE_CMD_DISABLE) {
         return OM_ERROR_PARAM;
     }
     if (state_command == P1010B_STATE_CMD_ENABLE &&
-        (driver->runtime.state == P1010B_STATE_FAULT_LOCKED || driver->telemetry.faultState.faultCode != 0U))
-    {
+        (driver->runtime.state == P1010B_STATE_FAULT_LOCKED || driver->telemetry.faultState.faultCode != 0U)) {
         driver->runtime.lastRejectReason = P1010B_REJECT_FAULT_LOCKED;
         return OM_ERROR;
     }
@@ -1008,8 +930,7 @@ static OmRet p1010b_internal_guard_state_control(P1010BDriver *driver, const P10
 static OmRet p1010b_internal_guard_save_parameters(P1010BDriver *driver, const P1010BRequest *request)
 {
     (void)request;
-    if (driver->runtime.state != P1010B_STATE_DISABLED)
-    {
+    if (driver->runtime.state != P1010B_STATE_DISABLED) {
         driver->runtime.lastRejectReason = P1010B_REJECT_CONFIG_ONLY_WHEN_DISABLED;
         return OM_ERROR_BUSY;
     }
@@ -1022,12 +943,10 @@ static OmRet p1010b_internal_guard_save_parameters(P1010BDriver *driver, const P
  */
 static OmRet p1010b_internal_guard_set_mode(P1010BDriver *driver, const P1010BRequest *request)
 {
-    if (!p1010b_internal_is_mode_supported(request->args.setMode.mode))
-    {
+    if (!p1010b_internal_is_mode_supported(request->args.setMode.mode)) {
         return OM_ERROR_PARAM;
     }
-    if (driver->runtime.state != P1010B_STATE_DISABLED)
-    {
+    if (driver->runtime.state != P1010B_STATE_DISABLED) {
         driver->runtime.lastRejectReason = P1010B_REJECT_CONFIG_ONLY_WHEN_DISABLED;
         return OM_ERROR_BUSY;
     }
@@ -1059,9 +978,9 @@ static OmRet p1010b_internal_encode_target_raw_value(P1010BDriver *driver, int16
     uint8_t group_index;
     uint8_t slot_index;
 
-    group_index = p1010b_internal_get_group_index(driver->config.motorId);
-    slot_index = p1010b_internal_get_slot_index(driver->config.motorId);
-    encoded->requestCanId = (group_index == 0U) ? P1010B_CAN_CMD_DRIVE_GROUP_1_4 : P1010B_CAN_CMD_DRIVE_GROUP_5_8;
+    group_index                                           = p1010b_internal_get_group_index(driver->config.motorId);
+    slot_index                                            = p1010b_internal_get_slot_index(driver->config.motorId);
+    encoded->requestCanId                                 = (group_index == 0U) ? P1010B_CAN_CMD_DRIVE_GROUP_1_4 : P1010B_CAN_CMD_DRIVE_GROUP_5_8;
     driver->bus->groupTargetsRaw[group_index][slot_index] = raw_target;
     p1010b_internal_pack_group_payload(driver->bus, group_index, encoded->payload);
     return OM_OK;
@@ -1099,7 +1018,7 @@ static OmRet p1010b_internal_encode_set_active_report(P1010BDriver *driver, cons
 {
     const P1010BActiveReportConfig *report_config;
 
-    report_config = &request->args.setActiveReport.config;
+    report_config       = &request->args.setActiveReport.config;
     encoded->payload[0] = driver->config.motorId;
     encoded->payload[1] = report_config->enable ? 1U : 0U;
     encoded->payload[2] = report_config->periodMs;
@@ -1141,8 +1060,8 @@ static OmRet p1010b_internal_encode_write_parameter(P1010BDriver *driver, const 
 static OmRet p1010b_internal_encode_read_parameter(P1010BDriver *driver, const P1010BRequest *request,
                                                    P1010BEncodedRequest *encoded)
 {
-    encoded->payload[0] = driver->config.motorId;
-    encoded->payload[1] = request->args.readParameter.parameterId;
+    encoded->payload[0]          = driver->config.motorId;
+    encoded->payload[1]          = request->args.readParameter.parameterId;
     encoded->expectedParameterId = request->args.readParameter.parameterId;
     return OM_OK;
 }
@@ -1156,9 +1075,9 @@ static OmRet p1010b_internal_encode_state_control(P1010BDriver *driver, const P1
 {
     uint8_t command_slot_index;
 
-    command_slot_index = (uint8_t)(driver->config.motorId - 1U);
+    command_slot_index                   = (uint8_t)(driver->config.motorId - 1U);
     encoded->payload[command_slot_index] = request->args.stateControl.command;
-    encoded->expectedStateCommand = request->args.stateControl.command;
+    encoded->expectedStateCommand        = request->args.stateControl.command;
     return OM_OK;
 }
 
@@ -1179,8 +1098,7 @@ static OmRet p1010b_internal_encode_save_parameters(P1010BDriver *driver, const 
     encoded->payload[0] = request->args.saveParameters.command;
     encoded->payload[1] = request->args.saveParameters.data.absoluteZero ? 1U : 0U;
 
-    for (index = 0U; index < P1010B_SAVE_PARAM_RESERVED_BYTES; index++)
-    {
+    for (index = 0U; index < P1010B_SAVE_PARAM_RESERVED_BYTES; index++) {
         encoded->payload[index + 2U] = request->args.saveParameters.data.reservedPayload[index];
     }
     return OM_OK;
@@ -1238,12 +1156,12 @@ static void p1010b_internal_decode_ack_read_parameter(P1010BDriver *driver, cons
 {
     int32_t parameter_value;
 
-    parameter_value = p1010b_internal_read_be_i32(&frame->payload[1]);
-    response->data.readParameter.parameterId = driver->sync.expectedParameterId;
+    parameter_value                             = p1010b_internal_read_be_i32(&frame->payload[1]);
+    response->data.readParameter.parameterId    = driver->sync.expectedParameterId;
     response->data.readParameter.parameterValue = parameter_value;
-    callback_context->triggerParamReadCallback = true;
-    callback_context->callbackParameterId = driver->sync.expectedParameterId;
-    callback_context->callbackParameterValue = parameter_value;
+    callback_context->triggerParamReadCallback  = true;
+    callback_context->callbackParameterId       = driver->sync.expectedParameterId;
+    callback_context->callbackParameterValue    = parameter_value;
 }
 
 /**
@@ -1254,7 +1172,7 @@ static void p1010b_internal_decode_ack_state_control(P1010BDriver *driver, const
 {
     (void)callback_context;
     response->data.stateControl.stateCommand = frame->payload[2];
-    response->data.stateControl.faultState = driver->telemetry.faultState;
+    response->data.stateControl.faultState   = driver->telemetry.faultState;
 }
 
 /**
@@ -1279,7 +1197,7 @@ static void p1010b_internal_post_commit_set_active_report(P1010BDriver *driver, 
     (void)response;
     if (result != OM_OK)
         return;
-    driver->runtime.activeReport = request->args.setActiveReport.config;
+    driver->runtime.activeReport     = request->args.setActiveReport.config;
     driver->runtime.lastRejectReason = P1010B_REJECT_NONE;
 }
 
@@ -1293,9 +1211,9 @@ static void p1010b_internal_post_commit_set_mode(P1010BDriver *driver, const P10
     (void)response;
     if (result != OM_OK)
         return;
-    driver->runtime.currentMode = request->args.setMode.mode;
+    driver->runtime.currentMode      = request->args.setMode.mode;
     driver->runtime.lastRejectReason = P1010B_REJECT_NONE;
-    driver->runtime.targetScale = p1010b_internal_update_target_scale_cache(driver->runtime.currentMode);
+    driver->runtime.targetScale      = p1010b_internal_update_target_scale_cache(driver->runtime.currentMode);
 }
 
 /**
@@ -1314,20 +1232,18 @@ static void p1010b_internal_post_commit_state_control(P1010BDriver *driver, cons
         return;
 
     state_command = request->args.stateControl.command;
-    if (state_command == P1010B_STATE_CMD_ENABLE)
-    {
-        if (driver->telemetry.faultState.faultCode != 0U)
-        {
-            driver->runtime.state = P1010B_STATE_FAULT_LOCKED;
+    if (state_command == P1010B_STATE_CMD_ENABLE) {
+        if (driver->telemetry.faultState.faultCode != 0U) {
+            driver->runtime.state            = P1010B_STATE_FAULT_LOCKED;
             driver->runtime.lastRejectReason = P1010B_REJECT_FAULT_LOCKED;
             return;
         }
-        driver->runtime.state = P1010B_STATE_ENABLED;
+        driver->runtime.state            = P1010B_STATE_ENABLED;
         driver->runtime.lastRejectReason = P1010B_REJECT_NONE;
         return;
     }
 
-    driver->runtime.state = (driver->telemetry.faultState.faultCode == 0U) ? P1010B_STATE_DISABLED : P1010B_STATE_FAULT_LOCKED;
+    driver->runtime.state            = (driver->telemetry.faultState.faultCode == 0U) ? P1010B_STATE_DISABLED : P1010B_STATE_FAULT_LOCKED;
     driver->runtime.lastRejectReason = P1010B_REJECT_NONE;
 }
 
@@ -1342,7 +1258,7 @@ static void p1010b_internal_post_commit_software_reset(P1010BDriver *driver, con
     (void)response;
     if (result != OM_OK)
         return;
-    driver->runtime.state = P1010B_STATE_DISABLED;
+    driver->runtime.state            = P1010B_STATE_DISABLED;
     driver->runtime.lastRejectReason = P1010B_REJECT_NONE;
     p1010b_internal_mark_online(driver, false);
 }
@@ -1354,116 +1270,116 @@ static void p1010b_internal_post_commit_software_reset(P1010BDriver *driver, con
  */
 static const P1010BCommandDescriptor g_p1010b_command_descriptors[P1010B_COMMAND_SOFTWARE_RESET + 1U] = {
     [P1010B_COMMAND_SET_ACTIVE_REPORT] = {
-        .command = P1010B_COMMAND_SET_ACTIVE_REPORT,
-        .requestCanId = P1010B_CAN_CMD_SET_REPORT_MODE,
-        .ackBaseId = P1010B_CAN_ACK_REPORT_MODE,
+        .command             = P1010B_COMMAND_SET_ACTIVE_REPORT,
+        .requestCanId        = P1010B_CAN_CMD_SET_REPORT_MODE,
+        .ackBaseId           = P1010B_CAN_ACK_REPORT_MODE,
         .defaultRequestFlags = (uint8_t)P1010B_REQUEST_FLAG_SYNC,
         .useConfiguringState = false,
-        .stateGuardFn = p1010b_internal_guard_set_active_report,
-        .encodeFn = p1010b_internal_encode_set_active_report,
-        .ackMatchFn = NULL,
-        .decodeAckFn = NULL,
-        .postCommitFn = p1010b_internal_post_commit_set_active_report,
+        .stateGuardFn        = p1010b_internal_guard_set_active_report,
+        .encodeFn            = p1010b_internal_encode_set_active_report,
+        .ackMatchFn          = NULL,
+        .decodeAckFn         = NULL,
+        .postCommitFn        = p1010b_internal_post_commit_set_active_report,
     },
     [P1010B_COMMAND_ACTIVE_QUERY] = {
-        .command = P1010B_COMMAND_ACTIVE_QUERY,
-        .requestCanId = P1010B_CAN_CMD_ACTIVE_QUERY,
-        .ackBaseId = P1010B_CAN_ACK_ACTIVE_QUERY,
+        .command             = P1010B_COMMAND_ACTIVE_QUERY,
+        .requestCanId        = P1010B_CAN_CMD_ACTIVE_QUERY,
+        .ackBaseId           = P1010B_CAN_ACK_ACTIVE_QUERY,
         .defaultRequestFlags = (uint8_t)P1010B_REQUEST_FLAG_SYNC,
         .useConfiguringState = false,
-        .stateGuardFn = NULL,
-        .encodeFn = p1010b_internal_encode_active_query,
-        .ackMatchFn = NULL,
-        .decodeAckFn = p1010b_internal_decode_ack_active_query,
-        .postCommitFn = NULL,
+        .stateGuardFn        = NULL,
+        .encodeFn            = p1010b_internal_encode_active_query,
+        .ackMatchFn          = NULL,
+        .decodeAckFn         = p1010b_internal_decode_ack_active_query,
+        .postCommitFn        = NULL,
     },
     [P1010B_COMMAND_WRITE_PARAMETER] = {
-        .command = P1010B_COMMAND_WRITE_PARAMETER,
-        .requestCanId = P1010B_CAN_CMD_WRITE_PARAM,
-        .ackBaseId = P1010B_CAN_ACK_WRITE_PARAM,
+        .command             = P1010B_COMMAND_WRITE_PARAMETER,
+        .requestCanId        = P1010B_CAN_CMD_WRITE_PARAM,
+        .ackBaseId           = P1010B_CAN_ACK_WRITE_PARAM,
         .defaultRequestFlags = (uint8_t)P1010B_REQUEST_FLAG_SYNC,
         .useConfiguringState = true,
-        .stateGuardFn = p1010b_internal_guard_write_parameter,
-        .encodeFn = p1010b_internal_encode_write_parameter,
-        .ackMatchFn = p1010b_internal_ack_match_parameter,
-        .decodeAckFn = NULL,
-        .postCommitFn = p1010b_internal_post_commit_clear_reject_on_success,
+        .stateGuardFn        = p1010b_internal_guard_write_parameter,
+        .encodeFn            = p1010b_internal_encode_write_parameter,
+        .ackMatchFn          = p1010b_internal_ack_match_parameter,
+        .decodeAckFn         = NULL,
+        .postCommitFn        = p1010b_internal_post_commit_clear_reject_on_success,
     },
     [P1010B_COMMAND_READ_PARAMETER] = {
-        .command = P1010B_COMMAND_READ_PARAMETER,
-        .requestCanId = P1010B_CAN_CMD_READ_PARAM,
-        .ackBaseId = P1010B_CAN_ACK_READ_PARAM,
+        .command             = P1010B_COMMAND_READ_PARAMETER,
+        .requestCanId        = P1010B_CAN_CMD_READ_PARAM,
+        .ackBaseId           = P1010B_CAN_ACK_READ_PARAM,
         .defaultRequestFlags = (uint8_t)P1010B_REQUEST_FLAG_SYNC,
         .useConfiguringState = false,
-        .stateGuardFn = p1010b_internal_guard_read_parameter,
-        .encodeFn = p1010b_internal_encode_read_parameter,
+        .stateGuardFn        = p1010b_internal_guard_read_parameter,
+        .encodeFn            = p1010b_internal_encode_read_parameter,
         /*
          * 规格 0x90 应答 payload[1..4] 为参数值高到低字节
          * 不携parameter_id，因此读参匹配仅依赖 pendingCommand + ackBaseId
          */
-        .ackMatchFn = NULL,
-        .decodeAckFn = p1010b_internal_decode_ack_read_parameter,
+        .ackMatchFn   = NULL,
+        .decodeAckFn  = p1010b_internal_decode_ack_read_parameter,
         .postCommitFn = NULL,
     },
     [P1010B_COMMAND_STATE_CONTROL] = {
-        .command = P1010B_COMMAND_STATE_CONTROL,
-        .requestCanId = P1010B_CAN_CMD_STATE_CONTROL,
-        .ackBaseId = P1010B_CAN_ACK_STATE_CONTROL,
+        .command             = P1010B_COMMAND_STATE_CONTROL,
+        .requestCanId        = P1010B_CAN_CMD_STATE_CONTROL,
+        .ackBaseId           = P1010B_CAN_ACK_STATE_CONTROL,
         .defaultRequestFlags = (uint8_t)P1010B_REQUEST_FLAG_SYNC,
         .useConfiguringState = false,
-        .stateGuardFn = p1010b_internal_guard_state_control,
-        .encodeFn = p1010b_internal_encode_state_control,
-        .ackMatchFn = p1010b_internal_ack_match_state_control,
-        .decodeAckFn = p1010b_internal_decode_ack_state_control,
-        .postCommitFn = p1010b_internal_post_commit_state_control,
+        .stateGuardFn        = p1010b_internal_guard_state_control,
+        .encodeFn            = p1010b_internal_encode_state_control,
+        .ackMatchFn          = p1010b_internal_ack_match_state_control,
+        .decodeAckFn         = p1010b_internal_decode_ack_state_control,
+        .postCommitFn        = p1010b_internal_post_commit_state_control,
     },
     [P1010B_COMMAND_SAVE_PARAMETERS] = {
-        .command = P1010B_COMMAND_SAVE_PARAMETERS,
-        .requestCanId = P1010B_CAN_CMD_SAVE_PARAM,
-        .ackBaseId = P1010B_CAN_ACK_SAVE_PARAM,
+        .command             = P1010B_COMMAND_SAVE_PARAMETERS,
+        .requestCanId        = P1010B_CAN_CMD_SAVE_PARAM,
+        .ackBaseId           = P1010B_CAN_ACK_SAVE_PARAM,
         .defaultRequestFlags = (uint8_t)P1010B_REQUEST_FLAG_SYNC,
         .useConfiguringState = false,
-        .stateGuardFn = p1010b_internal_guard_save_parameters,
-        .encodeFn = p1010b_internal_encode_save_parameters,
-        .ackMatchFn = NULL,
-        .decodeAckFn = NULL,
-        .postCommitFn = p1010b_internal_post_commit_clear_reject_on_success,
+        .stateGuardFn        = p1010b_internal_guard_save_parameters,
+        .encodeFn            = p1010b_internal_encode_save_parameters,
+        .ackMatchFn          = NULL,
+        .decodeAckFn         = NULL,
+        .postCommitFn        = p1010b_internal_post_commit_clear_reject_on_success,
     },
     [P1010B_COMMAND_SET_MODE] = {
-        .command = P1010B_COMMAND_SET_MODE,
-        .requestCanId = P1010B_CAN_CMD_WRITE_PARAM,
-        .ackBaseId = P1010B_CAN_ACK_WRITE_PARAM,
+        .command             = P1010B_COMMAND_SET_MODE,
+        .requestCanId        = P1010B_CAN_CMD_WRITE_PARAM,
+        .ackBaseId           = P1010B_CAN_ACK_WRITE_PARAM,
         .defaultRequestFlags = (uint8_t)P1010B_REQUEST_FLAG_SYNC,
         .useConfiguringState = true,
-        .stateGuardFn = p1010b_internal_guard_set_mode,
-        .encodeFn = p1010b_internal_encode_set_mode,
-        .ackMatchFn = p1010b_internal_ack_match_parameter,
-        .decodeAckFn = NULL,
-        .postCommitFn = p1010b_internal_post_commit_set_mode,
+        .stateGuardFn        = p1010b_internal_guard_set_mode,
+        .encodeFn            = p1010b_internal_encode_set_mode,
+        .ackMatchFn          = p1010b_internal_ack_match_parameter,
+        .decodeAckFn         = NULL,
+        .postCommitFn        = p1010b_internal_post_commit_set_mode,
     },
     [P1010B_COMMAND_SET_TARGET] = {
-        .command = P1010B_COMMAND_SET_TARGET,
-        .requestCanId = 0U,
-        .ackBaseId = P1010B_CAN_ACK_NONE,
+        .command             = P1010B_COMMAND_SET_TARGET,
+        .requestCanId        = 0U,
+        .ackBaseId           = P1010B_CAN_ACK_NONE,
         .defaultRequestFlags = (uint8_t)P1010B_REQUEST_FLAG_ASYNC,
         .useConfiguringState = false,
-        .stateGuardFn = p1010b_internal_guard_target,
-        .encodeFn = p1010b_internal_encode_set_target,
-        .ackMatchFn = NULL,
-        .decodeAckFn = NULL,
-        .postCommitFn = p1010b_internal_post_commit_clear_reject_on_success,
+        .stateGuardFn        = p1010b_internal_guard_target,
+        .encodeFn            = p1010b_internal_encode_set_target,
+        .ackMatchFn          = NULL,
+        .decodeAckFn         = NULL,
+        .postCommitFn        = p1010b_internal_post_commit_clear_reject_on_success,
     },
     [P1010B_COMMAND_SOFTWARE_RESET] = {
-        .command = P1010B_COMMAND_SOFTWARE_RESET,
-        .requestCanId = P1010B_CAN_CMD_SOFTWARE_RESET,
-        .ackBaseId = P1010B_CAN_ACK_NONE,
+        .command             = P1010B_COMMAND_SOFTWARE_RESET,
+        .requestCanId        = P1010B_CAN_CMD_SOFTWARE_RESET,
+        .ackBaseId           = P1010B_CAN_ACK_NONE,
         .defaultRequestFlags = (uint8_t)P1010B_REQUEST_FLAG_ASYNC,
         .useConfiguringState = false,
-        .stateGuardFn = NULL,
-        .encodeFn = p1010b_internal_encode_software_reset,
-        .ackMatchFn = NULL,
-        .decodeAckFn = NULL,
-        .postCommitFn = p1010b_internal_post_commit_software_reset,
+        .stateGuardFn        = NULL,
+        .encodeFn            = p1010b_internal_encode_software_reset,
+        .ackMatchFn          = NULL,
+        .decodeAckFn         = NULL,
+        .postCommitFn        = p1010b_internal_post_commit_software_reset,
     },
 };
 
@@ -1493,11 +1409,11 @@ static const P1010BCommandDescriptor *p1010b_internal_find_command_descriptor(P1
 static OmRet p1010b_internal_execute_request(P1010BDriver *driver, const P1010BRequest *request, P1010BResponse *response, P1010BWaitMode wait_mode)
 {
     const P1010BCommandDescriptor *descriptor = NULL;
-    P1010BEncodedRequest encoded = {0};
-    OmRet ret = OM_ERROR_PARAM;
-    uint8_t request_flags = (uint8_t)P1010B_REQUEST_FLAG_NONE;
-    bool config_state_entered = false;
-    P1010BState previous_state = P1010B_STATE_DISABLED;
+    P1010BEncodedRequest encoded              = {0};
+    OmRet ret                                 = OM_ERROR_PARAM;
+    uint8_t request_flags                     = (uint8_t)P1010B_REQUEST_FLAG_NONE;
+    bool config_state_entered                 = false;
+    P1010BState previous_state                = P1010B_STATE_DISABLED;
 
     if (!driver || !request || !driver->bus || !driver->bus->canDevice)
         return OM_ERROR_PARAM;
@@ -1506,8 +1422,7 @@ static OmRet p1010b_internal_execute_request(P1010BDriver *driver, const P1010BR
         p1010b_internal_init_response(response, request->command, OM_ERROR_PARAM);
 
     descriptor = p1010b_internal_find_command_descriptor(request->command);
-    if (!descriptor)
-    {
+    if (!descriptor) {
         ret = OM_ERROR_NOT_SUPPORT;
         goto execute_finish;
     }
@@ -1515,33 +1430,29 @@ static OmRet p1010b_internal_execute_request(P1010BDriver *driver, const P1010BR
     ret = p1010b_internal_resolve_request_flags(descriptor, request, &request_flags);
     if (ret != OM_OK)
         goto execute_finish;
-    if (wait_mode == P1010B_WAIT_MODE_SYNC && request_flags != (uint8_t)P1010B_REQUEST_FLAG_SYNC)
-    {
+    if (wait_mode == P1010B_WAIT_MODE_SYNC && request_flags != (uint8_t)P1010B_REQUEST_FLAG_SYNC) {
         ret = OM_ERROR_NOT_SUPPORT;
         goto execute_finish;
     }
-    if (wait_mode == P1010B_WAIT_MODE_ASYNC && request_flags != (uint8_t)P1010B_REQUEST_FLAG_ASYNC)
-    {
+    if (wait_mode == P1010B_WAIT_MODE_ASYNC && request_flags != (uint8_t)P1010B_REQUEST_FLAG_ASYNC) {
         ret = OM_ERROR_NOT_SUPPORT;
         goto execute_finish;
     }
 
-    if (descriptor->stateGuardFn)
-    {
+    if (descriptor->stateGuardFn) {
         ret = descriptor->stateGuardFn(driver, request);
         if (ret != OM_OK)
             goto execute_finish;
     }
 
     encoded.requestCanId = descriptor->requestCanId;
-    encoded.ackBaseId = descriptor->ackBaseId;
-    ret = descriptor->encodeFn(driver, request, &encoded);
+    encoded.ackBaseId    = descriptor->ackBaseId;
+    ret                  = descriptor->encodeFn(driver, request, &encoded);
     if (ret != OM_OK)
         goto execute_finish;
 
     /* 异步路径：仅发送，不等待*/
-    if (request_flags == (uint8_t)P1010B_REQUEST_FLAG_ASYNC)
-    {
+    if (request_flags == (uint8_t)P1010B_REQUEST_FLAG_ASYNC) {
         ret = p1010b_internal_send_can_frame(driver->bus, encoded.requestCanId, encoded.payload);
         if (ret == OM_OK)
             driver->telemetry.lastSuccessTxTimestampMs = osal_time_now_monotonic();
@@ -1549,11 +1460,10 @@ static OmRet p1010b_internal_execute_request(P1010BDriver *driver, const P1010BR
     }
 
     /* 同步路径：可选进入 CONFIGURING 瞬态，等待 ISR 完成事务*/
-    if (descriptor->useConfiguringState)
-    {
-        previous_state = driver->runtime.state;
+    if (descriptor->useConfiguringState) {
+        previous_state        = driver->runtime.state;
         driver->runtime.state = P1010B_STATE_CONFIGURING;
-        config_state_entered = true;
+        config_state_entered  = true;
     }
 
     ret = p1010b_internal_send_sync_transaction(driver, request, &encoded, response);
@@ -1596,8 +1506,7 @@ static OmRet p1010b_internal_execute_sync_behavior(P1010BDriver *driver, P1010BR
     P1010BResponse local_response = {0};
 
     request.timeoutMs = timeout_ms;
-    if (response != NULL)
-    {
+    if (response != NULL) {
         return p1010b_request_sync(driver, &request, response);
     }
     return p1010b_request_sync(driver, &request, &local_response);

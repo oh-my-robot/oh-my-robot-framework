@@ -23,16 +23,16 @@
 
 /* 任务优先级配置（数值越大优先级越高，具体取决于 OSALConfig.h） */
 #define TASK_PRIO_CONTROL (OSAL_PRIO_LOW_BASE + 3u) /* 控制任务 */
-#define TASK_PRIO_LOGIC   (OSAL_PRIO_LOW_BASE)       /* 逻辑任务 */
+#define TASK_PRIO_LOGIC   (OSAL_PRIO_LOW_BASE)      /* 逻辑任务 */
 
 /* 任务堆栈大小（字节，按平台 word 大小显式换算） */
 #define TASK_STACK_CONTROL (2048u * OSAL_STACK_WORD_BYTES)
-#define TASK_STACK_LOGIC (1024u * OSAL_STACK_WORD_BYTES)
+#define TASK_STACK_LOGIC   (1024u * OSAL_STACK_WORD_BYTES)
 
 /* 控制参数 */
-#define CONTROL_FREQ_HZ 1000  /* 1 kHz 控制频率 */
-#define STEP_INTERVAL_MS 1000 /* 阶跃间隔 1000 ms */
-#define STEP_ANGLE_DEG 90.0f  /* 每次阶跃角度 */
+#define CONTROL_FREQ_HZ  1000  /* 1 kHz 控制频率 */
+#define STEP_INTERVAL_MS 1000  /* 阶跃间隔 1000 ms */
+#define STEP_ANGLE_DEG   90.0f /* 每次阶跃角度 */
 
 /* 位置/速度环共用 PID 配置 */
 typedef struct
@@ -47,11 +47,11 @@ typedef struct
 typedef struct
 {
     /* 用户配置 */
-    DJIMotorType motorType;             // 电机型号
-    uint8_t motorId;                    // 电机 ID
-    DJIMotorCtrlMode controlMode;       // 控制模式
-    MotorPidConfig positionPidConfig;   // 位置环 PID 参数
-    MotorPidConfig speedPidConfig;      // 速度环 PID 参数
+    DJIMotorType motorType;           // 电机型号
+    uint8_t motorId;                  // 电机 ID
+    DJIMotorCtrlMode controlMode;     // 控制模式
+    MotorPidConfig positionPidConfig; // 位置环 PID 参数
+    MotorPidConfig speedPidConfig;    // 速度环 PID 参数
 
     /* --- 运行时对象（系统自动维护） --- */
     DJIMotorDrv driverHandle;
@@ -60,13 +60,13 @@ typedef struct
     float targetAngleDeg;
 } MotorTestNode;
 
-#define MOTOR_TEST_NODE_INIT(_motorType, _motorId, _controlMode, _positionPidConfig, _speedPidConfig)                                     \
-    {                                                                                                                                      \
-        .motorType = (_motorType),                                                                                                         \
-        .motorId = (_motorId),                                                                                                             \
-        .controlMode = (_controlMode),                                                                                                     \
-        .positionPidConfig = (_positionPidConfig),                                                                                         \
-        .speedPidConfig = (_speedPidConfig),                                                                                               \
+#define MOTOR_TEST_NODE_INIT(_motorType, _motorId, _controlMode, _positionPidConfig, _speedPidConfig) \
+    {                                                                                                 \
+        .motorType         = (_motorType),                                                            \
+        .motorId           = (_motorId),                                                              \
+        .controlMode       = (_controlMode),                                                          \
+        .positionPidConfig = (_positionPidConfig),                                                    \
+        .speedPidConfig    = (_speedPidConfig),                                                       \
     }
 
 /**
@@ -76,11 +76,11 @@ typedef struct
 static MotorTestNode g_motor_configs[] = {
     /* [Case 1] GM6020 ID:1 (电压模式) */
     {
-        .motorType = DJI_MOTOR_TYPE_GM6020,
-        .motorId = 1,
-        .controlMode = DJI_CTRL_MODE_VOLTAGE,
+        .motorType         = DJI_MOTOR_TYPE_GM6020,
+        .motorId           = 1,
+        .controlMode       = DJI_CTRL_MODE_VOLTAGE,
         .positionPidConfig = {32.0f, 1.3f, 0.0f, 320.0f},
-        .speedPidConfig = {50.0f, 500.0f, 0.0f, 25000.0f},
+        .speedPidConfig    = {50.0f, 500.0f, 0.0f, 25000.0f},
     },
     /* [Case 3] GM6020 ID:2 (电压模式) */
     // {
@@ -105,11 +105,11 @@ static MotorTestNode g_motor_configs[] = {
 /* --- 2. 全局对象 --- */
 
 static DJIMotorBus g_can1_bus;
-static Device* g_can1_device_handle;
+static Device *g_can1_device_handle;
 
 /* 任务句柄 */
-static OsalThread* g_control_thread = NULL;
-static OsalThread* g_logic_thread = NULL;
+static OsalThread *g_control_thread = NULL;
+static OsalThread *g_logic_thread   = NULL;
 
 /* --- 3. 辅助函数 --- */
 
@@ -122,7 +122,7 @@ static uint32_t get_time_ms(void)
     return (uint32_t)osal_time_now_monotonic();
 }
 
-static void sleep_until_ms(OsalTimeMs* last_wake_time_ms, uint32_t sleep_period_ms)
+static void sleep_until_ms(OsalTimeMs *last_wake_time_ms, uint32_t sleep_period_ms)
 {
     if (!last_wake_time_ms)
         return;
@@ -139,7 +139,7 @@ static float get_time_s(void)
 /**
  * @brief 初始化单个电机的 PID 与驱动对象
  */
-static void motor_node_init(MotorTestNode* node)
+static void motor_node_init(MotorTestNode *node)
 {
     /* 1. 注册电机 */
     dji_motor_register(&g_can1_bus, &node->driverHandle, node->motorType, node->motorId, node->controlMode);
@@ -179,9 +179,9 @@ static void motor_node_init(MotorTestNode* node)
  * @brief 逻辑任务 (1Hz)
  * @note  负责更新目标角度
  */
-void logic_task_func(void* arg)
+void logic_task_func(void *arg)
 {
-    uint32_t loop_period_ms = STEP_INTERVAL_MS;
+    uint32_t loop_period_ms      = STEP_INTERVAL_MS;
     OsalTimeMs last_wake_time_ms = get_time_ms();
     (void)arg;
 
@@ -189,16 +189,13 @@ void logic_task_func(void* arg)
     osal_sleep_ms(1000);
 
     /* 读取当前角度作为初始目标 */
-    for (int i = 0; i < TEST_MOTOR_CNT; i++)
-    {
+    for (int i = 0; i < TEST_MOTOR_CNT; i++) {
         g_motor_configs[i].targetAngleDeg = dji_motor_get_total_angle(&g_motor_configs[i].driverHandle);
     }
 
-    for (;;)
-    {
+    for (;;) {
         /* 更新所有电机目标角度 */
-        for (int i = 0; i < TEST_MOTOR_CNT; i++)
-        {
+        for (int i = 0; i < TEST_MOTOR_CNT; i++) {
             g_motor_configs[i].targetAngleDeg += STEP_ANGLE_DEG;
         }
         sleep_until_ms(&last_wake_time_ms, loop_period_ms);
@@ -209,9 +206,9 @@ void logic_task_func(void* arg)
  * @brief 控制任务 (1kHz)
  * @note  负责 PID 计算与 CAN 下发
  */
-void control_task_func(void* arg)
+void control_task_func(void *arg)
 {
-    uint32_t loop_period_ms = 1000 / CONTROL_FREQ_HZ; // 1ms
+    uint32_t loop_period_ms      = 1000 / CONTROL_FREQ_HZ; // 1ms
     OsalTimeMs last_wake_time_ms = get_time_ms();
     (void)arg;
     g_can1_device_handle = device_find("can1");
@@ -221,23 +218,20 @@ void control_task_func(void* arg)
     device_ctrl(g_can1_device_handle, CAN_CMD_START, NULL);
 
     /* 3. 初始化配置表中的所有电机 */
-    for (int i = 0; i < TEST_MOTOR_CNT; i++)
-    {
+    for (int i = 0; i < TEST_MOTOR_CNT; i++) {
         motor_node_init(&g_motor_configs[i]);
     }
-    for (;;)
-    {
+    for (;;) {
         /* tick handled by OSAL */
         /* 绝对延时，确保 1 kHz 频率稳定 */
         float current_time_s = get_time_s();
         /* 1. 遍历计算 PID */
-        for (int i = 0; i < TEST_MOTOR_CNT; i++)
-        {
-            MotorTestNode* node = &g_motor_configs[i];
+        for (int i = 0; i < TEST_MOTOR_CNT; i++) {
+            MotorTestNode *node = &g_motor_configs[i];
 
             /* 获取反馈 */
             float current_angle_deg = dji_motor_get_total_angle(&node->driverHandle);
-            float current_speed = dji_motor_get_velocity(&node->driverHandle);
+            float current_speed     = dji_motor_get_velocity(&node->driverHandle);
 
             /* 位置环计算 */
             float target_speed = pid_compute(&node->positionPid, node->targetAngleDeg, current_angle_deg, current_time_s);
@@ -265,20 +259,18 @@ static OmRet dji_motor_app_setup(void)
 {
     /* 创建 OSAL 任务 */
     OsalThreadAttr control_thread_attr = {0};
-    OsalThreadAttr logic_thread_attr = {0};
-    control_thread_attr.name = "ControlTask";
-    logic_thread_attr.name = "LogicTask";
-    control_thread_attr.stackSize = TASK_STACK_CONTROL;
-    logic_thread_attr.stackSize = TASK_STACK_LOGIC;
-    control_thread_attr.priority = TASK_PRIO_CONTROL;
-    logic_thread_attr.priority = TASK_PRIO_LOGIC;
-    int create_ret = osal_thread_create(&g_control_thread, &control_thread_attr, control_task_func, NULL);
-    while (create_ret != OSAL_OK)
-    {
+    OsalThreadAttr logic_thread_attr   = {0};
+    control_thread_attr.name           = "ControlTask";
+    logic_thread_attr.name             = "LogicTask";
+    control_thread_attr.stackSize      = TASK_STACK_CONTROL;
+    logic_thread_attr.stackSize        = TASK_STACK_LOGIC;
+    control_thread_attr.priority       = TASK_PRIO_CONTROL;
+    logic_thread_attr.priority         = TASK_PRIO_LOGIC;
+    int create_ret                     = osal_thread_create(&g_control_thread, &control_thread_attr, control_task_func, NULL);
+    while (create_ret != OSAL_OK) {
     }
     create_ret = osal_thread_create(&g_logic_thread, &logic_thread_attr, logic_task_func, NULL);
-    while (create_ret != OSAL_OK)
-    {
+    while (create_ret != OSAL_OK) {
     };
 
     return OM_OK;

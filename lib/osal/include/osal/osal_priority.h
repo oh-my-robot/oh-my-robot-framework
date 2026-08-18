@@ -37,26 +37,26 @@ extern "C" {
  *===========================================================================*/
 
 /** 每个语义带宽在 RTOS 中所占的 slot 数 */
-#define OSAL_PRIO_BAND_WIDTH   4u
+#define OSAL_PRIO_BAND_WIDTH 4u
 
 /** 语义优先级基准值（实际优先级 = base + offset，offset ∈ [0, BAND_WIDTH-1]） */
-#define OSAL_PRIO_IDLE_BASE          0u
-#define OSAL_PRIO_LOW_BASE          (OSAL_PRIO_IDLE_BASE          + OSAL_PRIO_BAND_WIDTH)
-#define OSAL_PRIO_NORMAL_BASE       (OSAL_PRIO_LOW_BASE           + OSAL_PRIO_BAND_WIDTH)
-#define OSAL_PRIO_ABOVE_NORMAL_BASE (OSAL_PRIO_NORMAL_BASE        + OSAL_PRIO_BAND_WIDTH)
-#define OSAL_PRIO_HIGH_BASE         (OSAL_PRIO_ABOVE_NORMAL_BASE  + OSAL_PRIO_BAND_WIDTH)
-#define OSAL_PRIO_CRITICAL_BASE     (OSAL_PRIO_HIGH_BASE          + OSAL_PRIO_BAND_WIDTH)
-#define OSAL_PRIO_REALTIME_BASE     (OSAL_PRIO_CRITICAL_BASE      + OSAL_PRIO_BAND_WIDTH)
+#define OSAL_PRIO_IDLE_BASE         0u
+#define OSAL_PRIO_LOW_BASE          (OSAL_PRIO_IDLE_BASE + OSAL_PRIO_BAND_WIDTH)
+#define OSAL_PRIO_NORMAL_BASE       (OSAL_PRIO_LOW_BASE + OSAL_PRIO_BAND_WIDTH)
+#define OSAL_PRIO_ABOVE_NORMAL_BASE (OSAL_PRIO_NORMAL_BASE + OSAL_PRIO_BAND_WIDTH)
+#define OSAL_PRIO_HIGH_BASE         (OSAL_PRIO_ABOVE_NORMAL_BASE + OSAL_PRIO_BAND_WIDTH)
+#define OSAL_PRIO_CRITICAL_BASE     (OSAL_PRIO_HIGH_BASE + OSAL_PRIO_BAND_WIDTH)
+#define OSAL_PRIO_REALTIME_BASE     (OSAL_PRIO_CRITICAL_BASE + OSAL_PRIO_BAND_WIDTH)
 
 /*===========================================================================
  * 便捷别名
  *===========================================================================*/
 
 /** 最低可用优先级（= idle task 自身） */
-#define OSAL_PRIO_LOWEST   OSAL_PRIO_IDLE_BASE
+#define OSAL_PRIO_LOWEST OSAL_PRIO_IDLE_BASE
 
 /** 最高可用优先级（保留给系统级任务，应用层不应使用） */
-#define OSAL_PRIO_HIGHEST  (OSAL_PRIORITY_MAX - 1u)
+#define OSAL_PRIO_HIGHEST (OSAL_PRIORITY_MAX - 1u)
 
 /*===========================================================================
  * 编译期校验

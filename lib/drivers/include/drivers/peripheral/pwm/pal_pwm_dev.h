@@ -49,8 +49,8 @@ extern "C" {
 
 /** PWM 输出极性 */
 typedef enum {
-    PWM_POLARITY_NORMAL   = 0U,  /**< 正常：高电平 = 有效 (active high) */
-    PWM_POLARITY_INVERSED = 1U,  /**< 反转：低电平 = 有效 (active low) */
+    PWM_POLARITY_NORMAL   = 0U, /**< 正常：高电平 = 有效 (active high) */
+    PWM_POLARITY_INVERSED = 1U, /**< 反转：低电平 = 有效 (active low) */
 } PwmPolarity;
 
 /* ================================================================
@@ -65,22 +65,22 @@ typedef enum {
  */
 
 /** 支持正常极性 */
-#define PWM_CAP_POLARITY_NORMAL    (1U << 0)
+#define PWM_CAP_POLARITY_NORMAL (1U << 0)
 
 /** 支持反转极性 */
-#define PWM_CAP_POLARITY_INVERSED  (1U << 1)
+#define PWM_CAP_POLARITY_INVERSED (1U << 1)
 
 /** 支持互补输出（预留，当前未实现） */
-#define PWM_CAP_COMPLEMENTARY      (1U << 2)
+#define PWM_CAP_COMPLEMENTARY (1U << 2)
 
 /** 支持死区插入（预留，当前未实现） */
-#define PWM_CAP_DEADTIME           (1U << 3)
+#define PWM_CAP_DEADTIME (1U << 3)
 
 /** 支持输入捕获（预留，当前未实现） */
-#define PWM_CAP_CAPTURE            (1U << 4)
+#define PWM_CAP_CAPTURE (1U << 4)
 
 /** 支持故障保护（预留，当前未实现） */
-#define PWM_CAP_FAULT_PROTECT      (1U << 5)
+#define PWM_CAP_FAULT_PROTECT (1U << 5)
 
 /** @} */
 
@@ -90,20 +90,20 @@ typedef enum {
  *          所有字段在注册后只读，线程安全。
  */
 typedef struct {
-    uint8_t  numChannels;   /**< 可用通道数 (1~N) */
-    uint32_t maxPeriodNs;   /**< 最大周期 (ns) → 最低频率 */
-    uint32_t minPeriodNs;   /**< 最小周期 (ns) → 最高频率 */
-    uint32_t resolutionHz;  /**< 计数器时钟频率 (Hz)，用于 ns ↔ cycles 转换 */
-    uint32_t caps;          /**< 能力位图，见 PWM_CAP_xxx */
-    uint8_t  counterWidth;  /**< 计数器位宽 (16 或 32) */
+    uint8_t numChannels;   /**< 可用通道数 (1~N) */
+    uint32_t maxPeriodNs;  /**< 最大周期 (ns) → 最低频率 */
+    uint32_t minPeriodNs;  /**< 最小周期 (ns) → 最高频率 */
+    uint32_t resolutionHz; /**< 计数器时钟频率 (Hz)，用于 ns ↔ cycles 转换 */
+    uint32_t caps;         /**< 能力位图，见 PWM_CAP_xxx */
+    uint8_t counterWidth;  /**< 计数器位宽 (16 或 32) */
 } PwmCapability;
 
 /* ================================================================
  * 前向声明
  * ================================================================ */
 
-typedef struct PwmController  PwmController;
-typedef struct PwmOps         PwmOps;
+typedef struct PwmController PwmController;
+typedef struct PwmOps PwmOps;
 
 /* ================================================================
  * 通道标识（双类型：Spec 编译时声明，Channel 运行时句柄）
@@ -119,8 +119,8 @@ typedef struct PwmOps         PwmOps;
  * @endcode
  */
 typedef struct {
-    const char *controller;  /**< 控制器名称（如 "pwm1"），由 BSP 定义 */
-    uint8_t     channel;     /**< 通道号（从 0 开始） */
+    const char *controller; /**< 控制器名称（如 "pwm1"），由 BSP 定义 */
+    uint8_t channel;        /**< 通道号（从 0 开始） */
 } PwmChannelSpec;
 
 /**
@@ -137,8 +137,8 @@ typedef struct {
  * @endcode
  */
 typedef struct {
-    PwmController *ctrl;    /**< 已解析的控制器指针，NULL 表示无效 */
-    uint8_t        channel; /**< 通道号 */
+    PwmController *ctrl; /**< 已解析的控制器指针，NULL 表示无效 */
+    uint8_t channel;     /**< 通道号 */
 } PwmChannel;
 
 /**
@@ -163,11 +163,11 @@ static inline bool pwm_channel_valid(PwmChannel ch)
  *          应用层可通过 pwm_channel_get_state() 读取当前状态（只读）。
  */
 typedef struct {
-    uint32_t    periodNs;      /**< 已配置的周期 (ns)，0 = 从未 config */
-    uint32_t    periodCycles;  /**< 硬件周期 ticks（ISR 快速路径使用） */
-    uint32_t    pulseNs;       /**< 最近一次 config 的脉宽 (ns) */
-    PwmPolarity polarity;      /**< 当前输出极性 */
-    bool        enabled;       /**< 是否正在输出 */
+    uint32_t periodNs;     /**< 已配置的周期 (ns)，0 = 从未 config */
+    uint32_t periodCycles; /**< 硬件周期 ticks（ISR 快速路径使用） */
+    uint32_t pulseNs;      /**< 最近一次 config 的脉宽 (ns) */
+    PwmPolarity polarity;  /**< 当前输出极性 */
+    bool enabled;          /**< 是否正在输出 */
 } PwmChannelState;
 
 /* ================================================================
@@ -179,9 +179,9 @@ typedef struct {
  * @details 通过 pwm_channel_config() 一次性应用周期、脉宽和极性。
  */
 typedef struct {
-    uint32_t    periodNs;  /**< 周期 (ns) */
-    uint32_t    pulseNs;   /**< 脉宽/高电平时间 (ns)，必须 ≤ periodNs */
-    PwmPolarity polarity;  /**< 输出极性 */
+    uint32_t periodNs;    /**< 周期 (ns) */
+    uint32_t pulseNs;     /**< 脉宽/高电平时间 (ns)，必须 ≤ periodNs */
+    PwmPolarity polarity; /**< 输出极性 */
 } PwmChannelConfig;
 
 /* ================================================================
@@ -223,8 +223,8 @@ struct PwmOps {
      * @note 仅线程上下文调用。可在输出已启用时调用以更新配置。
      */
     OmRet (*channelConfig)(PwmController *ctrl, uint8_t channel,
-                            uint32_t period_cycles, uint32_t pulse_cycles,
-                            PwmPolarity polarity);
+                           uint32_t period_cycles, uint32_t pulse_cycles,
+                           PwmPolarity polarity);
 
     /**
      * @brief  启动通道输出
@@ -271,7 +271,7 @@ struct PwmOps {
      * @note 调用者保证通道已配置并启用
      */
     OmRet (*channelSetPulse)(PwmController *ctrl, uint8_t channel,
-                              uint32_t pulse_cycles);
+                             uint32_t pulse_cycles);
 };
 
 /* ================================================================
@@ -299,10 +299,10 @@ struct PwmOps {
  *   BSP 不应直接读写 chState 内容。
  */
 struct PwmController {
-    Device              parent;         /**< 内嵌 Device，参与设备链表管理 */
-    const PwmOps       *ops;            /**< BSP 注入的硬件操作函数表 */
-    const PwmCapability *cap;           /**< BSP 注入的能力声明（只读） */
-    PwmChannelState    *chState;        /**< per-channel 状态数组，BSP 提供存储 */        /**< per-channel 状态数组，BSP 提供存储 */
+    Device parent;                                                       /**< 内嵌 Device，参与设备链表管理 */
+    const PwmOps *ops;                                                   /**< BSP 注入的硬件操作函数表 */
+    const PwmCapability *cap;                                            /**< BSP 注入的能力声明（只读） */
+    PwmChannelState *chState; /**< per-channel 状态数组，BSP 提供存储 */ /**< per-channel 状态数组，BSP 提供存储 */
 };
 
 /* ================================================================
@@ -392,9 +392,9 @@ const PwmCapability *pwm_channel_get_capability(PwmChannel ch);
  * Device control 命令
  * ================================================================ */
 
-#define PWM_CMD_GET_CAPABILITY   (0x00U)  /**< 查询控制器能力: *(const PwmCapability**)arg */
-#define PWM_CMD_SUSPEND          (0x01U)  /**< 暂停全部通道输出，保留配置和 enabled 标记 */
-#define PWM_CMD_RESUME           (0x02U)  /**< 恢复 suspend 的通道输出 */
+#define PWM_CMD_GET_CAPABILITY (0x00U) /**< 查询控制器能力: *(const PwmCapability**)arg */
+#define PWM_CMD_SUSPEND        (0x01U) /**< 暂停全部通道输出，保留配置和 enabled 标记 */
+#define PWM_CMD_RESUME         (0x02U) /**< 恢复 suspend 的通道输出 */
 
 /* ================================================================
  * BSP 注册接口
@@ -423,9 +423,9 @@ const PwmCapability *pwm_channel_get_capability(PwmChannel ch);
  * @note   仅在初始化阶段调用
  */
 OmRet pwm_controller_register(PwmController *ctrl, const char *name,
-                               const PwmCapability *cap,
-                               const PwmOps *ops, void *priv,
-                               PwmChannelState *chState);
+                              const PwmCapability *cap,
+                              const PwmOps *ops, void *priv,
+                              PwmChannelState *chState);
 
 /* ================================================================
  * 状态查询

@@ -43,8 +43,8 @@ typedef struct {
     volatile uint32_t done;
 } PipeTestResult;
 
-static PipeTestResult g_result = {0u, 0u, 0u};
-static OsalThread* g_test_thread = NULL;
+static PipeTestResult g_result   = {0u, 0u, 0u};
+static OsalThread *g_test_thread = NULL;
 
 static void pipe_expect(int condition)
 {
@@ -55,21 +55,21 @@ static void pipe_expect(int condition)
 
 /* ---- 测试用全局资源 ---- */
 
-static Pipe g_pipe = {{0}, NULL, NULL};
+static Pipe g_pipe                                = {{0}, NULL, NULL};
 static uint8_t g_pipe_buf[PIPE_TEST_BUF_CAPACITY] = {0};
 
 /* ---- 组6：Task→Task 流式传输 ---- */
 
 static volatile uint32_t g_writer_done = 0u;
 static volatile uint32_t g_reader_done = 0u;
-static volatile uint32_t g_writer_ok = 0u;
-static volatile uint32_t g_reader_ok = 0u;
-static volatile uint32_t g_writer_err = 0u;
-static volatile uint32_t g_reader_err = 0u;
-static OsalThread* g_writer_thread = NULL;
-static OsalThread* g_reader_thread = NULL;
+static volatile uint32_t g_writer_ok   = 0u;
+static volatile uint32_t g_reader_ok   = 0u;
+static volatile uint32_t g_writer_err  = 0u;
+static volatile uint32_t g_reader_err  = 0u;
+static OsalThread *g_writer_thread     = NULL;
+static OsalThread *g_reader_thread     = NULL;
 
-static void pipe_writer_thread_entry(void* arg)
+static void pipe_writer_thread_entry(void *arg)
 {
     (void)arg;
     uint32_t round = 0u;
@@ -91,7 +91,7 @@ static void pipe_writer_thread_entry(void* arg)
     osal_thread_exit();
 }
 
-static void pipe_reader_thread_entry(void* arg)
+static void pipe_reader_thread_entry(void *arg)
 {
     (void)arg;
     uint32_t round = 0u;
@@ -129,16 +129,16 @@ static void pipe_reader_thread_entry(void* arg)
 
 /* ---- 组7：线程模拟 ISR 写入 ---- */
 
-static volatile uint32_t g_isr_writer_done = 0u;
-static volatile uint32_t g_isr_writer_ok = 0u;
+static volatile uint32_t g_isr_writer_done        = 0u;
+static volatile uint32_t g_isr_writer_ok          = 0u;
 static volatile uint32_t g_isr_writer_would_block = 0u;
-static volatile uint32_t g_isr_reader_done = 0u;
-static volatile uint32_t g_isr_reader_ok = 0u;
-static volatile uint32_t g_isr_reader_err = 0u;
-static OsalThread* g_isr_writer_thread = NULL;
-static OsalThread* g_isr_reader_thread = NULL;
+static volatile uint32_t g_isr_reader_done        = 0u;
+static volatile uint32_t g_isr_reader_ok          = 0u;
+static volatile uint32_t g_isr_reader_err         = 0u;
+static OsalThread *g_isr_writer_thread            = NULL;
+static OsalThread *g_isr_reader_thread            = NULL;
 
-static void pipe_isr_writer_thread_entry(void* arg)
+static void pipe_isr_writer_thread_entry(void *arg)
 {
     (void)arg;
     uint32_t round = 0u;
@@ -164,7 +164,7 @@ static void pipe_isr_writer_thread_entry(void* arg)
     osal_thread_exit();
 }
 
-static void pipe_isr_reader_thread_entry(void* arg)
+static void pipe_isr_reader_thread_entry(void *arg)
 {
     (void)arg;
     uint32_t total_read = 0u;
@@ -190,9 +190,9 @@ static void pipe_isr_reader_thread_entry(void* arg)
 
 /* ---- 辅助：等待标志位 ---- */
 
-static int pipe_wait_flag(volatile uint32_t* flag, uint32_t timeout_ms)
+static int pipe_wait_flag(volatile uint32_t *flag, uint32_t timeout_ms)
 {
-    OsalTimeMs start = osal_time_now_monotonic();
+    OsalTimeMs start    = osal_time_now_monotonic();
     OsalTimeMs deadline = start + timeout_ms;
 
     while (*flag == 0u) {
@@ -205,7 +205,7 @@ static int pipe_wait_flag(volatile uint32_t* flag, uint32_t timeout_ms)
 
 /* ---- 测试主线程 ---- */
 
-static void pipe_test_thread_entry(void* arg)
+static void pipe_test_thread_entry(void *arg)
 {
     uint8_t test_buf[16];
     uint8_t verify_buf[16];
@@ -243,7 +243,7 @@ static void pipe_test_thread_entry(void* arg)
 
     {
         Pipe alloc_pipe = {{0}, NULL, NULL};
-        OmRet ret = pipe_alloc(&alloc_pipe, 64u, NULL);
+        OmRet ret       = pipe_alloc(&alloc_pipe, 64u, NULL);
         pipe_expect(ret == OM_OK);
         if (ret == OM_OK)
             pipe_free(&alloc_pipe, NULL);
@@ -270,7 +270,10 @@ static void pipe_test_thread_entry(void* arg)
         {
             int match = 1;
             for (i = 0u; i < 16u; i++) {
-                if (verify_buf[i] != (uint8_t)i) { match = 0; break; }
+                if (verify_buf[i] != (uint8_t)i) {
+                    match = 0;
+                    break;
+                }
             }
             pipe_expect(match);
         }
@@ -283,7 +286,10 @@ static void pipe_test_thread_entry(void* arg)
         {
             int match = 1;
             for (i = 0u; i < 8u; i++) {
-                if (verify_buf[i] != (uint8_t)i) { match = 0; break; }
+                if (verify_buf[i] != (uint8_t)i) {
+                    match = 0;
+                    break;
+                }
             }
             pipe_expect(match);
         }
@@ -369,10 +375,10 @@ static void pipe_test_thread_entry(void* arg)
 
         g_writer_done = 0u;
         g_reader_done = 0u;
-        g_writer_ok = 0u;
-        g_reader_ok = 0u;
-        g_writer_err = 0u;
-        g_reader_err = 0u;
+        g_writer_ok   = 0u;
+        g_reader_ok   = 0u;
+        g_writer_err  = 0u;
+        g_reader_err  = 0u;
 
         pipe_expect(pipe_init(&g_pipe, g_pipe_buf, PIPE_TEST_BUF_CAPACITY) == OM_OK);
 
@@ -406,12 +412,12 @@ static void pipe_test_thread_entry(void* arg)
             OSAL_PRIO_IDLE_BASE + 2u,
         };
 
-        g_isr_writer_done = 0u;
-        g_isr_reader_done = 0u;
-        g_isr_writer_ok = 0u;
+        g_isr_writer_done        = 0u;
+        g_isr_reader_done        = 0u;
+        g_isr_writer_ok          = 0u;
         g_isr_writer_would_block = 0u;
-        g_isr_reader_ok = 0u;
-        g_isr_reader_err = 0u;
+        g_isr_reader_ok          = 0u;
+        g_isr_reader_err         = 0u;
 
         pipe_expect(pipe_init(&g_pipe, g_pipe_buf, PIPE_TEST_BUF_CAPACITY) == OM_OK);
 

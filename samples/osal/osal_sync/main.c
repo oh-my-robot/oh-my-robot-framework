@@ -13,8 +13,8 @@
  * 注意：本示例不依赖标准输出，建议通过断点或监视变量观察结果
  */
 
-#define TEST_QUEUE_LEN 8U
-#define TEST_TIMER_MS 100U
+#define TEST_QUEUE_LEN   8U
+#define TEST_TIMER_MS    100U
 #define TEST_PROD_PERIOD 10U
 
 typedef struct
@@ -23,16 +23,16 @@ typedef struct
     uint32_t timestampMs;
 } OsalTestMessage;
 
-static OsalQueue* g_queue;
-static OsalMutex* g_mutex;
-static OsalSem* g_sem;
-static OsalEventFlags* g_event;
-static OsalThread* g_producer_thread;
-static OsalThread* g_consumer_thread;
-static OsalThread* g_monitor_thread;
-static OsalThread* g_counter_thread;
-static OsalThread* g_edge_test_thread;
-static OsalTimer* g_timer;
+static OsalQueue *g_queue;
+static OsalMutex *g_mutex;
+static OsalSem *g_sem;
+static OsalEventFlags *g_event;
+static OsalThread *g_producer_thread;
+static OsalThread *g_consumer_thread;
+static OsalThread *g_monitor_thread;
+static OsalThread *g_counter_thread;
+static OsalThread *g_edge_test_thread;
+static OsalTimer *g_timer;
 
 /* 运行状态统计，便于调试观察 */
 static volatile uint32_t g_produced_cnt;
@@ -44,28 +44,26 @@ static volatile uint32_t g_edge_tests;
 static volatile uint32_t g_edge_failures;
 static volatile uint32_t g_edge_done;
 
-static void osal_sync_timer_callback(OsalTimer* timer)
+static void osal_sync_timer_callback(OsalTimer *timer)
 {
     (void)timer;
     /* 定时器回调中发送信号量，唤醒监控线程 */
     (void)osal_sem_post(g_sem);
 }
 
-static void osal_sync_producer_thread_entry(void* arg)
+static void osal_sync_producer_thread_entry(void *arg)
 {
     (void)arg;
     OsalTestMessage message;
     OsalTimeMs last_wake_time_ms = osal_time_now_monotonic();
 
-    while (1)
-    {
+    while (1) {
         /* 生成数据 */
         message.sequenceNumber = g_produced_cnt++;
-        message.timestampMs = (uint32_t)osal_time_now_monotonic();
+        message.timestampMs    = (uint32_t)osal_time_now_monotonic();
 
         /* 保护共享计数器 */
-        if (osal_mutex_lock(g_mutex, OSAL_WAIT_FOREVER) == OSAL_OK)
-        {
+        if (osal_mutex_lock(g_mutex, OSAL_WAIT_FOREVER) == OSAL_OK) {
             g_shared_counter++;
             (void)osal_mutex_unlock(g_mutex);
         }
@@ -81,47 +79,40 @@ static void osal_sync_producer_thread_entry(void* arg)
     }
 }
 
-static void osal_sync_consumer_thread_entry(void* arg)
+static void osal_sync_consumer_thread_entry(void *arg)
 {
     (void)arg;
     OsalTestMessage message;
 
-    while (1)
-    {
+    while (1) {
         uint32_t event_flags_value = 0;
         /* 等待事件通知 */
-        if (osal_event_flags_wait(g_event, 0x01U, &event_flags_value, OSAL_WAIT_FOREVER, 0U) == OSAL_OK)
-        {
+        if (osal_event_flags_wait(g_event, 0x01U, &event_flags_value, OSAL_WAIT_FOREVER, 0U) == OSAL_OK) {
             /* 收到事件后尝试取队列数据 */
-            if (osal_queue_recv(g_queue, &message, 10U) == OSAL_OK)
-            {
+            if (osal_queue_recv(g_queue, &message, 10U) == OSAL_OK) {
                 g_consumed_cnt++;
             }
         }
     }
 }
 
-static void osal_sync_monitor_thread_entry(void* arg)
+static void osal_sync_monitor_thread_entry(void *arg)
 {
     (void)arg;
-    while (1)
-    {
+    while (1) {
         /* 由定时器周期唤醒 */
-        if (osal_sem_wait(g_sem, OSAL_WAIT_FOREVER) == OSAL_OK)
-        {
+        if (osal_sem_wait(g_sem, OSAL_WAIT_FOREVER) == OSAL_OK) {
             g_monitor_cnt++;
         }
     }
 }
 
-static void osal_sync_counter_thread_entry(void* arg)
+static void osal_sync_counter_thread_entry(void *arg)
 {
     (void)arg;
     /* 高频竞争互斥锁，用于验证互斥效果 */
-    while (1)
-    {
-        if (osal_mutex_lock(g_mutex, 1U) == OSAL_OK)
-        {
+    while (1) {
+        if (osal_mutex_lock(g_mutex, 1U) == OSAL_OK) {
             g_shared_counter++;
             g_counter_hits++;
             (void)osal_mutex_unlock(g_mutex);
@@ -131,16 +122,16 @@ static void osal_sync_counter_thread_entry(void* arg)
     }
 }
 
-static void osal_sync_edge_test_thread_entry(void* arg)
+static void osal_sync_edge_test_thread_entry(void *arg)
 {
     (void)arg;
-    uint32_t test_count = 0;
+    uint32_t test_count    = 0;
     uint32_t failure_count = 0;
 
     /* 队列边界测试 */
     {
-        OsalQueue* test_queue = NULL;
-        uint8_t item = 0x5A;
+        OsalQueue *test_queue = NULL;
+        uint8_t item          = 0x5A;
 
         test_count++;
         if (osal_queue_create(NULL, 1U, 1U) != OSAL_INVALID)
@@ -189,7 +180,7 @@ static void osal_sync_edge_test_thread_entry(void* arg)
 
     /* 信号量边界测试 */
     {
-        OsalSem* test_semaphore = NULL;
+        OsalSem *test_semaphore  = NULL;
         uint32_t semaphore_count = 0u;
 
         test_count++;
@@ -239,7 +230,7 @@ static void osal_sync_edge_test_thread_entry(void* arg)
 
     /* 互斥锁边界测试 */
     {
-        OsalMutex* test_mutex = NULL;
+        OsalMutex *test_mutex = NULL;
 
         test_count++;
         if (osal_mutex_create(&test_mutex) != OSAL_OK)
@@ -272,8 +263,8 @@ static void osal_sync_edge_test_thread_entry(void* arg)
 
     /* 事件边界测试 */
     {
-        uint32_t event_flags_value = 0;
-        OsalEventFlags* test_event_flags = NULL;
+        uint32_t event_flags_value       = 0;
+        OsalEventFlags *test_event_flags = NULL;
 
         test_count++;
         if (osal_event_flags_create(&test_event_flags) != OSAL_OK)
@@ -288,7 +279,7 @@ static void osal_sync_edge_test_thread_entry(void* arg)
 
     /* 定时器边界测试 */
     {
-        OsalTimer* test_timer = NULL;
+        OsalTimer *test_timer = NULL;
 
         test_count++;
         if (osal_timer_create(NULL, "bad_timer", 1U, OSAL_TIMER_PERIODIC, NULL, osal_sync_timer_callback) != OSAL_INVALID)
@@ -305,19 +296,18 @@ static void osal_sync_edge_test_thread_entry(void* arg)
 
     /* 时间接口边界测试 */
     {
-        OsalTimeMs first_time_ms = osal_time_now_monotonic();
+        OsalTimeMs first_time_ms  = osal_time_now_monotonic();
         OsalTimeMs second_time_ms = osal_time_now_monotonic();
         test_count++;
         if (osal_time_before(second_time_ms, first_time_ms))
             failure_count++;
     }
 
-    g_edge_tests = test_count;
+    g_edge_tests    = test_count;
     g_edge_failures = failure_count;
-    g_edge_done = 1U;
+    g_edge_done     = 1U;
 
-    while (1)
-    {
+    while (1) {
         osal_sleep_ms(1000U);
     }
 }
@@ -345,10 +335,10 @@ static OmRet osal_sync_app_setup(void)
         return OM_ERR_NO_MEM;
 
     /* 创建线程 */
-    OsalThreadAttr producer_thread_attr = {"osal_prod", 512U * OSAL_STACK_WORD_BYTES, 2U};
-    OsalThreadAttr consumer_thread_attr = {"osal_cons", 512U * OSAL_STACK_WORD_BYTES, 2U};
-    OsalThreadAttr monitor_thread_attr = {"osal_mon", 512U * OSAL_STACK_WORD_BYTES, 1U};
-    OsalThreadAttr counter_thread_attr = {"osal_cnt", 512U * OSAL_STACK_WORD_BYTES, 1U};
+    OsalThreadAttr producer_thread_attr  = {"osal_prod", 512U * OSAL_STACK_WORD_BYTES, 2U};
+    OsalThreadAttr consumer_thread_attr  = {"osal_cons", 512U * OSAL_STACK_WORD_BYTES, 2U};
+    OsalThreadAttr monitor_thread_attr   = {"osal_mon", 512U * OSAL_STACK_WORD_BYTES, 1U};
+    OsalThreadAttr counter_thread_attr   = {"osal_cnt", 512U * OSAL_STACK_WORD_BYTES, 1U};
     OsalThreadAttr edge_test_thread_attr = {"osal_edge", 768U * OSAL_STACK_WORD_BYTES, 2U};
 
     if (osal_thread_create(&g_producer_thread, &producer_thread_attr, osal_sync_producer_thread_entry, NULL) != OSAL_OK)

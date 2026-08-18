@@ -9,16 +9,16 @@
 #include "om_fatal_test_shared.h"
 
 jmp_buf g_jmp;
-int g_handler_calls = 0;
+int g_handler_calls    = 0;
 OmFatalReason g_reason = OM_FATAL_STARTUP;
-OmRet g_cause = OM_OK;
-OmFatalContext g_ctx = {0};
+OmRet g_cause          = OM_OK;
+OmFatalContext g_ctx   = {0};
 
 void om_fatal_handler_weak_impl(OmFatalReason reason, OmRet cause, const OmFatalContext *ctx)
 {
     g_handler_calls++;
     g_reason = reason;
-    g_cause = cause;
-    g_ctx = ctx ? *ctx : (OmFatalContext){0};
+    g_cause  = cause;
+    g_ctx    = ctx ? *ctx : (OmFatalContext){0};
     longjmp(g_jmp, 1);
 }

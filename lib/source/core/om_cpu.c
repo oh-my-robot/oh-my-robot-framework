@@ -1,7 +1,7 @@
 #include "core/om_cpu.h"
 
 static OmCpu om_cpu = {
-    .cpuName = OM_CPU_NAME,
+    .cpuName   = OM_CPU_NAME,
     .omVersion = FRAMEWORK_VERSION,
 };
 
@@ -57,23 +57,20 @@ void om_cpu_delay_ms(float ms)
 
 void om_cpu_register(uint32_t cpu_freq_m_hz, OmBoardInterface *interface)
 {
-    while (!interface)
-    {
+    while (!interface) {
     };
     om_cpu.cpuName = OM_CPU_NAME;
 
-    om_cpu.omVersion = FRAMEWORK_VERSION;
+    om_cpu.omVersion  = FRAMEWORK_VERSION;
     om_cpu.cpuFreqMHz = cpu_freq_m_hz;
-    om_cpu.cpuFreqHz = cpu_freq_m_hz * 1000000U;
-    om_cpu.interface = interface;
+    om_cpu.cpuFreqHz  = cpu_freq_m_hz * 1000000U;
+    om_cpu.interface  = interface;
 }
 
 void om_core_init(void)
 {
-    while (om_cpu.cpuFreqMHz <= 0 || om_cpu.cpuFreqHz <= 0)
-    {
+    while (om_cpu.cpuFreqMHz <= 0 || om_cpu.cpuFreqHz <= 0) {
     }; // TODO: assert
-    while (om_cpu.interface == NULL)
-    {
+    while (om_cpu.interface == NULL) {
     }; // TODO: assert
 }

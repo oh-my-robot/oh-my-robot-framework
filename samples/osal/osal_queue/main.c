@@ -25,9 +25,9 @@ typedef struct
     volatile uint32_t done;
 } OsalQueueTestResult;
 
-static OsalQueue* g_queue = NULL;
-static OsalThread* g_test_thread = NULL;
-static OsalThread* g_sender_thread = NULL;
+static OsalQueue *g_queue                 = NULL;
+static OsalThread *g_test_thread          = NULL;
+static OsalThread *g_sender_thread        = NULL;
 static OsalQueueTestResult g_queue_result = {0u, 0u, 0u};
 
 /**
@@ -44,7 +44,7 @@ static void osal_queue_expect(int condition)
 /**
  * @brief 比较两条测试消息是否一致
  */
-static int osal_queue_message_equal(const OsalQueueTestMessage* left, const OsalQueueTestMessage* right)
+static int osal_queue_message_equal(const OsalQueueTestMessage *left, const OsalQueueTestMessage *right)
 {
     if (!left || !right)
         return 0;
@@ -56,7 +56,7 @@ static int osal_queue_message_equal(const OsalQueueTestMessage* left, const Osal
  * @brief 辅助线程：延时后发送一次消息
  * @note 用于触发 `recv(OSAL_WAIT_FOREVER)` 的唤醒路径
  */
-static void osal_queue_sender_thread_entry(void* arg)
+static void osal_queue_sender_thread_entry(void *arg)
 {
     OsalQueueTestMessage message = {0xA5u, 0x5Au};
 
@@ -77,16 +77,16 @@ static void osal_queue_sender_thread_entry(void* arg)
  * 6) `from_isr` 在线程上下文误用保护
  * 7) 资源释放
  */
-static void osal_queue_test_thread_entry(void* arg)
+static void osal_queue_test_thread_entry(void *arg)
 {
-    OsalQueue* queue_temp = NULL;
-    OsalQueueTestMessage message_1 = {1u, 11u};
-    OsalQueueTestMessage message_2 = {2u, 22u};
-    OsalQueueTestMessage message_3 = {3u, 33u};
+    OsalQueue *queue_temp           = NULL;
+    OsalQueueTestMessage message_1  = {1u, 11u};
+    OsalQueueTestMessage message_2  = {2u, 22u};
+    OsalQueueTestMessage message_3  = {3u, 33u};
     OsalQueueTestMessage message_rx = {0u, 0u};
-    uint32_t queue_count = 0u;
-    uint32_t queue_space = 0u;
-    OsalThreadAttr sender_attr = {
+    uint32_t queue_count            = 0u;
+    uint32_t queue_space            = 0u;
+    OsalThreadAttr sender_attr      = {
         "osal_queue_sender",
         512u * OSAL_STACK_WORD_BYTES,
         2u,

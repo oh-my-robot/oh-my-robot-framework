@@ -21,10 +21,8 @@ static uint8_t s_pool_usage_map[DJI_MOTOR_MAX_TX_UNITS] = {0};
  */
 static DJIMotorTxUnit *dji_alloc_tx_unit_static(void)
 {
-    for (int i = 0; i < DJI_MOTOR_MAX_TX_UNITS; i++)
-    {
-        if (s_pool_usage_map[i] == 0)
-        {
+    for (int i = 0; i < DJI_MOTOR_MAX_TX_UNITS; i++) {
+        if (s_pool_usage_map[i] == 0) {
             s_pool_usage_map[i] = 1;
             memset(&s_tx_pool[i], 0, sizeof(DJIMotorTxUnit));
             INIT_LIST_HEAD(&s_tx_pool[i].list);
@@ -53,8 +51,7 @@ static DJIMotorTxUnit *dji_get_or_create_tx_unit(DJIMotorBus *bus, uint32_t can_
     }
 
     unit = dji_alloc_tx_unit_static();
-    if (unit == NULL)
-    {
+    if (unit == NULL) {
         /* TxUnit 池耗尽，交由上层返回 OM_ERROR_MEMORY。 */
         return NULL;
     }
@@ -78,37 +75,33 @@ static void dji_rx_callback(Device *dev, void *param, CanFilterHandle filter_han
     DJIMotorBus *bus = (DJIMotorBus *)param;
     CanUserMsg msg;
     uint8_t buf[8];
-    msg.userBuf = buf;
+    msg.userBuf      = buf;
     msg.filterHandle = filter_handle;
 
-    for (size_t i = 0; i < count; i++)
-    {
-        if (device_read(dev, 0, &msg, 1) > 0)
-        {
+    for (size_t i = 0; i < count; i++) {
+        if (device_read(dev, 0, &msg, 1) > 0) {
             const uint32_t id = msg.dsc.id;
 
             /* 输入范围保护，避免访问 rxMap 越界。 */
-            if (id < DJI_RX_ID_START || id > DJI_RX_ID_END)
-            {
+            if (id < DJI_RX_ID_START || id > DJI_RX_ID_END) {
                 /* 非法 ID 直接丢弃，继续处理后续报文。 */
                 continue;
             }
 
             DJIMotorDrv *motor = bus->rxMap[id - DJI_RX_ID_START];
-            if (motor)
-            {
+            if (motor) {
                 uint8_t *d = msg.userBuf;
 
                 /* 步骤 1：保存上一帧关键状态，供差分与边沿检测使用。 */
-                motor->measure.lastAngle = motor->measure.angle;
+                motor->measure.lastAngle     = motor->measure.angle;
                 motor->measure.lastErrorCode = motor->measure.errorCode;
 
                 /* 步骤 2：解析 DJI 反馈协议。 */
-                motor->measure.angle = (int16_t)(d[0] << 8 | d[1]);
-                motor->measure.velocity = (int16_t)(d[2] << 8 | d[3]);
-                motor->measure.current = (int16_t)(d[4] << 8 | d[5]);
-                motor->measure.temp = d[6];
-                motor->measure.errorCode = d[7];
+                motor->measure.angle                   = (int16_t)(d[0] << 8 | d[1]);
+                motor->measure.velocity                = (int16_t)(d[2] << 8 | d[3]);
+                motor->measure.current                 = (int16_t)(d[4] << 8 | d[5]);
+                motor->measure.temp                    = d[6];
+                motor->measure.errorCode               = d[7];
                 motor->measure.lastFeedbackTimestampMs = osal_time_now_monotonic();
 
                 /* 步骤 3：估算多圈角度。
@@ -138,18 +131,18 @@ OmRet dji_motor_bus_init(DJIMotorBus *bus, Device *can_dev)
         return OM_ERROR_PARAM;
 
     memset(bus, 0, sizeof(DJIMotorBus));
-    bus->canDev = can_dev;
+    bus->canDev       = can_dev;
     bus->filterHandle = 0;
     INIT_LIST_HEAD(&bus->txList);
 
     /* 过滤条件覆盖 0x200~0x20F（掩码 0x7F0），匹配 DJI 电机反馈 ID 段。 */
-    CanFilterAllocArg alloc_arg = {0};
-    alloc_arg.request.workMode = CAN_FILTER_MODE_MASK;
-    alloc_arg.request.idType = CAN_FILTER_ID_STD;
-    alloc_arg.request.id = 0x200;
-    alloc_arg.request.mask = 0x7F0;
+    CanFilterAllocArg alloc_arg  = {0};
+    alloc_arg.request.workMode   = CAN_FILTER_MODE_MASK;
+    alloc_arg.request.idType     = CAN_FILTER_ID_STD;
+    alloc_arg.request.id         = 0x200;
+    alloc_arg.request.mask       = 0x7F0;
     alloc_arg.request.rxCallback = dji_rx_callback;
-    alloc_arg.request.param = bus;
+    alloc_arg.request.param      = bus;
 
     OmRet ret = device_ctrl(can_dev, CAN_CMD_FILTER_ALLOC, &alloc_arg);
     if (ret != OM_OK)
@@ -182,26 +175,20 @@ OmRet dji_motor_register(DJIMotorBus *bus, DJIMotorDrv *motor, DJIMotorType type
         return OM_ERR_CONFLICT;
 
     uint32_t target_can_id = 0;
-    uint8_t buf_idx = 0;
+    uint8_t buf_idx        = 0;
 
     /* 根据“类型 + 模式 + 物理 ID”推导目标控制帧与槽位偏移。 */
-    if (type == DJI_MOTOR_TYPE_GM6020)
-    {
-        if (mode == DJI_CTRL_MODE_VOLTAGE)
-        {
+    if (type == DJI_MOTOR_TYPE_GM6020) {
+        if (mode == DJI_CTRL_MODE_VOLTAGE) {
             target_can_id = (id <= 4) ? DJI_TX_ID_MIX_1_FF : DJI_TX_ID_GM6020_V_5_7;
-            buf_idx = (id - (id <= 4 ? 1 : 5)) * 2;
-        }
-        else
-        {
+            buf_idx       = (id - (id <= 4 ? 1 : 5)) * 2;
+        } else {
             target_can_id = (id <= 4) ? DJI_TX_ID_GM6020_C_1_4 : DJI_TX_ID_GM6020_C_5_7;
-            buf_idx = (id - (id <= 4 ? 1 : 5)) * 2;
+            buf_idx       = (id - (id <= 4 ? 1 : 5)) * 2;
         }
-    }
-    else
-    {
+    } else {
         target_can_id = (id <= 4) ? DJI_TX_ID_C6X0_1_4 : DJI_TX_ID_MIX_1_FF;
-        buf_idx = (id - (id <= 4 ? 1 : 5)) * 2;
+        buf_idx       = (id - (id <= 4 ? 1 : 5)) * 2;
     }
 
     DJIMotorTxUnit *unit = dji_get_or_create_tx_unit(bus, target_can_id);
@@ -210,39 +197,37 @@ OmRet dji_motor_register(DJIMotorBus *bus, DJIMotorDrv *motor, DJIMotorType type
 
     /* usageMask 每一位代表一个 2-byte 控制槽，置位冲突即表示映射冲突。 */
     uint8_t slot_bit = (1U << (buf_idx / 2U));
-    if (unit->usageMask & slot_bit)
-    {
+    if (unit->usageMask & slot_bit) {
         /* 槽位冲突，说明电机 ID/模式映射发生重叠。 */
         return OM_ERR_CONFLICT;
     }
 
     /* 电流/电压编码值到物理量的换算比例。 */
-    switch (type)
-    {
-    case DJI_MOTOR_TYPE_C610:
-        motor->scale = 10.0f / 16384.0f;
-        break;
-    case DJI_MOTOR_TYPE_C620:
-        motor->scale = 20.0f / 16384.0f;
-        break;
-    case DJI_MOTOR_TYPE_GM6020:
-        motor->scale = (mode == DJI_CTRL_MODE_CURRENT) ? 3.0f / 16384.0f : 24.0f / 25000.0f;
-        break;
-    default:
-        /* 非法类型，拒绝注册。 */
-        return OM_ERROR_PARAM;
+    switch (type) {
+        case DJI_MOTOR_TYPE_C610:
+            motor->scale = 10.0f / 16384.0f;
+            break;
+        case DJI_MOTOR_TYPE_C620:
+            motor->scale = 20.0f / 16384.0f;
+            break;
+        case DJI_MOTOR_TYPE_GM6020:
+            motor->scale = (mode == DJI_CTRL_MODE_CURRENT) ? 3.0f / 16384.0f : 24.0f / 25000.0f;
+            break;
+        default:
+            /* 非法类型，拒绝注册。 */
+            return OM_ERROR_PARAM;
     }
 
     unit->usageMask |= slot_bit;
-    motor->link.rxId = rx_id;
-    motor->link.txUnit = unit;
+    motor->link.rxId     = rx_id;
+    motor->link.txUnit   = unit;
     motor->link.txBufIdx = buf_idx;
-    motor->link.type = type;
-    motor->mode = mode;
+    motor->link.type     = type;
+    motor->mode          = mode;
 
     /* 首帧通常可能存在跳变，上层可按需丢弃首帧或延迟闭环。 */
     motor->measure.lastAngle = 0;
-    bus->rxMap[map_idx] = motor;
+    bus->rxMap[map_idx]      = motor;
 
     return OM_OK;
 }
@@ -254,11 +239,11 @@ void dji_motor_set_output(DJIMotorDrv *motor, int16_t output)
         return;
 
     /* 仅更新缓存与脏标记，不直接触发 IO，便于控制循环统一调度发送。 */
-    motor->targetOutput = output;
-    uint8_t *b = motor->link.txUnit->txBuffer;
-    uint8_t i = motor->link.txBufIdx;
-    b[i] = (uint8_t)(output >> 8);
-    b[i + 1] = (uint8_t)(output & 0xFF);
+    motor->targetOutput         = output;
+    uint8_t *b                  = motor->link.txUnit->txBuffer;
+    uint8_t i                   = motor->link.txBufIdx;
+    b[i]                        = (uint8_t)(output >> 8);
+    b[i + 1]                    = (uint8_t)(output & 0xFF);
     motor->link.txUnit->isDirty = 1;
 }
 
@@ -273,11 +258,10 @@ void dji_motor_bus_sync(DJIMotorBus *bus)
     list_for_each(pos, &bus->txList)
     {
         unit = list_entry(pos, DJIMotorTxUnit, list);
-        if (unit->usageMask && unit->isDirty)
-        {
+        if (unit->usageMask && unit->isDirty) {
             CanUserMsg msg;
-            msg.dsc = CAN_DATA_MSG_DSC_INIT(unit->canId, CAN_IDE_STD, 8);
-            msg.userBuf = unit->txBuffer;
+            msg.dsc       = CAN_DATA_MSG_DSC_INIT(unit->canId, CAN_IDE_STD, 8);
+            msg.userBuf   = unit->txBuffer;
             int write_ret = (int)device_write(bus->canDev, 0, &msg, 1);
 
             /* 仅在发送成功时清脏；失败时保留脏位，下一周期自动重试。 */

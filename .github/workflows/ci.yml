@@ -40,14 +40,20 @@ jobs:
           xmake-version: latest
           actions-cache-folder: '.xmake-cache'
 
-      - name: Setup GNU ARM Embedded Toolchain
-        uses: carlosperate/arm-none-eabi-gcc-action@v1
-        with:
-          release: 'latest'
+      - name: Setup GNU ARM Toolchain (official, pinned 14.2.rel1)
+        # 弃用 carlosperate action（latest 版本波动 + 系统依赖不确定导致硬浮点试编译失败）；
+        # 官方发布包直装到固定路径（与本地 14.2 同版本），版本固定防漂移。
+        # 不装 libncurses5：仅 gdb 依赖 ncurses，编译（gcc/as/ld）不依赖，
+        # CI 只编译库不跑 gdb；且 ubuntu 24.04 已移除 libncurses5
+        run: |
+          sudo apt-get install -y xz-utils
+          wget -q https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi.tar.xz -O /tmp/arm-tc.tar.xz
+          sudo mkdir -p /opt/arm-gnu
+          sudo tar -xJf /tmp/arm-tc.tar.xz -C /opt/arm-gnu --strip-components=1
 
       - name: Create om_preset.lua (CI toolchain paths)
-        # gnu-rm 工具链要求显式 sdk/bin 路径（本地由 om_preset.lua 提供）；
-        # CI 无 preset——arm-none-eabi-gcc-action 安装于 /usr/local，此处生成最小 preset
+        # gnu-rm 工具链要求显式 sdk/bin 路径（本地由 om_preset.lua 提供）；CI 无 preset，
+        # 此处生成指向官方直装路径的最小 preset
         run: |
           cat > om_preset.lua << 'EOF'
           local preset = {
@@ -56,8 +62,8 @@ jobs:
             toolchain_default = {name = "gnu-rm"},
             toolchain_presets = {
               ["gnu-rm"] = {
-                sdk = "/usr/local",
-                bin = "/usr/local/bin",
+                sdk = "/opt/arm-gnu",
+                bin = "/opt/arm-gnu/bin",
               },
             },
           }

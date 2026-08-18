@@ -21,9 +21,9 @@ typedef struct
     volatile uint32_t done;
 } OsalThreadTestResult;
 
-static OsalThread* g_test_thread = NULL;
-static OsalThread* g_worker_thread = NULL;
-static volatile uint32_t g_worker_counter = 0u;
+static OsalThread *g_test_thread            = NULL;
+static OsalThread *g_worker_thread          = NULL;
+static volatile uint32_t g_worker_counter   = 0u;
 static OsalThreadTestResult g_thread_result = {0u, 0u, 0u};
 
 /**
@@ -41,12 +41,11 @@ static void osal_thread_expect(int condition)
  * @brief 被终止目标线程
  * @note 持续更新计数，用于观察 terminate(other) 生效
  */
-static void osal_thread_worker_entry(void* arg)
+static void osal_thread_worker_entry(void *arg)
 {
     (void)arg;
 
-    for (;;)
-    {
+    for (;;) {
         g_worker_counter++;
         (void)osal_sleep_ms(5u);
     }
@@ -55,7 +54,7 @@ static void osal_thread_worker_entry(void* arg)
 /**
  * @brief thread 合同测试线程
  */
-static void osal_thread_test_entry(void* arg)
+static void osal_thread_test_entry(void *arg)
 {
     OsalThreadAttr worker_attr = {
         "osal_thread_worker",

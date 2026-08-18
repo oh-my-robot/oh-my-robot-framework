@@ -19,19 +19,19 @@
  * （内容无意义——测试用 set_range() 改写各级区间；须为全局定义以匹配
  *   #define const 宏化后的 extern 声明） */
 OmInitEntry __om_init_0_start[] = {{0, 0, 0, 0}};
-OmInitEntry __om_init_0_end[] = {{0, 0, 0, 0}};
+OmInitEntry __om_init_0_end[]   = {{0, 0, 0, 0}};
 OmInitEntry __om_init_1_start[] = {{0, 0, 0, 0}};
-OmInitEntry __om_init_1_end[] = {{0, 0, 0, 0}};
+OmInitEntry __om_init_1_end[]   = {{0, 0, 0, 0}};
 OmInitEntry __om_init_2_start[] = {{0, 0, 0, 0}};
-OmInitEntry __om_init_2_end[] = {{0, 0, 0, 0}};
+OmInitEntry __om_init_2_end[]   = {{0, 0, 0, 0}};
 OmInitEntry __om_init_3_start[] = {{0, 0, 0, 0}};
-OmInitEntry __om_init_3_end[] = {{0, 0, 0, 0}};
+OmInitEntry __om_init_3_end[]   = {{0, 0, 0, 0}};
 OmInitEntry __om_init_4_start[] = {{0, 0, 0, 0}};
-OmInitEntry __om_init_4_end[] = {{0, 0, 0, 0}};
+OmInitEntry __om_init_4_end[]   = {{0, 0, 0, 0}};
 OmInitEntry __om_init_5_start[] = {{0, 0, 0, 0}};
-OmInitEntry __om_init_5_end[] = {{0, 0, 0, 0}};
+OmInitEntry __om_init_5_end[]   = {{0, 0, 0, 0}};
 OmInitEntry __om_init_6_start[] = {{0, 0, 0, 0}};
-OmInitEntry __om_init_6_end[] = {{0, 0, 0, 0}};
+OmInitEntry __om_init_6_end[]   = {{0, 0, 0, 0}};
 
 /* ===== 连续 entry 缓冲（模拟链接器把各级段连续放置；容量覆盖溢出用例 129 项） ===== */
 static OmInitEntry g_buf[160];
@@ -40,19 +40,18 @@ static int g_used = 0;
 /** @brief 清空全部级别区间（用例开头调用，防止上一用例残留区间被遍历） */
 static void reset_ranges(void)
 {
-    for (int i = 0; i < OM_INIT_LEVEL_COUNT; i++)
-    {
+    for (int i = 0; i < OM_INIT_LEVEL_COUNT; i++) {
         s_level_ranges[i].start = &g_buf[0];
-        s_level_ranges[i].end = &g_buf[0];
+        s_level_ranges[i].end   = &g_buf[0];
     }
     g_used = 0;
 }
 
 static int set_range(int level, int count)
 {
-    int base = g_used;
+    int base                    = g_used;
     s_level_ranges[level].start = &g_buf[base];
-    s_level_ranges[level].end = &g_buf[base + count];
+    s_level_ranges[level].end   = &g_buf[base + count];
     g_used += count;
     return base;
 }
@@ -103,9 +102,9 @@ static OmRet cb_count(void)
 static void test_level_order(void)
 {
     reset_ranges();
-    int b0 = set_range(0, 1); /* level 0: a */
-    int b1 = set_range(1, 1); /* level 1: b */
-    int b2 = set_range(2, 1); /* level 2: c */
+    int b0    = set_range(0, 1); /* level 0: a */
+    int b1    = set_range(1, 1); /* level 1: b */
+    int b2    = set_range(2, 1); /* level 2: c */
     g_buf[b0] = (OmInitEntry){cb_a, "a", 0, 50};
     g_buf[b1] = (OmInitEntry){cb_b, "b", 1, 50};
     g_buf[b2] = (OmInitEntry){cb_c, "c", 2, 50};
@@ -118,9 +117,9 @@ static void test_level_order(void)
 static void test_range_filter(void)
 {
     reset_ranges();
-    int b0 = set_range(0, 1);
-    int b1 = set_range(1, 1);
-    int b2 = set_range(2, 1);
+    int b0    = set_range(0, 1);
+    int b1    = set_range(1, 1);
+    int b2    = set_range(2, 1);
     g_buf[b0] = (OmInitEntry){cb_a, "a", 0, 50};
     g_buf[b1] = (OmInitEntry){cb_b, "b", 1, 50};
     g_buf[b2] = (OmInitEntry){cb_c, "c", 2, 50};
@@ -134,8 +133,8 @@ static void test_range_filter(void)
 static void test_prio_order(void)
 {
     reset_ranges();
-    int base = set_range(0, 3);
-    g_buf[base] = (OmInitEntry){cb_a, "a", 0, 90};
+    int base        = set_range(0, 3);
+    g_buf[base]     = (OmInitEntry){cb_a, "a", 0, 90};
     g_buf[base + 1] = (OmInitEntry){cb_b, "b", 0, 10};
     g_buf[base + 2] = (OmInitEntry){cb_c, "c", 0, 50};
 
@@ -147,8 +146,8 @@ static void test_prio_order(void)
 static void test_null_slot_skipped(void)
 {
     reset_ranges();
-    int base = set_range(0, 2);
-    g_buf[base] = (OmInitEntry){NULL, "null", 0, 0};
+    int base        = set_range(0, 2);
+    g_buf[base]     = (OmInitEntry){NULL, "null", 0, 0};
     g_buf[base + 1] = (OmInitEntry){cb_a, "a", 0, 50};
 
     reset_order();
@@ -160,7 +159,7 @@ static void test_empty_level(void)
 {
     reset_ranges();
     set_range(0, 0); /* 空级 */
-    int base = set_range(1, 1);
+    int base    = set_range(1, 1);
     g_buf[base] = (OmInitEntry){cb_a, "a", 1, 50};
 
     reset_order();
@@ -171,8 +170,8 @@ static void test_empty_level(void)
 static void test_fail_record_and_continue(void)
 {
     reset_ranges();
-    int base = set_range(0, 3);
-    g_buf[base] = (OmInitEntry){cb_a, "a", 0, 10};
+    int base        = set_range(0, 3);
+    g_buf[base]     = (OmInitEntry){cb_a, "a", 0, 10};
     g_buf[base + 1] = (OmInitEntry){cb_fail, "fail", 0, 50};
     g_buf[base + 2] = (OmInitEntry){cb_b, "b", 0, 90};
 
@@ -181,8 +180,7 @@ static void test_fail_record_and_continue(void)
     EXPECT(om_do_initcalls(OM_INIT_LEVEL_EARLIEST, OM_INIT_LEVEL_COUNT) == OM_ERR_BUSY);
     EXPECT(g_order_len == 3 && g_order[1] == 'F');
     EXPECT(om_init_last_fail_name() != NULL);
-    if (om_init_last_fail_name() != NULL)
-    {
+    if (om_init_last_fail_name() != NULL) {
         EXPECT(strcmp(om_init_last_fail_name(), "fail") == 0);
     }
 }
@@ -192,8 +190,7 @@ static void test_max_entries_overflow(void)
     /* 同级表项 > OM_INIT_MAX_ENTRIES(128)：退化为链接顺序全执行（不排序） */
     reset_ranges();
     int base = set_range(0, OM_INIT_MAX_ENTRIES + 1);
-    for (int i = 0; i < OM_INIT_MAX_ENTRIES + 1; i++)
-    {
+    for (int i = 0; i < OM_INIT_MAX_ENTRIES + 1; i++) {
         g_buf[base + i] = (OmInitEntry){cb_count, "count", 0, 50};
     }
     g_count = 0;
@@ -204,7 +201,7 @@ static void test_max_entries_overflow(void)
 static void test_level_arg_boundaries(void)
 {
     reset_ranges();
-    int base = set_range(0, 1);
+    int base    = set_range(0, 1);
     g_buf[base] = (OmInitEntry){cb_a, "a", 0, 50};
 
     g_order_len = 0;

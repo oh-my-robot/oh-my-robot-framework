@@ -113,7 +113,6 @@ OsalStatus osal_sleep_ms(OsalTimeMs sleep_ms);
  * @note 比较语义遵循 32 位回绕安全窗口（< 2^31 ms）。
  * @note 本接口每次只推进一个周期，不主动跨越多个周期。
  */
-OsalStatus osal_delay_until(OsalTimeMs* deadline_cursor_ms, OsalTimeMs period_ms, uint32_t* missed_periods);
+OsalStatus osal_delay_until(OsalTimeMs *deadline_cursor_ms, OsalTimeMs period_ms, uint32_t *missed_periods);
 
 #endif
-

@@ -13,34 +13,32 @@
 #include <stdint.h>
 
 /* CPU 配置 */
-#define OM_CPU_NAME "DJI_C" // CPU名称，如"DJI_C"
-typedef uint32_t CputimeCnt;   // CPU时间计数器类型，由此计数类型，通过换算关系计算得到以下时间类型
-typedef float Cputime;        // CPU时间类型，单位：s
-typedef float CputimeMs;       // CPU时间类型，单位：ms
-typedef uint64_t CputimeUs;    // CPU时间类型，单位：us
+#define OM_CPU_NAME "DJI_C"  // CPU名称，如"DJI_C"
+typedef uint32_t CputimeCnt; // CPU时间计数器类型，由此计数类型，通过换算关系计算得到以下时间类型
+typedef float Cputime;       // CPU时间类型，单位：s
+typedef float CputimeMs;     // CPU时间类型，单位：ms
+typedef uint64_t CputimeUs;  // CPU时间类型，单位：us
 
 typedef struct OmCpu OmCpu;
 
 typedef struct OmBoardInterface OmBoardInterface;
-typedef struct OmBoardInterface
-{
+typedef struct OmBoardInterface {
     void (*errhandler)(void);
     void (*reset)(void);
     Cputime (*getCpuTimeS)(void);                           // 获取CPU时间，单位：s
-    CputimeMs (*getCpuTimeMs)(void);                         // 获取CPU时间，单位：ms
-    CputimeUs (*getCpuTimeUs)(void);                         // 获取CPU时间，单位：us
-    Cputime (*getDeltaCpuTimeS)(CputimeCnt* last_time_cnt); // 获取CPU时间差，单位：s
-    void (*delayMs)(float ms);                                  // 延时ms
+    CputimeMs (*getCpuTimeMs)(void);                        // 获取CPU时间，单位：ms
+    CputimeUs (*getCpuTimeUs)(void);                        // 获取CPU时间，单位：us
+    Cputime (*getDeltaCpuTimeS)(CputimeCnt *last_time_cnt); // 获取CPU时间差，单位：s
+    void (*delayMs)(float ms);                              // 延时ms
 } OmBoardInterface;
 
-typedef struct OmCpu
-{
-    char* cpuName;           // CPU名称，如"DJI_C"
-    char* omVersion;       // OM版本，目前采用时间制，如"2025-12-1"
+typedef struct OmCpu {
+    char *cpuName;          // CPU名称，如"DJI_C"
+    char *omVersion;        // OM版本，目前采用时间制，如"2025-12-1"
     CputimeCnt lastTimeCnt; // 上一次获取的CPU时间计数器值
-    uint32_t cpuFreqMHz;     // CPU频率，单位：MHz
-    uint32_t cpuFreqHz;      // CPU频率，单位：Hz
-    OmBoardInterface* interface;
+    uint32_t cpuFreqMHz;    // CPU频率，单位：MHz
+    uint32_t cpuFreqHz;     // CPU频率，单位：Hz
+    OmBoardInterface *interface;
 } OmCpu;
 
 /**
@@ -48,14 +46,14 @@ typedef struct OmCpu
  *
  * @return char* CPU名称
  */
-char* om_get_cpu_name(void);
+char *om_get_cpu_name(void);
 
 /**
  * @brief 获取固件版本
  *
  * @return char* 固件版本
  */
-char* om_get_firmware_version(void);
+char *om_get_firmware_version(void);
 
 /**
  * @brief 获取CPU时间
@@ -83,7 +81,7 @@ CputimeUs om_cpu_get_time_us(void);
  *
  * @return Cputime CPU时间差，单位：s
  */
-Cputime om_cpu_get_delta_time_s(CputimeCnt* last_time_cnt);
+Cputime om_cpu_get_delta_time_s(CputimeCnt *last_time_cnt);
 
 /**
  * @brief 处理CPU错误
@@ -92,7 +90,7 @@ Cputime om_cpu_get_delta_time_s(CputimeCnt* last_time_cnt);
  * @param line 错误发生的行号
  * @param msg 错误信息
  */
-void om_cpu_errhandler(char* file, uint32_t line, uint8_t level, char* msg);
+void om_cpu_errhandler(char *file, uint32_t line, uint8_t level, char *msg);
 
 #define OM_CPU_ERRHANDLER(msg, level) om_cpu_errhandler(__FILE__, __LINE__, level, msg)
 
@@ -115,7 +113,7 @@ void om_cpu_delay_ms(float ms);
  * @param cpuFreqMHz CPU频率，单位：MHz
  * @param interface 板级接口
  */
-void om_cpu_register(uint32_t cpu_freq_m_hz, OmBoardInterface* interface);
+void om_cpu_register(uint32_t cpu_freq_m_hz, OmBoardInterface *interface);
 
 /**
  * @brief 初始化CPU

@@ -49,37 +49,37 @@ extern "C" {
 
 /** 引脚方向 */
 typedef enum {
-    GPIO_DIR_INPUT  = 0U,  /**< 输入模式 */
-    GPIO_DIR_OUTPUT = 1U,  /**< 输出模式 */
+    GPIO_DIR_INPUT  = 0U, /**< 输入模式 */
+    GPIO_DIR_OUTPUT = 1U, /**< 输出模式 */
 } GpioDirection;
 
 /** 上下拉配置 */
 typedef enum {
-    GPIO_PULL_NONE = 0U,  /**< 无上下拉 */
-    GPIO_PULL_UP   = 1U,  /**< 上拉 */
-    GPIO_PULL_DOWN = 2U,  /**< 下拉 */
+    GPIO_PULL_NONE = 0U, /**< 无上下拉 */
+    GPIO_PULL_UP   = 1U, /**< 上拉 */
+    GPIO_PULL_DOWN = 2U, /**< 下拉 */
 } GpioPull;
 
 /** 驱动模式 */
 typedef enum {
-    GPIO_DRIVE_PUSH_PULL  = 0U,  /**< 推挽输出 */
-    GPIO_DRIVE_OPEN_DRAIN = 1U,  /**< 开漏输出 */
+    GPIO_DRIVE_PUSH_PULL  = 0U, /**< 推挽输出 */
+    GPIO_DRIVE_OPEN_DRAIN = 1U, /**< 开漏输出 */
 } GpioDrive;
 
 /** 驱动强度（硬件相关，不支持时 BSP 返回 OM_ENOTSUP） */
 typedef enum {
-    GPIO_DRIVE_STRENGTH_LOW    = 0U,  /**< 低驱动强度 */
-    GPIO_DRIVE_STRENGTH_MEDIUM = 1U,  /**< 中驱动强度 */
-    GPIO_DRIVE_STRENGTH_HIGH   = 2U,  /**< 高驱动强度 */
+    GPIO_DRIVE_STRENGTH_LOW    = 0U, /**< 低驱动强度 */
+    GPIO_DRIVE_STRENGTH_MEDIUM = 1U, /**< 中驱动强度 */
+    GPIO_DRIVE_STRENGTH_HIGH   = 2U, /**< 高驱动强度 */
 } GpioDriveStrength;
 
 /** 中断触发模式 */
 typedef enum {
-    GPIO_IRQ_EDGE_RISING  = 0U,  /**< 上升沿触发 */
-    GPIO_IRQ_EDGE_FALLING = 1U,  /**< 下降沿触发 */
-    GPIO_IRQ_EDGE_BOTH    = 2U,  /**< 双边沿触发 */
-    GPIO_IRQ_LEVEL_HIGH   = 3U,  /**< 高电平触发 */
-    GPIO_IRQ_LEVEL_LOW    = 4U,  /**< 低电平触发 */
+    GPIO_IRQ_EDGE_RISING  = 0U, /**< 上升沿触发 */
+    GPIO_IRQ_EDGE_FALLING = 1U, /**< 下降沿触发 */
+    GPIO_IRQ_EDGE_BOTH    = 2U, /**< 双边沿触发 */
+    GPIO_IRQ_LEVEL_HIGH   = 3U, /**< 高电平触发 */
+    GPIO_IRQ_LEVEL_LOW    = 4U, /**< 低电平触发 */
 } GpioIrqMode;
 
 /** @} */
@@ -91,11 +91,11 @@ typedef enum {
  *          位号与 #GpioIrqMode 枚举值对齐，可直接用 `1U << mode` 查询。
  * @{ */
 
-#define GPIO_CAP_IRQ_EDGE_RISING   (1U << GPIO_IRQ_EDGE_RISING)   /**< 支持上升沿触发 */
-#define GPIO_CAP_IRQ_EDGE_FALLING  (1U << GPIO_IRQ_EDGE_FALLING)  /**< 支持下降沿触发 */
-#define GPIO_CAP_IRQ_EDGE_BOTH     (1U << GPIO_IRQ_EDGE_BOTH)     /**< 支持双边沿触发 */
-#define GPIO_CAP_IRQ_LEVEL_HIGH    (1U << GPIO_IRQ_LEVEL_HIGH)    /**< 支持高电平触发 */
-#define GPIO_CAP_IRQ_LEVEL_LOW     (1U << GPIO_IRQ_LEVEL_LOW)     /**< 支持低电平触发 */
+#define GPIO_CAP_IRQ_EDGE_RISING  (1U << GPIO_IRQ_EDGE_RISING)  /**< 支持上升沿触发 */
+#define GPIO_CAP_IRQ_EDGE_FALLING (1U << GPIO_IRQ_EDGE_FALLING) /**< 支持下降沿触发 */
+#define GPIO_CAP_IRQ_EDGE_BOTH    (1U << GPIO_IRQ_EDGE_BOTH)    /**< 支持双边沿触发 */
+#define GPIO_CAP_IRQ_LEVEL_HIGH   (1U << GPIO_IRQ_LEVEL_HIGH)   /**< 支持高电平触发 */
+#define GPIO_CAP_IRQ_LEVEL_LOW    (1U << GPIO_IRQ_LEVEL_LOW)    /**< 支持低电平触发 */
 
 /** @} */
 
@@ -118,9 +118,9 @@ typedef struct GpioOps GpioOps;
  * @endcode
  */
 typedef struct {
-    const char *controller;  /**< 控制器名称，由 BSP 定义（如 "gpioa"） */
-    uint8_t offset;          /**< 控制器内引脚偏移（从 0 开始） */
-    uint32_t flags;          /**< 引脚属性标志，如 #GPIO_FLAG_ACTIVE_LOW */
+    const char *controller; /**< 控制器名称，由 BSP 定义（如 "gpioa"） */
+    uint8_t offset;         /**< 控制器内引脚偏移（从 0 开始） */
+    uint32_t flags;         /**< 引脚属性标志，如 #GPIO_FLAG_ACTIVE_LOW */
 } GpioPinSpec;
 
 /**
@@ -136,9 +136,9 @@ typedef struct {
  * @endcode
  */
 typedef struct {
-    GpioController *ctrl;  /**< 已解析的控制器指针，NULL 表示无效 */
-    uint8_t offset;        /**< 控制器内引脚偏移 */
-    uint32_t flags;        /**< 引脚属性标志 */
+    GpioController *ctrl; /**< 已解析的控制器指针，NULL 表示无效 */
+    uint8_t offset;       /**< 控制器内引脚偏移 */
+    uint32_t flags;       /**< 引脚属性标志 */
 } GpioPin;
 
 /** @} */
@@ -152,7 +152,7 @@ typedef struct {
  * @details 由 gpio_port_get() 解析获得，用于端口级批量操作。
  */
 typedef struct {
-    GpioController *ctrl;  /**< 已解析的控制器指针，NULL 表示无效 */
+    GpioController *ctrl; /**< 已解析的控制器指针，NULL 表示无效 */
 } GpioPort;
 
 /** @} */
@@ -166,12 +166,12 @@ typedef struct {
  * @details 通过 gpio_pin_configure() 一次性应用所有电气属性。
  */
 typedef struct {
-    GpioDirection direction;      /**< 引脚方向：输入或输出 */
-    GpioPull pull;                /**< 上下拉配置 */
-    GpioDrive drive;              /**< 驱动模式：推挽或开漏 */
-    GpioDriveStrength speed;      /**< 驱动强度 */
-    bool init_high;               /**< 输出初始逻辑电平（仅输出模式有效）。
-                                        true = 逻辑高（ACTIVE_LOW 引脚自动反转物理电平） */
+    GpioDirection direction; /**< 引脚方向：输入或输出 */
+    GpioPull pull;           /**< 上下拉配置 */
+    GpioDrive drive;         /**< 驱动模式：推挽或开漏 */
+    GpioDriveStrength speed; /**< 驱动强度 */
+    bool init_high;          /**< 输出初始逻辑电平（仅输出模式有效）。
+                                   true = 逻辑高（ACTIVE_LOW 引脚自动反转物理电平） */
 } GpioPinConfig;
 
 /** @} */
@@ -180,9 +180,9 @@ typedef struct {
  * @brief  中断回调描述（框架内部使用，用户无需直接操作）
  */
 typedef struct {
-    void (*callback)(void *arg);  /**< 用户回调函数 */
-    void *arg;                    /**< 回调函数参数 */
-    GpioIrqMode mode;             /**< 中断触发模式 */
+    void (*callback)(void *arg); /**< 用户回调函数 */
+    void *arg;                   /**< 回调函数参数 */
+    GpioIrqMode mode;            /**< 中断触发模式 */
 } GpioIrqHdr;
 
 /**
@@ -191,12 +191,12 @@ typedef struct {
  *          BSP 层通过 container_of 或 priv 指针访问私有数据。
  */
 struct GpioController {
-    Device parent;                /**< 内嵌 Device，参与设备链表管理 */
-    const GpioOps *ops;           /**< BSP 注入的硬件操作函数表 */
-    uint8_t pin_count;            /**< 管理的引脚数量 */
-    uint32_t caps;                /**< IRQ 能力位图，见 GPIO_CAP_IRQ_xxx */
-    void *priv;                   /**< BSP 私有数据指针 */
-    GpioIrqHdr *irq_hdrs;         /**< 中断回调表（框架层管理） */
+    Device parent;        /**< 内嵌 Device，参与设备链表管理 */
+    const GpioOps *ops;   /**< BSP 注入的硬件操作函数表 */
+    uint8_t pin_count;    /**< 管理的引脚数量 */
+    uint32_t caps;        /**< IRQ 能力位图，见 GPIO_CAP_IRQ_xxx */
+    void *priv;           /**< BSP 私有数据指针 */
+    GpioIrqHdr *irq_hdrs; /**< 中断回调表（框架层管理） */
 };
 
 /**
@@ -451,7 +451,7 @@ void gpio_pin_toggle(GpioPin pin);
  * @note   内部通过关中断保护回调表，防止与 ISR 并发修改
  */
 OmRet gpio_pin_attach_irq(GpioPin pin, GpioIrqMode mode,
-                           void (*callback)(void *arg), void *arg);
+                          void (*callback)(void *arg), void *arg);
 
 /**
  * @brief  注销中断回调
@@ -595,8 +595,8 @@ uint32_t gpio_port_read(GpioPort port);
  * @note   仅在初始化阶段调用
  */
 OmRet gpio_controller_register(GpioController *ctrl, const char *name,
-                                uint8_t pin_count,
-                                uint32_t caps, const GpioOps *ops, void *priv);
+                               uint8_t pin_count,
+                               uint32_t caps, const GpioOps *ops, void *priv);
 
 /**
  * @brief  GPIO ISR 框架入口

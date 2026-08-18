@@ -40,8 +40,8 @@ static DevInterface gpio_dev_interface = {
  *          成功后控制器可通过 device_find() 查找。
  */
 OmRet gpio_controller_register(GpioController *ctrl, const char *name,
-                                uint8_t pin_count,
-                                uint32_t caps, const GpioOps *ops, void *priv)
+                               uint8_t pin_count,
+                               uint32_t caps, const GpioOps *ops, void *priv)
 {
     if (!ctrl || !name || !ops || pin_count == 0)
         return OM_ERROR_PARAM;
@@ -86,7 +86,7 @@ OmRet gpio_pin_get(const GpioPinSpec *spec, GpioPin *pin)
         return OM_ERROR_PARAM;
 
     GpioPin invalid = {NULL, 0, 0};
-    *pin = invalid;
+    *pin            = invalid;
 
     if (!spec || !spec->controller)
         return OM_ERROR_PARAM;
@@ -167,7 +167,7 @@ void gpio_pin_toggle(GpioPin pin)
  *          再关中断保护回调表（赋值仅几条指令，窗口极短）。
  */
 OmRet gpio_pin_attach_irq(GpioPin pin, GpioIrqMode mode,
-                           void (*callback)(void *arg), void *arg)
+                          void (*callback)(void *arg), void *arg)
 {
     if (!pin.ctrl || !callback)
         return OM_ERROR_PARAM;
@@ -183,7 +183,7 @@ OmRet gpio_pin_attach_irq(GpioPin pin, GpioIrqMode mode,
     osal_irq_unlock(key);
 
     return pin.ctrl->ops->pin_attach_irq(pin.ctrl, pin.offset, mode,
-                                          callback, arg);
+                                         callback, arg);
 }
 
 /**

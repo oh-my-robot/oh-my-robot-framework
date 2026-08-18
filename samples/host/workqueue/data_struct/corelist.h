@@ -14,7 +14,7 @@
 /* MSVC: 移除 GCC 语句表达式，使用简化版 container_of */
 #undef container_of
 #define container_of(ptr, type, member) \
-    ((type *)((char *)(ptr) - offsetof(type, member)))
+    ((type *)((char *)(ptr)-offsetof(type, member)))
 
 #undef CONTAINER_OF
 #define CONTAINER_OF(ptr, type, member) container_of(ptr, type, member)

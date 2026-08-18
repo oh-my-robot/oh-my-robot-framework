@@ -17,8 +17,7 @@
 
 /* ---- 配置常量 ---- */
 
-enum
-{
+enum {
     MPSC_TEST_CAPACITY         = 16u,   /* 队列容量（2 的幂） */
     MPSC_TEST_ITEM_SIZE        = 8u,    /* 元素大小（字节） */
     MPSC_TEST_PRODUCER_ROUNDS  = 2000u, /* 每个生产者的发送轮次 */
@@ -52,13 +51,12 @@ static void mpsc_expect(int condition)
         g_result.failed++;
 }
 
-static int mpsc_wait_flag(volatile uint32_t* flag, uint32_t timeout_ms)
+static int mpsc_wait_flag(volatile uint32_t *flag, uint32_t timeout_ms)
 {
     OsalTimeMs start_ms    = osal_time_now_monotonic();
     OsalTimeMs deadline_ms = start_ms + timeout_ms;
 
-    while (*flag == 0u)
-    {
+    while (*flag == 0u) {
         if (!osal_time_before(osal_time_now_monotonic(), deadline_ms))
             return 0;
         (void)osal_sleep_ms(1u);
@@ -70,8 +68,8 @@ static int mpsc_wait_flag(volatile uint32_t* flag, uint32_t timeout_ms)
 
 static void mpsc_run_basic_tests(void)
 {
-    uint8_t     buf[MPSC_TEST_CAPACITY * MPSC_TEST_ITEM_SIZE];
-    OmAtomicU8  ready[MPSC_TEST_CAPACITY];
+    uint8_t buf[MPSC_TEST_CAPACITY * MPSC_TEST_ITEM_SIZE];
+    OmAtomicU8 ready[MPSC_TEST_CAPACITY];
     MpscRingbuf rb;
 
     MpscTestItem in_item;
@@ -107,8 +105,7 @@ static void mpsc_run_basic_tests(void)
     mpsc_expect(mpscrb_is_empty(&rb) == true);
 
     /* 填满 */
-    for (uint32_t i = 0u; i < MPSC_TEST_CAPACITY; i++)
-    {
+    for (uint32_t i = 0u; i < MPSC_TEST_CAPACITY; i++) {
         in_item.producer_id = 0u;
         in_item.seq         = i;
         mpsc_expect(mpscrb_in(&rb, &in_item) == true);
@@ -124,8 +121,7 @@ static void mpsc_run_basic_tests(void)
     mpsc_expect(mpscrb_len(&rb) == MPSC_TEST_CAPACITY); /* peek 后 len 不变 */
 
     /* 全部消费 */
-    for (uint32_t i = 0u; i < MPSC_TEST_CAPACITY; i++)
-    {
+    for (uint32_t i = 0u; i < MPSC_TEST_CAPACITY; i++) {
         mpsc_expect(mpscrb_out(&rb, &out_item) == true);
         mpsc_expect(out_item.seq == i);
     }
@@ -136,41 +132,39 @@ static void mpsc_run_basic_tests(void)
 
 typedef struct
 {
-    MpscRingbuf  rb;
-    uint32_t     targetPerProducer;
+    MpscRingbuf rb;
+    uint32_t targetPerProducer;
     OmAtomicUint totalProduced;
     OmAtomicUint totalConsumed;
     OmAtomicUint producerReady[MPSC_TEST_PRODUCER_COUNT];
     OmAtomicUint producerDone[MPSC_TEST_PRODUCER_COUNT];
-    volatile     uint32_t consumerStarted;
-    volatile     uint32_t consumerDone;
+    volatile uint32_t consumerStarted;
+    volatile uint32_t consumerDone;
     OmAtomicUint errors;
     OmAtomicUint stop;
 } MpscConcurrentCtx;
 
 typedef struct
 {
-    MpscConcurrentCtx* ctx;
-    uint32_t           producer_id;
+    MpscConcurrentCtx *ctx;
+    uint32_t producer_id;
 } MpscProducerArg;
 
-static void mpsc_producer_entry(void* arg)
+static void mpsc_producer_entry(void *arg)
 {
-    MpscProducerArg*    parg = (MpscProducerArg*)arg;
-    MpscConcurrentCtx*  ctx  = parg->ctx;
-    uint32_t            id   = parg->producer_id;
-    uint32_t            seq  = 0u;
-    MpscTestItem        item;
+    MpscProducerArg *parg  = (MpscProducerArg *)arg;
+    MpscConcurrentCtx *ctx = parg->ctx;
+    uint32_t id            = parg->producer_id;
+    uint32_t seq           = 0u;
+    MpscTestItem item;
 
     item.producer_id = id;
 
     OM_STORE_REL(&ctx->producerReady[id], 1u);
 
-    while (seq < ctx->targetPerProducer && OM_LOAD_ACQ(&ctx->stop) == 0u)
-    {
+    while (seq < ctx->targetPerProducer && OM_LOAD_ACQ(&ctx->stop) == 0u) {
         item.seq = seq;
-        if (mpscrb_in(&ctx->rb, &item))
-        {
+        if (mpscrb_in(&ctx->rb, &item)) {
             OM_INC_AR(&ctx->totalProduced);
             seq++;
             continue;
@@ -182,26 +176,23 @@ static void mpsc_producer_entry(void* arg)
     osal_thread_exit();
 }
 
-static void mpsc_consumer_entry(void* arg)
+static void mpsc_consumer_entry(void *arg)
 {
-    MpscConcurrentCtx* ctx   = (MpscConcurrentCtx*)arg;
-    uint32_t           total = ctx->targetPerProducer * MPSC_TEST_PRODUCER_COUNT;
-    uint32_t           expected_seq[MPSC_TEST_PRODUCER_COUNT] = {0u};
-    uint32_t           consecutive_empty = 0u;
-    OsalTimeMs         deadline_ms;
+    MpscConcurrentCtx *ctx                          = (MpscConcurrentCtx *)arg;
+    uint32_t total                                  = ctx->targetPerProducer * MPSC_TEST_PRODUCER_COUNT;
+    uint32_t expected_seq[MPSC_TEST_PRODUCER_COUNT] = {0u};
+    uint32_t consecutive_empty                      = 0u;
+    OsalTimeMs deadline_ms;
 
     ctx->consumerStarted = 1u;
-    deadline_ms = osal_time_now_monotonic() + MPSC_TEST_CONSUMER_TIMEOUT;
+    deadline_ms          = osal_time_now_monotonic() + MPSC_TEST_CONSUMER_TIMEOUT;
 
-    while (OM_LOAD_ACQ(&ctx->totalConsumed) < total && OM_LOAD_ACQ(&ctx->stop) == 0u)
-    {
+    while (OM_LOAD_ACQ(&ctx->totalConsumed) < total && OM_LOAD_ACQ(&ctx->stop) == 0u) {
         MpscTestItem item;
 
-        if (mpscrb_out(&ctx->rb, &item))
-        {
+        if (mpscrb_out(&ctx->rb, &item)) {
             if (item.producer_id >= MPSC_TEST_PRODUCER_COUNT ||
-                item.seq != expected_seq[item.producer_id])
-            {
+                item.seq != expected_seq[item.producer_id]) {
                 OM_INC_AR(&ctx->errors);
                 OM_STORE_REL(&ctx->stop, 1u);
                 break;
@@ -213,8 +204,7 @@ static void mpsc_consumer_entry(void* arg)
         }
 
         consecutive_empty++;
-        if (!osal_time_before(osal_time_now_monotonic(), deadline_ms))
-        {
+        if (!osal_time_before(osal_time_now_monotonic(), deadline_ms)) {
             OM_INC_AR(&ctx->errors);
             OM_STORE_REL(&ctx->stop, 1u);
             break;
@@ -232,7 +222,7 @@ static void mpsc_consumer_entry(void* arg)
  */
 static void mpsc_run_concurrent_test(uint32_t producer_priority)
 {
-    uint8_t    buf[MPSC_TEST_CAPACITY * sizeof(MpscTestItem)];
+    uint8_t buf[MPSC_TEST_CAPACITY * sizeof(MpscTestItem)];
     OmAtomicU8 ready[MPSC_TEST_CAPACITY];
     MpscConcurrentCtx ctx;
 
@@ -247,11 +237,11 @@ static void mpsc_run_concurrent_test(uint32_t producer_priority)
         2u,
     };
 
-    OsalThread*      producer_threads[MPSC_TEST_PRODUCER_COUNT] = {NULL};
-    MpscProducerArg  producer_args[MPSC_TEST_PRODUCER_COUNT];
-    OsalThread*      consumer_thread = NULL;
-    uint32_t         total_target;
-    uint32_t         i;
+    OsalThread *producer_threads[MPSC_TEST_PRODUCER_COUNT] = {NULL};
+    MpscProducerArg producer_args[MPSC_TEST_PRODUCER_COUNT];
+    OsalThread *consumer_thread = NULL;
+    uint32_t total_target;
+    uint32_t i;
 
     memset(&ctx, 0, sizeof(ctx));
     ctx.targetPerProducer = MPSC_TEST_PRODUCER_ROUNDS;
@@ -264,12 +254,11 @@ static void mpsc_run_concurrent_test(uint32_t producer_priority)
     mpsc_expect(mpsc_wait_flag(&ctx.consumerStarted, 1000u) == 1);
 
     /* 创建生产者 */
-    for (i = 0u; i < MPSC_TEST_PRODUCER_COUNT; i++)
-    {
+    for (i = 0u; i < MPSC_TEST_PRODUCER_COUNT; i++) {
         producer_args[i].ctx         = &ctx;
         producer_args[i].producer_id = i;
         mpsc_expect(osal_thread_create(&producer_threads[i], &producer_attr, mpsc_producer_entry,
-                                        &producer_args[i]) == OSAL_OK);
+                                       &producer_args[i]) == OSAL_OK);
     }
 
     /* 等待消费者完成 */
@@ -284,9 +273,9 @@ static void mpsc_run_concurrent_test(uint32_t producer_priority)
 
 /* ---- 测试主入口 ---- */
 
-static OsalThread* g_test_thread = NULL;
+static OsalThread *g_test_thread = NULL;
 
-static void mpsc_test_thread_entry(void* arg)
+static void mpsc_test_thread_entry(void *arg)
 {
     (void)arg;
 

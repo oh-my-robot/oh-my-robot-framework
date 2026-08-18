@@ -29,8 +29,7 @@ static void completion_sem_drain(OsalSem *sem)
 {
     if (!sem)
         return;
-    while (osal_sem_wait(sem, 0u) == OSAL_OK)
-    {
+    while (osal_sem_wait(sem, 0u) == OSAL_OK) {
     }
 }
 
@@ -39,8 +38,7 @@ static OmRet completion_cas_sem_init(Completion *completion)
     if (!completion)
         return OM_ERROR_PARAM;
 
-    if (!completion->sem)
-    {
+    if (!completion->sem) {
         if (osal_sem_create(&completion->sem, 1u, 0u) != OSAL_OK)
             return OM_ERROR_MEMORY;
     }
@@ -56,8 +54,7 @@ static void completion_cas_sem_deinit(Completion *completion)
     if (!completion)
         return;
 
-    if (completion->sem)
-    {
+    if (completion->sem) {
         (void)osal_sem_delete(completion->sem);
         completion->sem = NULL;
     }
@@ -80,11 +77,9 @@ static OmRet completion_cas_sem_wait_one_shot(Completion *completion, size_t tim
     /* 阶段 1: 尝试消费已完成的 done */
     CompStatus snap = (CompStatus)OM_LOAD_ACQ(&completion->status);
 
-    if (snap == COMP_DONE)
-    {
+    if (snap == COMP_DONE) {
         CompStatus expected = COMP_DONE;
-        if (OM_CAS_AR(&completion->status, &expected, COMP_INIT))
-        {
+        if (OM_CAS_AR(&completion->status, &expected, COMP_INIT)) {
             completion->waitThread = NULL;
             completion_sem_drain(completion->sem);
             return OM_OK;
@@ -106,14 +101,11 @@ static OmRet completion_cas_sem_wait_one_shot(Completion *completion, size_t tim
     OM_FENCE_REL();
 
     CompStatus expected = COMP_INIT;
-    if (!OM_CAS_AR(&completion->status, &expected, COMP_WAIT))
-    {
+    if (!OM_CAS_AR(&completion->status, &expected, COMP_WAIT)) {
         completion->waitThread = NULL;
-        if (expected == COMP_DONE)
-        {
+        if (expected == COMP_DONE) {
             expected = COMP_DONE;
-            if (OM_CAS_AR(&completion->status, &expected, COMP_INIT))
-            {
+            if (OM_CAS_AR(&completion->status, &expected, COMP_INIT)) {
                 completion_sem_drain(completion->sem);
                 return OM_OK;
             }
@@ -123,11 +115,9 @@ static OmRet completion_cas_sem_wait_one_shot(Completion *completion, size_t tim
 
     /* 阶段 3: WAIT → WAITING（消除 CAS→block 竞态） */
     expected = COMP_WAIT;
-    if (!OM_CAS_AR(&completion->status, &expected, COMP_WAITING))
-    {
+    if (!OM_CAS_AR(&completion->status, &expected, COMP_WAITING)) {
         completion->waitThread = NULL;
-        if (expected == COMP_DONE)
-        {
+        if (expected == COMP_DONE) {
             expected = COMP_DONE;
             OM_CAS_AR(&completion->status, &expected, COMP_INIT);
             completion_sem_drain(completion->sem);
@@ -139,10 +129,9 @@ static OmRet completion_cas_sem_wait_one_shot(Completion *completion, size_t tim
 
     /* 阶段 4: 阻塞等待 */
     uint32_t osal_timeout_ms = completion_timeout_to_osal_ms(timeout_ms);
-    OsalStatus wait_status = osal_sem_wait(completion->sem, osal_timeout_ms);
+    OsalStatus wait_status   = osal_sem_wait(completion->sem, osal_timeout_ms);
 
-    if (wait_status == OSAL_OK)
-    {
+    if (wait_status == OSAL_OK) {
         completion->waitThread = NULL;
         OM_STORE_REL(&completion->status, COMP_INIT);
         completion_sem_drain(completion->sem);
@@ -151,11 +140,9 @@ static OmRet completion_cas_sem_wait_one_shot(Completion *completion, size_t tim
 
     /* 超时路径: 清理 WAITING → INIT */
     expected = COMP_WAITING;
-    if (!OM_CAS_AR(&completion->status, &expected, COMP_INIT))
-    {
+    if (!OM_CAS_AR(&completion->status, &expected, COMP_INIT)) {
         completion->waitThread = NULL;
-        if (expected == COMP_DONE)
-        {
+        if (expected == COMP_DONE) {
             OM_STORE_REL(&completion->status, COMP_INIT);
             completion_sem_drain(completion->sem);
             return OM_OK;
@@ -184,11 +171,9 @@ static OmRet completion_cas_sem_done_one_shot(Completion *completion)
         return OM_ERROR_BUSY;
 
     /* 等待路径: WAIT 或 WAITING → DONE */
-    if (expected == COMP_WAIT || expected == COMP_WAITING)
-    {
+    if (expected == COMP_WAIT || expected == COMP_WAITING) {
         CompStatus prev = expected;
-        if (OM_CAS_AR(&completion->status, &prev, COMP_DONE))
-        {
+        if (OM_CAS_AR(&completion->status, &prev, COMP_DONE)) {
             if (in_isr)
                 (void)osal_sem_post_from_isr(completion->sem);
             else
@@ -208,13 +193,13 @@ extern OmRet completion_accel_init(Completion *completion);
 extern void completion_accel_deinit(Completion *completion);
 extern OmRet completion_accel_wait_one_shot(Completion *completion, size_t timeout_ms);
 extern OmRet completion_accel_done_one_shot(Completion *completion);
-#define OM_COMPLETION_BACKEND_INIT completion_accel_init
-#define OM_COMPLETION_BACKEND_DEINIT completion_accel_deinit
+#define OM_COMPLETION_BACKEND_INIT          completion_accel_init
+#define OM_COMPLETION_BACKEND_DEINIT        completion_accel_deinit
 #define OM_COMPLETION_BACKEND_WAIT_ONE_SHOT completion_accel_wait_one_shot
 #define OM_COMPLETION_BACKEND_DONE_ONE_SHOT completion_accel_done_one_shot
 #else
-#define OM_COMPLETION_BACKEND_INIT completion_cas_sem_init
-#define OM_COMPLETION_BACKEND_DEINIT completion_cas_sem_deinit
+#define OM_COMPLETION_BACKEND_INIT          completion_cas_sem_init
+#define OM_COMPLETION_BACKEND_DEINIT        completion_cas_sem_deinit
 #define OM_COMPLETION_BACKEND_WAIT_ONE_SHOT completion_cas_sem_wait_one_shot
 #define OM_COMPLETION_BACKEND_DONE_ONE_SHOT completion_cas_sem_done_one_shot
 #endif

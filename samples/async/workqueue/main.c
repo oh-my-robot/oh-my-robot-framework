@@ -67,7 +67,7 @@ static void tw_handler(Work *w)
 static void tw_init(TW *t, int id, OsalSem *s)
 {
     work_init(&t->w, tw_handler, NULL);
-    t->s = s;
+    t->s  = s;
     t->ex = 0;
     t->id = id;
 }
@@ -91,7 +91,7 @@ static int wait_sem(OsalSem *s, uint32_t timeout_ms)
 /* 测试1：NULL 参数校验 */
 static void t_null_params(void)
 {
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     expect(workqueue_init(&wq, &cfg) == OM_OK);
@@ -111,7 +111,7 @@ static void t_null_params(void)
 /* 测试2：生命周期状态机 IDLE→RUNNING→STOPPING→IDLE */
 static void t_lifecycle(void)
 {
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     expect(workqueue_get_state(&wq) == WORKQUEUE_STATE_UNINIT);
@@ -132,7 +132,7 @@ static void t_lifecycle(void)
 /* 测试3：基本入队→执行 */
 static void t_basic(void)
 {
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     expect(workqueue_init(&wq, &cfg) == OM_OK);
@@ -154,7 +154,7 @@ static void t_basic(void)
 /* 测试4：去重——重复入队返回 OM_ERROR_BUSY，仅执行一次 */
 static void t_dedup(void)
 {
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     expect(workqueue_init(&wq, &cfg) == OM_OK);
@@ -180,7 +180,7 @@ static void t_dedup(void)
 /* 测试5：取消队列中尚未执行的工作项 */
 static void t_cancel_pending(void)
 {
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     expect(workqueue_init(&wq, &cfg) == OM_OK);
@@ -205,7 +205,7 @@ static void t_cancel_pending(void)
 /* 测试6：已完成的工作项无法取消 */
 static void t_cancel_completed(void)
 {
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     expect(workqueue_init(&wq, &cfg) == OM_OK);
@@ -230,7 +230,7 @@ static void t_cancel_completed(void)
 /* 测试7：5 个工作项中取消第 3 个，其余正常执行 */
 static void t_cancel_one_of_many(void)
 {
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     expect(workqueue_init(&wq, &cfg) == OM_OK);
@@ -261,7 +261,7 @@ static void t_cancel_one_of_many(void)
 /* 测试8：取消后重新入队，正常执行 */
 static void t_cancel_reenqueue(void)
 {
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     expect(workqueue_init(&wq, &cfg) == OM_OK);
@@ -276,7 +276,7 @@ static void t_cancel_reenqueue(void)
 
     /* 取消后重新入队 */
     OsalSem *sem = make_sem();
-    t.s = sem;
+    t.s          = sem;
     expect(workqueue_enqueue(&wq, &t.w) == OM_OK);
     expect(wait_sem(sem, 5000u));
     expect(t.ex == 1);
@@ -289,7 +289,7 @@ static void t_cancel_reenqueue(void)
 /* 测试9：5 个工作项全部正常执行 */
 static void t_multi(void)
 {
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     expect(workqueue_init(&wq, &cfg) == OM_OK);
@@ -317,7 +317,7 @@ static void t_multi(void)
 static void t_stress(void)
 {
 #define N 20
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     expect(workqueue_init(&wq, &cfg) == OM_OK);
@@ -345,7 +345,7 @@ static void t_stress(void)
 /* 测试11：stop 排空——入队后立即 stop，工作项应被执行 */
 static void t_stop_drain(void)
 {
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     expect(workqueue_init(&wq, &cfg) == OM_OK);
@@ -368,7 +368,7 @@ static void t_stop_drain(void)
 /* 测试12：停止后入队被拒绝 */
 static void t_enq_stopped(void)
 {
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     expect(workqueue_init(&wq, &cfg) == OM_OK);
@@ -385,7 +385,7 @@ static void t_enq_stopped(void)
 /* 测试13：查询函数 —— work_is_busy / workqueue_is_empty */
 static void t_query(void)
 {
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     expect(workqueue_init(&wq, &cfg) == OM_OK);
@@ -413,7 +413,7 @@ static void t_query(void)
 /* 测试14：work_wait_idle —— 等 worker 真正释放 work 后再析构/复用 */
 static void t_wait_idle(void)
 {
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     expect(workqueue_init(&wq, &cfg) == OM_OK);

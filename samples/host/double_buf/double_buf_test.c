@@ -34,24 +34,24 @@ static int test_is_write_ready(void)
     uint8_t mem[2 * PAGE_SZ];
     assert(dbuf_init(&db, mem, PAGE_SZ));
 
-    assert(dbuf_is_write_ready(&db));   /* 初始空闲 */
+    assert(dbuf_is_write_ready(&db)); /* 初始空闲 */
 
     /* 正常写入一帧并消费 */
     uint8_t *ptr = dbuf_get_write_ptr(&db);
     memset(ptr, 0xAA, PAGE_SZ);
     dbuf_commit(&db, PAGE_SZ);
-    assert(dbuf_is_write_ready(&db));   /* 翻转后新写 page 空闲 */
+    assert(dbuf_is_write_ready(&db)); /* 翻转后新写 page 空闲 */
 
     /* 再写一帧，不消费 → 两个 page 都有数据 */
     ptr = dbuf_get_write_ptr(&db);
     memset(ptr, 0xBB, PAGE_SZ);
     dbuf_commit(&db, PAGE_SZ);
-    assert(!dbuf_is_write_ready(&db));  /* 下一次写入将触发丢弃 */
+    assert(!dbuf_is_write_ready(&db)); /* 下一次写入将触发丢弃 */
 
     /* 消费后仍有旧帧残留在写 page 中，write_ready 仍为 false */
     dbuf_get_read_ptr(&db, NULL);
     dbuf_consume(&db);
-    assert(!dbuf_is_write_ready(&db));  /* 写 page 中还残留旧帧 */
+    assert(!dbuf_is_write_ready(&db)); /* 写 page 中还残留旧帧 */
 
     /* get_write_ptr 丢弃旧帧后恢复 */
     dbuf_get_write_ptr(&db);
@@ -143,7 +143,7 @@ static int test_alloc_free(void)
     /* 非 alloc 对象 free 无操作 */
     uint8_t mem[2 * PAGE_SZ];
     assert(dbuf_init(&db, mem, PAGE_SZ));
-    dbuf_free(&db, NULL);  /* owned=false，无操作 */
+    dbuf_free(&db, NULL); /* owned=false，无操作 */
     assert(dbuf_capacity(&db) == PAGE_SZ);
 
     printf("  [PASS] test_alloc_free\n");

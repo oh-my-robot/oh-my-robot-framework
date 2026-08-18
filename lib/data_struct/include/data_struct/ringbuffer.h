@@ -7,8 +7,7 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /* CPU memory barriers kept for compatibility with existing callers. */
@@ -20,60 +19,59 @@ extern "C"
  * writePos is only updated by producer.
  * readPos is only updated by consumer.
  */
-typedef struct Ringbuf
-{
-    unsigned char* buf;
+typedef struct Ringbuf {
+    unsigned char *buf;
     OmAtomicUint writePos;
     OmAtomicUint readPos;
     unsigned int mask;  /* capacity = mask + 1, capacity must be power-of-two */
     unsigned int esize; /* item size in bytes */
 } Ringbuf;
 
-bool ringbuf_alloc(Ringbuf* rb, unsigned int item_size, unsigned int item_count, void* (pmalloc)(size_t));
-bool ringbuf_init(Ringbuf* rb, uint8_t* buff, unsigned int item_size, unsigned int item_count);
-void free_ringbuf(Ringbuf* rb, void (*pfree)(void*));
-unsigned int ringbuf_in(Ringbuf* rb, const void* buf, unsigned int item_count);
-unsigned int ringbuf_out(Ringbuf* rb, void* buf, unsigned int item_count);
-unsigned int ringbuf_out_peek(Ringbuf* rb, void* buf, unsigned int len);
-unsigned int ringbuf_get_item_linear_space(Ringbuf* rb, void** dest);
-unsigned int ringbuf_get_avail_linear_size(Ringbuf* rb, void** dest);
+bool ringbuf_alloc(Ringbuf *rb, unsigned int item_size, unsigned int item_count, void *(pmalloc)(size_t));
+bool ringbuf_init(Ringbuf *rb, uint8_t *buff, unsigned int item_size, unsigned int item_count);
+void free_ringbuf(Ringbuf *rb, void (*pfree)(void *));
+unsigned int ringbuf_in(Ringbuf *rb, const void *buf, unsigned int item_count);
+unsigned int ringbuf_out(Ringbuf *rb, void *buf, unsigned int item_count);
+unsigned int ringbuf_out_peek(Ringbuf *rb, void *buf, unsigned int len);
+unsigned int ringbuf_get_item_linear_space(Ringbuf *rb, void **dest);
+unsigned int ringbuf_get_avail_linear_size(Ringbuf *rb, void **dest);
 
 /* Number of used items in the ring buffer. */
-static inline unsigned int ringbuf_len(Ringbuf* const rb)
+static inline unsigned int ringbuf_len(Ringbuf *const rb)
 {
     unsigned int write_pos = OM_LOAD_ACQ(&rb->writePos);
-    unsigned int read_pos = OM_LOAD_ACQ(&rb->readPos);
+    unsigned int read_pos  = OM_LOAD_ACQ(&rb->readPos);
     return write_pos - read_pos;
 }
 
 /* Maximum item count in the ring buffer. */
-static inline unsigned int ringbuf_cap(Ringbuf* const rb)
+static inline unsigned int ringbuf_cap(Ringbuf *const rb)
 {
     return rb->mask + 1U;
 }
 
 /* Remaining free item count. */
-static inline unsigned int ringbuf_avail(Ringbuf* const rb)
+static inline unsigned int ringbuf_avail(Ringbuf *const rb)
 {
     return ringbuf_cap(rb) - ringbuf_len(rb);
 }
 
-static inline bool ringbuf_is_full(Ringbuf* const rb)
+static inline bool ringbuf_is_full(Ringbuf *const rb)
 {
     return ringbuf_len(rb) > rb->mask;
 }
 
-static inline bool ringbuf_is_empty(Ringbuf* const rb)
+static inline bool ringbuf_is_empty(Ringbuf *const rb)
 {
     unsigned int write_pos = OM_LOAD_ACQ(&rb->writePos);
-    unsigned int read_pos = OM_LOAD_ACQ(&rb->readPos);
+    unsigned int read_pos  = OM_LOAD_ACQ(&rb->readPos);
     return write_pos == read_pos;
 }
 
-static inline void ringbuf_update_out(Ringbuf* rb, unsigned int count)
+static inline void ringbuf_update_out(Ringbuf *rb, unsigned int count)
 {
-    unsigned int write_pos = OM_LOAD_ACQ(&rb->writePos);
-    unsigned int read_pos = OM_LOAD_RLX(&rb->readPos);
+    unsigned int write_pos  = OM_LOAD_ACQ(&rb->writePos);
+    unsigned int read_pos   = OM_LOAD_RLX(&rb->readPos);
     unsigned int used_count = write_pos - read_pos;
 
     if (count > used_count)
@@ -82,10 +80,10 @@ static inline void ringbuf_update_out(Ringbuf* rb, unsigned int count)
     OM_STORE_REL(&rb->readPos, read_pos + count);
 }
 
-static inline void ringbuf_update_in(Ringbuf* rb, unsigned int count)
+static inline void ringbuf_update_in(Ringbuf *rb, unsigned int count)
 {
-    unsigned int write_pos = OM_LOAD_RLX(&rb->writePos);
-    unsigned int read_pos = OM_LOAD_ACQ(&rb->readPos);
+    unsigned int write_pos   = OM_LOAD_RLX(&rb->writePos);
+    unsigned int read_pos    = OM_LOAD_ACQ(&rb->readPos);
     unsigned int avail_count = ringbuf_cap(rb) - (write_pos - read_pos);
 
     if (count > avail_count)

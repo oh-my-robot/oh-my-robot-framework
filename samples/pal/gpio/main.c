@@ -37,15 +37,15 @@
 /* ===== 用户引脚配置（根据实际硬件修改） ===== */
 
 /* IRQ 源 — 主循环翻转，通过跳线②驱动 PB0 */
-#define TEST_SRC_PORT  "gpioc"
+#define TEST_SRC_PORT   "gpioc"
 #define TEST_SRC_OFFSET (2U)
 
 /* IRQ 接收引脚 — 跳线②接 PC2，EXTI 双边沿 */
-#define TEST_IRQ_PIN_PORT  "gpiob"
+#define TEST_IRQ_PIN_PORT   "gpiob"
 #define TEST_IRQ_PIN_OFFSET (0U)
 
 /* ISR 频率指示器 — ISR 内翻转，通过跳线①驱动 PE5 */
-#define TEST_INDICATOR_PORT  "gpiof"
+#define TEST_INDICATOR_PORT   "gpiof"
 #define TEST_INDICATOR_OFFSET (1U)
 
 /* ISR 频率读取验证 — 跳线①接 PF1，主循环读取 */
@@ -60,21 +60,21 @@
 
 /* ===== 静态引脚描述符 ===== */
 
-static const GpioPinSpec src_spec        = {TEST_SRC_PORT, TEST_SRC_OFFSET, 0};
-static const GpioPinSpec irq_pin_spec    = {TEST_IRQ_PIN_PORT, TEST_IRQ_PIN_OFFSET, 0};
-static const GpioPinSpec indicator_spec  = {TEST_INDICATOR_PORT, TEST_INDICATOR_OFFSET, 0};
-static const GpioPinSpec in_spec         = {TEST_IN_PORT, TEST_IN_OFFSET, 0};
+static const GpioPinSpec src_spec       = {TEST_SRC_PORT, TEST_SRC_OFFSET, 0};
+static const GpioPinSpec irq_pin_spec   = {TEST_IRQ_PIN_PORT, TEST_IRQ_PIN_OFFSET, 0};
+static const GpioPinSpec indicator_spec = {TEST_INDICATOR_PORT, TEST_INDICATOR_OFFSET, 0};
+static const GpioPinSpec in_spec        = {TEST_IN_PORT, TEST_IN_OFFSET, 0};
 
 /* ===== ISR 共享状态 ===== */
 
 static volatile uint32_t g_irq_count = 0;
-static GpioPin g_indicator;   /* ISR 内翻转的引脚句柄，由 task 初始化 */
+static GpioPin g_indicator; /* ISR 内翻转的引脚句柄，由 task 初始化 */
 
 static void gpio_irq_callback(void *arg)
 {
     (void)arg;
     g_irq_count++;
-    gpio_pin_toggle(g_indicator);   /* PF1 翻转 — ISR 活性指示 */
+    gpio_pin_toggle(g_indicator); /* PF1 翻转 — ISR 活性指示 */
 }
 
 /* ===== 测试线程 ===== */
@@ -101,7 +101,7 @@ static void gpio_test_task(void *arg)
         .speed     = GPIO_DRIVE_STRENGTH_LOW,
         .init_high = false,
     };
-    gpio_pin_configure(src, &out_cfg);     /* PC2 */
+    gpio_pin_configure(src, &out_cfg);       /* PC2 */
     gpio_pin_configure(indicator, &out_cfg); /* PF1 */
 
     /* 3. 配置输入引脚 PE5（下拉，悬空时为确定低电平） */
@@ -129,7 +129,7 @@ static void gpio_test_task(void *arg)
 
     /* 6. 注册中断（双边沿触发） */
     OmRet ret = gpio_pin_attach_irq(irq_pin, GPIO_IRQ_EDGE_BOTH,
-                                     gpio_irq_callback, NULL);
+                                    gpio_irq_callback, NULL);
     if (ret != OM_OK) {
         /* 中断注册失败 — 检查 BSP caps 是否包含双边沿 */
         while (1) {}
@@ -140,18 +140,18 @@ static void gpio_test_task(void *arg)
     GpioPort port_src = gpio_port_get(TEST_SRC_PORT);
     if (gpio_port_valid(port_src)) {
         uint32_t port_state = gpio_port_read(port_src);
-        (void)port_state;  /* 在此断点观察 bit[TEST_SRC_OFFSET] */
+        (void)port_state; /* 在此断点观察 bit[TEST_SRC_OFFSET] */
     }
 
     /* 8. 主循环 */
-    uint32_t last_print = 0;
-    uint8_t prev_in_val = 0;
+    uint32_t last_print      = 0;
+    uint8_t prev_in_val      = 0;
     uint32_t in_change_count = 0;
 
     while (1) {
         /* 8.1 内层：100ms 翻转 PC2（5Hz 方波 → PB0 双边沿触发 ISR → PF1 翻转） */
         for (uint32_t i = 0; i < TEST_LOOP_PERIOD_MS / TEST_TOGGLE_PERIOD_MS; i++) {
-            gpio_pin_toggle(src);   /* PC2 翻转 → 跳线② → PB0 边沿 → ISR */
+            gpio_pin_toggle(src); /* PC2 翻转 → 跳线② → PB0 边沿 → ISR */
             uint8_t src_val = gpio_pin_read(src);
 
             /* PE5 读 PF1（跳线①）— 应跟随 ISR 翻转节奏，每 100ms 大概率变化 */

@@ -2,8 +2,8 @@
 #define __OM_CONFIG_H__
 
 /* 功能裁剪 */
-#define OM_USE_ASSERT /* 框架断言（OM_ASSERT → om_fatal_error(OM_FATAL_ASSERT)，见 core/om_assert.h）。
-                       * 默认启用；需关闭时在 om_appcfg.h 中 #undef OM_USE_ASSERT */
+#define OM_USE_ASSERT  /* 框架断言（OM_ASSERT → om_fatal_error(OM_FATAL_ASSERT)，见 core/om_assert.h）。 \
+                        * 默认启用；需关闭时在 om_appcfg.h 中 #undef OM_USE_ASSERT */
 
 /* 抽象层裁剪 */
 #define OM_USE_HAL_SERIALS

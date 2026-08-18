@@ -14,8 +14,7 @@
 bool pid_init(PidController *pid, PidMode mode, float kp, float ki, float kd)
 {
     // 参数检查
-    if (pid == NULL)
-    {
+    if (pid == NULL) {
         return false;
     }
 
@@ -23,9 +22,9 @@ bool pid_init(PidController *pid, PidMode mode, float kp, float ki, float kd)
     memset(pid, 0, sizeof(PidController));
 
     // 设置基本参数
-    pid->kp = kp;
-    pid->ki = ki;
-    pid->kd = kd;
+    pid->kp   = kp;
+    pid->ki   = ki;
+    pid->kd   = kd;
     pid->mode = mode;
 
     // 初始化优化功能配置为全0(全部禁用)
@@ -35,9 +34,9 @@ bool pid_init(PidController *pid, PidMode mode, float kp, float ki, float kd)
     pid->improvementParams.outputLimitMax = 0.0f;
     pid->improvementParams.outputLimitMin = 0.0f;
 
-    pid->improvementParams.integralLimit = 0.0f;
-    pid->improvementParams.deadBand = 0.0f;
-    pid->improvementParams.derivativeFilterCoeff = 0.0f;
+    pid->improvementParams.integralLimit              = 0.0f;
+    pid->improvementParams.deadBand                   = 0.0f;
+    pid->improvementParams.derivativeFilterCoeff      = 0.0f;
     pid->improvementParams.variableIntegralThresholdA = 0.0f;
     pid->improvementParams.variableIntegralThresholdB = 0.0f;
 
@@ -54,8 +53,7 @@ bool pid_init(PidController *pid, PidMode mode, float kp, float ki, float kd)
 void pid_set_params(PidController *pid, float kp, float ki, float kd)
 {
     // 参数检查
-    if (pid == NULL)
-    {
+    if (pid == NULL) {
         return;
     }
 
@@ -72,13 +70,12 @@ void pid_set_params(PidController *pid, float kp, float ki, float kd)
 void pid_set_output_limit(PidController *pid, float min_limit, float max_limit)
 {
     // 参数检查
-    if (pid == NULL)
-    {
+    if (pid == NULL) {
         return;
     }
     pid->improvementConfig.settings.outputLimitEnable = 1;
-    pid->improvementParams.outputLimitMin = min_limit;
-    pid->improvementParams.outputLimitMax = max_limit;
+    pid->improvementParams.outputLimitMin             = min_limit;
+    pid->improvementParams.outputLimitMax             = max_limit;
 }
 
 /**
@@ -89,12 +86,11 @@ void pid_set_output_limit(PidController *pid, float min_limit, float max_limit)
 void pid_set_integral_limit(PidController *pid, float limit)
 {
     // 参数检查
-    if (pid == NULL)
-    {
+    if (pid == NULL) {
         return;
     }
     pid->improvementConfig.settings.integralLimitEnable = 1;
-    pid->improvementParams.integralLimit = limit;
+    pid->improvementParams.integralLimit                = limit;
 }
 
 /**
@@ -105,12 +101,11 @@ void pid_set_integral_limit(PidController *pid, float limit)
 void pid_set_dead_band(PidController *pid, float dead_band)
 {
     // 参数检查
-    if (pid == NULL)
-    {
+    if (pid == NULL) {
         return;
     }
     pid->improvementConfig.settings.deadBandEnable = 1;
-    pid->improvementParams.deadBand = dead_band;
+    pid->improvementParams.deadBand                = dead_band;
 }
 
 /**
@@ -121,8 +116,7 @@ void pid_set_dead_band(PidController *pid, float dead_band)
 void pid_set_derivative_filter_coeff(PidController *pid, float coeff)
 {
     // 参数检查
-    if (pid == NULL)
-    {
+    if (pid == NULL) {
         return;
     }
 
@@ -132,7 +126,7 @@ void pid_set_derivative_filter_coeff(PidController *pid, float coeff)
     if (coeff > 1.0f)
         coeff = 1.0f;
     pid->improvementConfig.settings.derivativeFilterEnable = 1;
-    pid->improvementParams.derivativeFilterCoeff = coeff;
+    pid->improvementParams.derivativeFilterCoeff           = coeff;
 }
 
 /**
@@ -144,13 +138,12 @@ void pid_set_derivative_filter_coeff(PidController *pid, float coeff)
 void pid_set_variable_integral_thresholds(PidController *pid, float threshold_a, float threshold_b)
 {
     // 参数检查
-    if (pid == NULL)
-    {
+    if (pid == NULL) {
         return;
     }
     pid->improvementConfig.settings.variableIntegralEnable = 1;
-    pid->improvementParams.variableIntegralThresholdA = threshold_a;
-    pid->improvementParams.variableIntegralThresholdB = threshold_b;
+    pid->improvementParams.variableIntegralThresholdA      = threshold_a;
+    pid->improvementParams.variableIntegralThresholdB      = threshold_b;
 }
 
 /**
@@ -160,28 +153,27 @@ void pid_set_variable_integral_thresholds(PidController *pid, float threshold_a,
 void pid_reset(PidController *pid)
 {
     // 参数检查
-    if (pid == NULL)
-    {
+    if (pid == NULL) {
         return;
     }
 
     // 重置内部状态变量
-    pid->err = 0.0f;
-    pid->prevErr = 0.0f;
+    pid->err      = 0.0f;
+    pid->prevErr  = 0.0f;
     pid->prevErr2 = 0.0f;
-    pid->prevOut = 0.0f;
-    pid->iTerm = 0.0f;
+    pid->prevOut  = 0.0f;
+    pid->iTerm    = 0.0f;
     pid->prevMeas = 0.0f;
 
     // 重置各分量输出
-    pid->pOut = 0.0f;
-    pid->iOut = 0.0f;
-    pid->dOut = 0.0f;
+    pid->pOut     = 0.0f;
+    pid->iOut     = 0.0f;
+    pid->dOut     = 0.0f;
     pid->prevDOut = 0.0f;
 
     // 重置时间戳
     pid->lastTick = 0.0f;
-    pid->dt = 0.0f;
+    pid->dt       = 0.0f;
 }
 
 /**
@@ -193,22 +185,19 @@ void pid_reset(PidController *pid)
 static float pid_calc_variable_integral_factor(PidController *pid, float error)
 {
     float abs_error = fabsf(error);
-    float a = pid->improvementParams.variableIntegralThresholdA;
-    float b = pid->improvementParams.variableIntegralThresholdB;
+    float a         = pid->improvementParams.variableIntegralThresholdA;
+    float b         = pid->improvementParams.variableIntegralThresholdB;
 
     // 当误差大于A+B时，积分比例为0
-    if (abs_error > (a + b))
-    {
+    if (abs_error > (a + b)) {
         return 0.0f;
     }
     // 当误差在B和A+B之间，积分比例f(e(t)) = (a + b - |e(t)|) / a
-    else if (abs_error > b)
-    {
+    else if (abs_error > b) {
         return (a + b - abs_error) / a;
     }
     // 当误差小于B时，积分比例为1
-    else
-    {
+    else {
         return 1.0f;
     }
 }
@@ -220,8 +209,7 @@ static float pid_calc_variable_integral_factor(PidController *pid, float error)
  */
 static bool pid_dead_band_process(PidController *pid)
 {
-    if (fabsf(pid->err) < pid->improvementParams.deadBand)
-    {
+    if (fabsf(pid->err) < pid->improvementParams.deadBand) {
         return true; // 在死区内
     }
     return false; // 不在死区内
@@ -233,12 +221,9 @@ static bool pid_dead_band_process(PidController *pid)
  */
 static void pid_integral_limit_process_positional(PidController *pid)
 {
-    if (pid->iOut > pid->improvementParams.integralLimit)
-    {
+    if (pid->iOut > pid->improvementParams.integralLimit) {
         pid->iOut = pid->improvementParams.integralLimit;
-    }
-    else if (pid->iOut < -pid->improvementParams.integralLimit)
-    {
+    } else if (pid->iOut < -pid->improvementParams.integralLimit) {
         pid->iOut = -pid->improvementParams.integralLimit;
     }
 }
@@ -249,12 +234,9 @@ static void pid_integral_limit_process_positional(PidController *pid)
  */
 static void pid_integral_limit_process_incremental(PidController *pid)
 {
-    if (pid->iOut > pid->improvementParams.integralLimit)
-    {
+    if (pid->iOut > pid->improvementParams.integralLimit) {
         pid->iOut = pid->improvementParams.integralLimit;
-    }
-    else if (pid->iOut < -pid->improvementParams.integralLimit)
-    {
+    } else if (pid->iOut < -pid->improvementParams.integralLimit) {
         pid->iOut = -pid->improvementParams.integralLimit;
     }
 }
@@ -266,7 +248,7 @@ static void pid_integral_limit_process_incremental(PidController *pid)
 static void pid_derivative_filter_process(PidController *pid)
 {
     float alpha = pid->improvementParams.derivativeFilterCoeff;
-    pid->dOut = alpha * pid->dOut + (1.0f - alpha) * pid->prevDOut;
+    pid->dOut   = alpha * pid->dOut + (1.0f - alpha) * pid->prevDOut;
 }
 
 /**
@@ -290,27 +272,22 @@ void pid_set_derivative_first_enable(PidController *pid, bool enable)
  */
 static void pid_output_limit_process(PidController *pid)
 {
-    if (pid->out > pid->improvementParams.outputLimitMax)
-    {
+    if (pid->out > pid->improvementParams.outputLimitMax) {
         // 输出达到上限
         pid->out = pid->improvementParams.outputLimitMax;
 
         // 抗积分饱和：只有当误差为正（需要继续增加输出）时，才停止积分累积
-        if (pid->err > 0.0f)
-        {
-            pid->iOut = pid->iOut - pid->iTerm;
+        if (pid->err > 0.0f) {
+            pid->iOut  = pid->iOut - pid->iTerm;
             pid->iTerm = 0.0f;
         }
-    }
-    else if (pid->out < pid->improvementParams.outputLimitMin)
-    {
+    } else if (pid->out < pid->improvementParams.outputLimitMin) {
         // 输出达到下限
         pid->out = pid->improvementParams.outputLimitMin;
 
         // 抗积分饱和：只有当误差为负（需要继续减少输出）时，才停止积分累积
-        if (pid->err < 0.0f)
-        {
-            pid->iOut = pid->iOut - pid->iTerm;
+        if (pid->err < 0.0f) {
+            pid->iOut  = pid->iOut - pid->iTerm;
             pid->iTerm = 0.0f;
         }
     }
@@ -326,10 +303,8 @@ static float pid_positional_compute(PidController *pid)
     float error = pid->err;
 
     // 死区控制
-    if (pid->improvementConfig.settings.deadBandEnable)
-    {
-        if (pid_dead_band_process(pid))
-        {
+    if (pid->improvementConfig.settings.deadBandEnable) {
+        if (pid_dead_band_process(pid)) {
             error = 0.0;
         }
     }
@@ -338,42 +313,31 @@ static float pid_positional_compute(PidController *pid)
     pid->pOut = pid->kp * error;
 
     // 计算微分项
-    if (pid->improvementConfig.settings.derivativeFirstEnable)
-    {
+    if (pid->improvementConfig.settings.derivativeFirstEnable) {
         // 基于测量值的微分，即微分先行
-        if (pid->dt > 0)
-        {
+        if (pid->dt > 0) {
             pid->dOut = -pid->kd * (pid->measure - pid->prevMeas) / pid->dt;
-        }
-        else
-        {
+        } else {
             pid->dOut = 0.0f;
         }
-    }
-    else
-    {
+    } else {
         // 基于误差的微分
-        if (pid->dt > 0)
-        {
+        if (pid->dt > 0) {
             pid->dOut = pid->kd * (error - pid->prevErr) / pid->dt;
-        }
-        else
-        {
+        } else {
             pid->dOut = 0.0f;
         }
     }
 
     // 微分滤波
-    if (pid->improvementConfig.settings.derivativeFilterEnable)
-    {
+    if (pid->improvementConfig.settings.derivativeFilterEnable) {
         pid_derivative_filter_process(pid);
     }
 
     // 计算积分项
     // 变速积分
     float integral_factor = 1.0f;
-    if (pid->improvementConfig.settings.variableIntegralEnable)
-    {
+    if (pid->improvementConfig.settings.variableIntegralEnable) {
         integral_factor = pid_calc_variable_integral_factor(pid, error);
     }
 
@@ -384,8 +348,7 @@ static float pid_positional_compute(PidController *pid)
     pid->iOut += pid->iTerm;
 
     // 积分限幅（对累积的积分值进行限幅）
-    if (pid->improvementConfig.settings.integralLimitEnable)
-    {
+    if (pid->improvementConfig.settings.integralLimitEnable) {
         pid_integral_limit_process_positional(pid);
     }
 
@@ -393,8 +356,7 @@ static float pid_positional_compute(PidController *pid)
     pid->out = pid->pOut + pid->iOut + pid->dOut;
 
     // 输出限幅
-    if (pid->improvementConfig.settings.outputLimitEnable)
-    {
+    if (pid->improvementConfig.settings.outputLimitEnable) {
         pid_output_limit_process(pid);
     }
 
@@ -408,8 +370,7 @@ static float pid_positional_compute(PidController *pid)
  */
 static float pid_incremental_compute(PidController *pid)
 {
-    if (pid->improvementConfig.settings.deadBandEnable && pid_dead_band_process(pid))
-    {
+    if (pid->improvementConfig.settings.deadBandEnable && pid_dead_band_process(pid)) {
         pid->pOut = 0.0f;
         pid->iOut = 0.0f;
         pid->dOut = 0.0f;
@@ -423,24 +384,19 @@ static float pid_incremental_compute(PidController *pid)
 
     // 计算积分项
     pid->iTerm = pid->ki * error * pid->dt;
-    pid->iOut = pid->iTerm;
-    if (pid->improvementConfig.settings.integralLimitEnable)
-    {
+    pid->iOut  = pid->iTerm;
+    if (pid->improvementConfig.settings.integralLimitEnable) {
         pid_integral_limit_process_incremental(pid);
     }
 
     // 计算微分项
-    if (pid->dt > 0)
-    {
+    if (pid->dt > 0) {
         pid->dOut = pid->kd * (error - 2.0f * pid->prevErr + pid->prevErr2) / pid->dt;
-    }
-    else
-    {
+    } else {
         pid->dOut = 0.0f;
     }
     // 微分滤波
-    if (pid->improvementConfig.settings.derivativeFilterEnable)
-    {
+    if (pid->improvementConfig.settings.derivativeFilterEnable) {
         pid_derivative_filter_process(pid);
     }
 
@@ -448,8 +404,7 @@ static float pid_incremental_compute(PidController *pid)
     float output = pid->prevOut + pid->pOut + pid->iOut + pid->dOut;
 
     // 输出限幅
-    if (pid->improvementConfig.settings.outputLimitEnable)
-    {
+    if (pid->improvementConfig.settings.outputLimitEnable) {
         pid->out = output;
         pid_output_limit_process(pid);
         output = pid->out;
@@ -468,45 +423,38 @@ static float pid_incremental_compute(PidController *pid)
 float pid_compute(PidController *pid, float setpoint, float measurement, Pidtime current_tick)
 {
     // 参数检查
-    if (pid == NULL)
-    {
+    if (pid == NULL) {
         while (1)
             ; // TODO: assert
     }
 
     // 计算时间差
-    if (pid->lastTick != 0)
-    {
-        pid->dt = current_tick - pid->lastTick;
+    if (pid->lastTick != 0) {
+        pid->dt       = current_tick - pid->lastTick;
         pid->lastTick = current_tick;
-    }
-    else
-    {
+    } else {
         // 第一次调用，初始化lastTick为当前时间戳
         pid->lastTick = current_tick;
-        pid->dt = 0.0f; // 第一次调用，时间差为0
+        pid->dt       = 0.0f; // 第一次调用，时间差为0
     }
 
     // 更新状态
-    pid->err = setpoint - measurement;
-    pid->set = setpoint;
+    pid->err     = setpoint - measurement;
+    pid->set     = setpoint;
     pid->measure = measurement;
 
     // 根据PID模式调用相应的计算函数
     float output;
-    if (pid->mode == PID_POSITIONAL_MODE)
-    {
+    if (pid->mode == PID_POSITIONAL_MODE) {
         output = pid_positional_compute(pid);
-    }
-    else
-    { // 增量式PID
+    } else { // 增量式PID
         output = pid_incremental_compute(pid);
     }
 
     // 更新内部状态
     pid->prevErr2 = pid->prevErr;
-    pid->prevErr = pid->err;
-    pid->prevOut = output;
+    pid->prevErr  = pid->err;
+    pid->prevOut  = output;
     pid->prevMeas = measurement;
     pid->prevDOut = pid->dOut;
 
@@ -523,23 +471,19 @@ float pid_compute(PidController *pid, float setpoint, float measurement, Pidtime
 void pid_get_component_outputs(PidController *pid, float *p_out, float *i_out, float *d_out)
 {
     // 参数检查
-    if (pid == NULL)
-    {
+    if (pid == NULL) {
         return;
     }
 
-    if (p_out != NULL)
-    {
+    if (p_out != NULL) {
         *p_out = pid->pOut;
     }
 
-    if (i_out != NULL)
-    {
+    if (i_out != NULL) {
         *i_out = pid->iOut;
     }
 
-    if (d_out != NULL)
-    {
+    if (d_out != NULL) {
         *d_out = pid->dOut;
     }
 }

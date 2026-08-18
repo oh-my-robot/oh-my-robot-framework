@@ -10,9 +10,9 @@ bool ringbuf_init(Ringbuf *rb, uint8_t *buff, unsigned int item_size, unsigned i
 
     item_count = roundup_pow_of_two(item_count);
 
-    rb->buf = buff;
+    rb->buf   = buff;
     rb->esize = item_size;
-    rb->mask = item_count - 1U;
+    rb->mask  = item_count - 1U;
     OM_STORE_RLX(&rb->writePos, 0U);
     OM_STORE_RLX(&rb->readPos, 0U);
     return true;
@@ -36,7 +36,7 @@ bool ringbuf_alloc(Ringbuf *rb, unsigned int item_size, unsigned int item_count,
 
     memset(rb->buf, 0, item_buf_size * item_size);
     rb->esize = item_size;
-    rb->mask = item_buf_size - 1U;
+    rb->mask  = item_buf_size - 1U;
     OM_STORE_RLX(&rb->writePos, 0U);
     OM_STORE_RLX(&rb->readPos, 0U);
     return true;
@@ -57,13 +57,12 @@ void free_ringbuf(Ringbuf *rb, void (*pfree)(void *))
 
 static void ringbuf_copy_in(Ringbuf *rb, const void *src, unsigned int len, unsigned int off)
 {
-    unsigned int size = rb->mask + 1U;
+    unsigned int size  = rb->mask + 1U;
     unsigned int esize = rb->esize;
     unsigned int copy_len;
 
     off &= rb->mask;
-    if (esize != 1U)
-    {
+    if (esize != 1U) {
         off *= esize;
         size *= esize;
         len *= esize;
@@ -81,8 +80,8 @@ unsigned int ringbuf_in(Ringbuf *rb, const void *buf, unsigned int item_count)
     unsigned int read_pos;
     unsigned int avail_count;
 
-    write_pos = OM_LOAD_RLX(&rb->writePos);
-    read_pos = OM_LOAD_ACQ(&rb->readPos);
+    write_pos   = OM_LOAD_RLX(&rb->writePos);
+    read_pos    = OM_LOAD_ACQ(&rb->readPos);
     avail_count = ringbuf_cap(rb) - (write_pos - read_pos);
 
     if (item_count > avail_count)
@@ -97,13 +96,12 @@ unsigned int ringbuf_in(Ringbuf *rb, const void *buf, unsigned int item_count)
 
 static void ringbuf_copy_out(Ringbuf *rb, void *dst, unsigned int len, unsigned int off)
 {
-    unsigned int size = rb->mask + 1U;
+    unsigned int size  = rb->mask + 1U;
     unsigned int esize = rb->esize;
     unsigned int copy_len;
 
     off &= rb->mask;
-    if (esize != 1U)
-    {
+    if (esize != 1U) {
         off *= esize;
         size *= esize;
         len *= esize;
@@ -119,7 +117,7 @@ unsigned int ringbuf_out(Ringbuf *rb, void *buf, unsigned int item_count)
 {
     unsigned int read_pos;
 
-    read_pos = OM_LOAD_RLX(&rb->readPos);
+    read_pos   = OM_LOAD_RLX(&rb->readPos);
     item_count = ringbuf_out_peek(rb, buf, item_count);
 
     /* Publish read index after payload is fully consumed. */
@@ -133,8 +131,8 @@ unsigned int ringbuf_out_peek(Ringbuf *rb, void *buf, unsigned int len)
     unsigned int read_pos;
     unsigned int used_count;
 
-    write_pos = OM_LOAD_ACQ(&rb->writePos);
-    read_pos = OM_LOAD_RLX(&rb->readPos);
+    write_pos  = OM_LOAD_ACQ(&rb->writePos);
+    read_pos   = OM_LOAD_RLX(&rb->readPos);
     used_count = write_pos - read_pos;
 
     if (len > used_count)
@@ -153,17 +151,16 @@ unsigned int ringbuf_get_item_linear_space(Ringbuf *rb, void **dest)
     unsigned int linear_size = 0U;
 
     write_pos = OM_LOAD_ACQ(&rb->writePos);
-    read_pos = OM_LOAD_RLX(&rb->readPos);
+    read_pos  = OM_LOAD_RLX(&rb->readPos);
 
-    if (write_pos == read_pos)
-    {
+    if (write_pos == read_pos) {
         *dest = NULL;
         return 0U;
     }
 
-    in_off = write_pos & rb->mask;
+    in_off  = write_pos & rb->mask;
     out_off = read_pos & rb->mask;
-    *dest = &rb->buf[out_off];
+    *dest   = &rb->buf[out_off];
 
     if (out_off < in_off)
         linear_size = in_off - out_off;
@@ -182,17 +179,16 @@ unsigned int ringbuf_get_avail_linear_size(Ringbuf *rb, void **dest)
     unsigned int linear_size;
 
     write_pos = OM_LOAD_RLX(&rb->writePos);
-    read_pos = OM_LOAD_ACQ(&rb->readPos);
+    read_pos  = OM_LOAD_ACQ(&rb->readPos);
 
-    if ((write_pos - read_pos) > rb->mask)
-    {
+    if ((write_pos - read_pos) > rb->mask) {
         *dest = NULL;
         return 0U;
     }
 
-    in_off = write_pos & rb->mask;
+    in_off  = write_pos & rb->mask;
     out_off = read_pos & rb->mask;
-    *dest = &rb->buf[in_off];
+    *dest   = &rb->buf[in_off];
 
     if (out_off < in_off)
         linear_size = ringbuf_cap(rb) - in_off;

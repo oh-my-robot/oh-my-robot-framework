@@ -20,17 +20,18 @@ typedef enum {
     COMP_WAITING, /* CAS accel: waiter registered, about to block */
 } CompStatus;
 
-typedef struct Completion  Completion;
+typedef struct Completion Completion;
 typedef struct Completion {
-    OsalSem* sem;
-    OsalThread* waitThread;
-    OM_ATOMIC_T(CompStatus) status;
+    OsalSem *sem;
+    OsalThread *waitThread;
+    OM_ATOMIC_T(CompStatus)
+    status;
 } Completion;
 
-OmRet completion_init(Completion* completion);
-void completion_deinit(Completion* completion);
-OmRet completion_wait(Completion* completion, size_t timeout_ms);
-OmRet completion_done(Completion* completion);
+OmRet completion_init(Completion *completion);
+void completion_deinit(Completion *completion);
+OmRet completion_wait(Completion *completion, size_t timeout_ms);
+OmRet completion_done(Completion *completion);
 
 #ifdef __cplusplus
 }

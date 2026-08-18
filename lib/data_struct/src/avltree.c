@@ -5,10 +5,8 @@
 
 #define DEBUG_LOG 0
 #define AVL_LOG_DEBUG(fmt, ...)                                                \
-    do                                                                         \
-    {                                                                          \
-        if (DEBUG_LOG)                                                         \
-        {                                                                      \
+    do {                                                                       \
+        if (DEBUG_LOG) {                                                       \
             printf("%s at %d " fmt "\r\n", __FILE__, __LINE__, ##__VA_ARGS__); \
         }                                                                      \
     } while (0);
@@ -22,15 +20,14 @@
          : (MAX((NULL != node->leftChild ? node->leftChild->depth : 0), (NULL != node->rightChild ? node->rightChild->depth : 0)) + \
             1))
 
-#define ABS(a) ((a) > 0 ? (a) : (-(a)))
+#define ABS(a)   ((a) > 0 ? (a) : (-(a)))
 
 #define INIT_KEY (int)(-1)
 
 typedef struct AvlNode AvlNode;
 typedef struct AvlTreePrivate AvlTreePrivate;
 
-struct AvlNode
-{
+struct AvlNode {
     AvlNode *parent;     // 父节点
     AvlNode *leftChild;  // 左孩子
     AvlNode *rightChild; // 右孩子
@@ -40,8 +37,7 @@ struct AvlNode
     int key;       // 键值
 };
 
-struct AvlTreePrivate
-{
+struct AvlTreePrivate {
     AvlNode *root;
     uint16_t elementSize;
     uint16_t nodeCount;
@@ -73,17 +69,17 @@ static AvlTreePrivate *get_private_member(AvlTree *tree)
  */
 static void add_to_left(AvlNode *node, AvlNode *p)
 {
-    p->leftChild = node;
-    node->parent = p;
+    p->leftChild    = node;
+    node->parent    = p;
     node->leftChild = node->rightChild = NULL;
-    node->depth = 1;
+    node->depth                        = 1;
 }
 static void add_to_right(AvlNode *node, AvlNode *p)
 {
-    p->rightChild = node;
-    node->parent = p;
+    p->rightChild   = node;
+    node->parent    = p;
     node->leftChild = node->rightChild = NULL;
-    node->depth = 1;
+    node->depth                        = 1;
 }
 
 /**
@@ -130,7 +126,7 @@ static AvlNode *ll(AvlNode *node)
     temp->parent = node->parent;
 
     temp->rightChild = node;
-    node->parent = temp;
+    node->parent     = temp;
 
     node->depth = HEIGHT(node); // 顺序不能错
     temp->depth = HEIGHT(temp);
@@ -150,7 +146,7 @@ static AvlNode *rr(AvlNode *node)
     temp->parent = node->parent;
 
     temp->leftChild = node;
-    node->parent = temp;
+    node->parent    = temp;
 
     node->depth = HEIGHT(node);
     temp->depth = HEIGHT(temp);
@@ -182,37 +178,28 @@ static AvlNode *lr(AvlNode *node)
  */
 static AvlNode *avl_tree_adjust(AvlNode *node)
 {
-    AvlNode *left_child = node->leftChild;
+    AvlNode *left_child  = node->leftChild;
     AvlNode *right_child = node->rightChild;
 
     if (ABS(HEIGHT(left_child) - HEIGHT(right_child)) < 2)
         return node;
 
-    if (HEIGHT(left_child) > HEIGHT(right_child))
-    {
+    if (HEIGHT(left_child) > HEIGHT(right_child)) {
         if (NULL == left_child)
             return node;
 
-        if (HEIGHT(left_child->leftChild) > HEIGHT(left_child->rightChild))
-        {
+        if (HEIGHT(left_child->leftChild) > HEIGHT(left_child->rightChild)) {
             return ll(node);
-        }
-        else
-        {
+        } else {
             return lr(node);
         }
-    }
-    else
-    {
+    } else {
         if (NULL == right_child)
             return node;
 
-        if (HEIGHT(right_child->leftChild) > HEIGHT(right_child->rightChild))
-        {
+        if (HEIGHT(right_child->leftChild) > HEIGHT(right_child->rightChild)) {
             return rl(node);
-        }
-        else
-        {
+        } else {
             return rr(node);
         }
     }
@@ -235,8 +222,7 @@ static uint8_t avl_tree_free_node(AvlTree *tree, AvlNode *node)
     if (NULL != tree->pfFreeElement)
         tree->pfFreeElement(node->element);
 
-    if (NULL != node->element)
-    {
+    if (NULL != node->element) {
         free(node->element);
         node->element = NULL;
     }
@@ -261,14 +247,13 @@ static AvlNode *avl_tree_create_node(AvlTree *tree)
         return NULL;
 
     AvlTreePrivate *this = get_private_member(tree);
-    AvlNode *node = (AvlNode *)malloc(sizeof(AvlNode));
-    if (NULL == node)
-    {
+    AvlNode *node        = (AvlNode *)malloc(sizeof(AvlNode));
+    if (NULL == node) {
         AVL_LOG_DEBUG("[ERROR]:node malloc");
         return NULL;
     }
     node->element = malloc(this->elementSize);
-    node->key = INIT_KEY;
+    node->key     = INIT_KEY;
     return node;
 }
 
@@ -304,66 +289,50 @@ static int8_t avl_tree_add(AvlTree *tree, void *ele)
 
     if (NULL == this->root) // 添加第一个节点
     {
-        node->depth = 1;
+        node->depth     = 1;
         node->leftChild = node->rightChild = node->parent = NULL;
-        this->root = node;
-        this->nodeCount = 1;
+        this->root                                        = node;
+        this->nodeCount                                   = 1;
         return 0;
     }
     AvlNode *p = this->root;
 
-    while (NULL != p)
-    {
+    while (NULL != p) {
         if (key < p->key) // 添加到左子树
         {
-            if (NULL == p->leftChild)
-            {
+            if (NULL == p->leftChild) {
                 add_to_left(node, p);
                 break;
-            }
-            else
-            {
+            } else {
                 p = p->leftChild;
             }
-        }
-        else if (key > p->key) // 添加到右子树
+        } else if (key > p->key) // 添加到右子树
         {
-            if (NULL == p->rightChild)
-            {
+            if (NULL == p->rightChild) {
                 add_to_right(node, p);
                 break;
-            }
-            else
-            {
+            } else {
                 p = p->rightChild;
             }
-        }
-        else
-        {
+        } else {
             AVL_LOG_DEBUG("Element repetition");
             avl_tree_free_node(tree, node);
             return -3; // 重复
         }
     }
 
-    while (NULL != p)
-    {
+    while (NULL != p) {
         p->depth = HEIGHT(p);
         if (NULL == p->parent) // 调整到根节点
         {
             this->root = avl_tree_adjust(p);
             break;
-        }
-        else
-        {
-            if (p == p->parent->leftChild)
-            {
-                p = p->parent;
+        } else {
+            if (p == p->parent->leftChild) {
+                p            = p->parent;
                 p->leftChild = avl_tree_adjust(p->leftChild);
-            }
-            else
-            {
-                p = p->parent;
+            } else {
+                p             = p->parent;
                 p->rightChild = avl_tree_adjust(p->rightChild);
             }
         }
@@ -389,17 +358,12 @@ static AvlNode *query_by_key(AvlTree *tree, int key)
     AvlTreePrivate *this = get_private_member(tree);
 
     AvlNode *p = this->root;
-    while (NULL != p)
-    {
-        if (key > p->key)
-        {
+    while (NULL != p) {
+        if (key > p->key) {
             p = p->rightChild;
-        }
-        else if (key < p->key)
-        {
+        } else if (key < p->key) {
             p = p->leftChild;
-        }
-        else
+        } else
             break;
     }
     return p;
@@ -429,25 +393,23 @@ static uint8_t avl_tree_del_by_key(AvlTree *tree, int key)
     if (NULL == tree)
         return -1;
     AvlTreePrivate *this = get_private_member(tree);
-    AvlNode *node = query_by_key(tree, key);
+    AvlNode *node        = query_by_key(tree, key);
 
     if (NULL == node)
         return -1;
 
     this->nodeCount--;
 
-    AvlNode *p = node->parent; // 先保存删除节点的父节点，方便后续调整
-    AvlNode *temp = NULL;      // 替换 node 节点的节点
+    AvlNode *p    = node->parent; // 先保存删除节点的父节点，方便后续调整
+    AvlNode *temp = NULL;         // 替换 node 节点的节点
 
     /*
         当该节点存在左子树或者右子树的时候，比较两边的高度；
         若左子树高度大于右子树，则取 node 节点左子树中最大的那个节点来替换 node 节点
         否则，取 node 节点右子树中最小的那个节点来替换 node 节点
     */
-    if (NULL != node->leftChild || NULL != node->rightChild)
-    {
-        if (HEIGHT(node->leftChild) > HEIGHT(node->rightChild))
-        {
+    if (NULL != node->leftChild || NULL != node->rightChild) {
+        if (HEIGHT(node->leftChild) > HEIGHT(node->rightChild)) {
             temp = node->leftChild;
 
             while (NULL != temp->rightChild) // 找到 node 左子树中最大的节点
@@ -455,39 +417,34 @@ static uint8_t avl_tree_del_by_key(AvlTree *tree, int key)
                 temp = temp->rightChild;
             }
 
-            if (temp != node->leftChild)
-            {
+            if (temp != node->leftChild) {
                 p = temp->parent;
 
                 temp->parent->rightChild = temp->leftChild;
                 if (NULL != temp->leftChild)
                     temp->leftChild->parent = temp->parent;
 
-                temp->leftChild = node->leftChild;
+                temp->leftChild         = node->leftChild;
                 temp->leftChild->parent = temp;
             }
 
             temp->rightChild = node->rightChild;
             if (NULL != temp->rightChild)
                 temp->rightChild->parent = temp;
-        }
-        else
-        {
+        } else {
             temp = node->rightChild;
-            while (NULL != temp->leftChild)
-            {
+            while (NULL != temp->leftChild) {
                 temp = temp->leftChild;
             }
 
-            if (temp != node->rightChild)
-            {
+            if (temp != node->rightChild) {
                 p = temp->parent;
 
                 temp->parent->leftChild = temp->rightChild;
                 if (NULL != temp->rightChild)
                     temp->rightChild->parent = temp->parent;
 
-                temp->rightChild = node->rightChild;
+                temp->rightChild         = node->rightChild;
                 temp->rightChild->parent = temp;
             }
 
@@ -499,11 +456,10 @@ static uint8_t avl_tree_del_by_key(AvlTree *tree, int key)
         }
 
         temp->parent = node->parent;
-        temp->depth = HEIGHT(temp);
+        temp->depth  = HEIGHT(temp);
     }
 
-    if (NULL != node->parent)
-    {
+    if (NULL != node->parent) {
         if (node == node->parent->leftChild)
             node->parent->leftChild = temp;
         else if (node == node->parent->rightChild)
@@ -513,25 +469,18 @@ static uint8_t avl_tree_del_by_key(AvlTree *tree, int key)
     if (NULL == p)
         this->root = temp;
 
-    while (NULL != p)
-    {
+    while (NULL != p) {
         p->depth = HEIGHT(p);
-        if (NULL == p->parent)
-        {
+        if (NULL == p->parent) {
             // 找到根节点
             this->root = avl_tree_adjust(p);
             break;
-        }
-        else
-        {
-            if (p == p->parent->leftChild)
-            {
-                p = p->parent;
+        } else {
+            if (p == p->parent->leftChild) {
+                p            = p->parent;
                 p->leftChild = avl_tree_adjust(p->leftChild);
-            }
-            else
-            {
-                p = p->parent;
+            } else {
+                p             = p->parent;
                 p->rightChild = avl_tree_adjust(p->rightChild);
             }
         }
@@ -559,17 +508,12 @@ static AvlNode *avl_tree_query_by_element(AvlTree *tree, void *ele)
     uint16_t key = tree->pfHash(ele);
 
     AvlNode *p = this->root;
-    while (NULL != p)
-    {
-        if (key > p->key)
-        {
+    while (NULL != p) {
+        if (key > p->key) {
             p = p->rightChild;
-        }
-        else if (key < p->key)
-        {
+        } else if (key < p->key) {
             p = p->leftChild;
-        }
-        else
+        } else
             break;
     }
     return p;
@@ -683,19 +627,16 @@ static void avl_tree_destory(AvlTree *tree)
     if (NULL == this)
         return;
 
-    if (this->getSize(this) > 0)
-    {
+    if (this->getSize(this) > 0) {
         this->clearNode(this);
     }
 
-    if (this->private)
-    {
+    if (this->private) {
         free(this->private);
         this->private = NULL;
     }
 
-    if (this)
-    {
+    if (this) {
         free(this);
         this = NULL;
     }
@@ -726,27 +667,26 @@ AvlTree *avl_tree_create(int element_size, PfAvlHashFunction hash_func, PfAvlFre
     memset(tree, 0, sizeof(AvlTree));
 
     AvlTreePrivate *private_member = (AvlTreePrivate *)malloc(sizeof(AvlTreePrivate));
-    if (NULL == private_member)
-    {
+    if (NULL == private_member) {
         free(tree);
         return NULL;
     }
 
-    private_member->root = NULL;
+    private_member->root        = NULL;
     private_member->elementSize = element_size;
 
     tree->private = (void *)private_member;
 
-    tree->pfHash = hash_func;
-    tree->pfFreeElement = free_element;
-    tree->add = avl_tree_add;
-    tree->queryByKey = avl_tree_query_by_key;
-    tree->preorder = avl_tree_preorder;
-    tree->getSize = avl_tree_size;
-    tree->delNodeByKey = avl_tree_del_by_key;
+    tree->pfHash           = hash_func;
+    tree->pfFreeElement    = free_element;
+    tree->add              = avl_tree_add;
+    tree->queryByKey       = avl_tree_query_by_key;
+    tree->preorder         = avl_tree_preorder;
+    tree->getSize          = avl_tree_size;
+    tree->delNodeByKey     = avl_tree_del_by_key;
     tree->delNodeByElement = avl_tree_del_by_element;
-    tree->clearNode = avl_tree_clear;
-    tree->destory = avl_tree_destory;
+    tree->clearNode        = avl_tree_clear;
+    tree->destory          = avl_tree_destory;
 
     return tree;
 }

@@ -24,12 +24,10 @@ OM_WEAK void om_fatal_handler(OmFatalReason reason, OmRet cause, const OmFatalCo
 
 void om_fatal_error(OmFatalReason reason, OmRet cause, const OmFatalContext *ctx)
 {
-    if (g_fatal_entered)
-    {
+    if (g_fatal_entered) {
         /* 重入：不再调 handler，立即禁中断 halt */
         om_hw_disable_interrupt_force();
-        while (1)
-        {
+        while (1) {
         }
     }
     g_fatal_entered = 1;
@@ -38,7 +36,6 @@ void om_fatal_error(OmFatalReason reason, OmRet cause, const OmFatalContext *ctx
 
     /* handler 返回 → 禁中断 halt 兜底（fatal 永不返回） */
     om_hw_disable_interrupt_force();
-    while (1)
-    {
+    while (1) {
     }
 }

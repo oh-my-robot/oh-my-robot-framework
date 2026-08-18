@@ -23,7 +23,6 @@ OM_WEAK int main(int argc, char *argv[])
     /* 启动编排：调度器前 EARLIEST+BOARD+DRIVER → init 线程跑 SERVICE..LATE
      * （含 OM_INIT_APPLICATION 注册的 app 设置）→ osal_kernel_start()，正常不返回。 */
     om_system_startup();
-    while (1)
-    {
+    while (1) {
     }
 }

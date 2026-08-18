@@ -51,13 +51,10 @@ static void test_handler_invoked(void)
     g_fatal_entered = 0;
     g_handler_calls = 0;
 
-    if (setjmp(g_jmp) == 0)
-    {
+    if (setjmp(g_jmp) == 0) {
         om_fatal_error(OM_FATAL_ASSERT, OM_ERR_CONFLICT, NULL);
         EXPECT(0); /* 永不返回：不应到达 */
-    }
-    else
-    {
+    } else {
         EXPECT(g_handler_calls == 1);
         EXPECT(g_reason == OM_FATAL_ASSERT);
         EXPECT(g_cause == OM_ERR_CONFLICT);
@@ -71,13 +68,10 @@ static void test_ctx_full(void)
     g_handler_calls = 0;
 
     const OmFatalContext ctx = {.file = "test.c", .line = 42, .pc = 0x08001234, .detail = "driver_x"};
-    if (setjmp(g_jmp) == 0)
-    {
+    if (setjmp(g_jmp) == 0) {
         om_fatal_error(OM_FATAL_STARTUP, OM_ERR_IO, &ctx);
         EXPECT(0);
-    }
-    else
-    {
+    } else {
         EXPECT(g_handler_calls == 1);
         EXPECT(g_ctx.file != NULL && strcmp(g_ctx.file, "test.c") == 0);
         EXPECT(g_ctx.line == 42);
@@ -91,13 +85,10 @@ static void test_ctx_null(void)
     g_fatal_entered = 0;
     g_handler_calls = 0;
 
-    if (setjmp(g_jmp) == 0)
-    {
+    if (setjmp(g_jmp) == 0) {
         om_fatal_error(OM_FATAL_STACK_OVERFLOW, OM_ERR_OVERFLOW, NULL);
         EXPECT(0);
-    }
-    else
-    {
+    } else {
         EXPECT(g_handler_calls == 1);
         EXPECT(g_reason == OM_FATAL_STACK_OVERFLOW);
         EXPECT(g_cause == OM_ERR_OVERFLOW);
@@ -109,13 +100,10 @@ static void test_called_exactly_once(void)
     g_fatal_entered = 0;
     g_handler_calls = 0;
 
-    if (setjmp(g_jmp) == 0)
-    {
+    if (setjmp(g_jmp) == 0) {
         om_fatal_error(OM_FATAL_HW_FAULT, OM_ERR_IO, NULL);
         EXPECT(0);
-    }
-    else
-    {
+    } else {
         EXPECT(g_handler_calls == 1); /* 正常路径 handler 恰好一次 */
     }
 }
@@ -133,13 +121,10 @@ static void test_assert_triggers(void)
     g_fatal_entered = 0;
     g_handler_calls = 0;
 
-    if (setjmp(g_jmp) == 0)
-    {
+    if (setjmp(g_jmp) == 0) {
         OM_ASSERT(1 == 2); /* 条件不成立：触发 fatal（携带 __FILE__:__LINE__） */
         EXPECT(0);         /* 永不返回 */
-    }
-    else
-    {
+    } else {
         EXPECT(g_handler_calls == 1);
         EXPECT(g_reason == OM_FATAL_ASSERT);
         EXPECT(g_cause == OM_ERR_CONFLICT);

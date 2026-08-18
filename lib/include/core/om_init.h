@@ -77,10 +77,10 @@ typedef OmRet (*OmInitFn)(void);
 /** @brief init 注册表项 —— 由 OM_INIT 宏放入 .om_init 段 */
 typedef struct
 {
-    OmInitFn    fn;    /**< 回调函数（NULL 表示空槽，跳过） */
-    const char *name;  /**< 诊断用名（编译期 #func） */
-    uint8_t     level; /**< 级别 OmInitLevel */
-    uint8_t     prio;  /**< 同级优先级 0-99，小者先执行 */
+    OmInitFn fn;      /**< 回调函数（NULL 表示空槽，跳过） */
+    const char *name; /**< 诊断用名（编译期 #func） */
+    uint8_t level;    /**< 级别 OmInitLevel */
+    uint8_t prio;     /**< 同级优先级 0-99，小者先执行 */
 } OmInitEntry;
 
 /*===========================================================================
@@ -90,14 +90,14 @@ typedef struct
 /** @brief 初始化级别类型（数值即链接器段 .om_init_<N> 的段号） */
 typedef uint8_t OmInitLevel;
 
-#define OM_INIT_LEVEL_EARLIEST     0 /**< 硬件/时钟前，仅寄存器；调度器未启，不可阻塞 */
-#define OM_INIT_LEVEL_BOARD        1 /**< 板级自举 + bsp 设备注册（设备提供者）；不可阻塞 */
-#define OM_INIT_LEVEL_DRIVER       2 /**< PAL/适配器/电机驱动（设备消费者）；不可阻塞 */
-#define OM_INIT_LEVEL_SERVICE      3 /**< comm/log/config/diagnostics；可阻塞/IPC */
-#define OM_INIT_LEVEL_SYSTEM       4 /**< 业务系统 chassis/gimbal/supercap；可阻塞/IPC */
-#define OM_INIT_LEVEL_APPLICATION  5 /**< app 自身启动设置（建业务线程等），依赖业务系统就绪；可阻塞/IPC */
-#define OM_INIT_LEVEL_LATE         6 /**< 全就绪后自检/诊断；可阻塞/IPC */
-#define OM_INIT_LEVEL_COUNT        7 /**< 级别总数（哨兵，用作 om_do_initcalls 的上界） */
+#define OM_INIT_LEVEL_EARLIEST    0 /**< 硬件/时钟前，仅寄存器；调度器未启，不可阻塞 */
+#define OM_INIT_LEVEL_BOARD       1 /**< 板级自举 + bsp 设备注册（设备提供者）；不可阻塞 */
+#define OM_INIT_LEVEL_DRIVER      2 /**< PAL/适配器/电机驱动（设备消费者）；不可阻塞 */
+#define OM_INIT_LEVEL_SERVICE     3 /**< comm/log/config/diagnostics；可阻塞/IPC */
+#define OM_INIT_LEVEL_SYSTEM      4 /**< 业务系统 chassis/gimbal/supercap；可阻塞/IPC */
+#define OM_INIT_LEVEL_APPLICATION 5 /**< app 自身启动设置（建业务线程等），依赖业务系统就绪；可阻塞/IPC */
+#define OM_INIT_LEVEL_LATE        6 /**< 全就绪后自检/诊断；可阻塞/IPC */
+#define OM_INIT_LEVEL_COUNT       7 /**< 级别总数（哨兵，用作 om_do_initcalls 的上界） */
 
 /*===========================================================================
  * 注册宏
@@ -126,9 +126,9 @@ typedef uint8_t OmInitLevel;
  * （对应 Linux __define_initcall 的 id 参数解决的"重复符号"问题）。
  * 段名 .om_init_<N> 由级别数值拼出，级别顺序由链接脚本按段排列保证。
  */
-#define OM_INIT(func, level, prio)                                          \
+#define OM_INIT(func, level, prio)                                              \
     OM_USED static const OmInitEntry OM_INIT_PASTE(om_init_entry_, __COUNTER__) \
-        OM_SECTION(".om_init_" OM_INIT_STR(level)) = { (func), #func, (uint8_t)(level), (uint8_t)(prio) }
+        OM_SECTION(".om_init_" OM_INIT_STR(level)) = {(func), #func, (uint8_t)(level), (uint8_t)(prio)}
 
 /**
  * @brief 分级别名（语法糖，默认优先级 OM_INIT_PRIO_DEFAULT）
@@ -139,13 +139,13 @@ typedef uint8_t OmInitLevel;
  *   OM_INIT_DRIVER(can_adapter_init);                      // 设备消费者
  *   OM_INIT_SYSTEM(supercap_self_init);
  */
-#define OM_INIT_EARLIEST(fn) OM_INIT(fn, OM_INIT_LEVEL_EARLIEST, OM_INIT_PRIO_DEFAULT)
-#define OM_INIT_BOARD(fn)    OM_INIT(fn, OM_INIT_LEVEL_BOARD,    OM_INIT_PRIO_DEFAULT)
-#define OM_INIT_DRIVER(fn)   OM_INIT(fn, OM_INIT_LEVEL_DRIVER,   OM_INIT_PRIO_DEFAULT)
-#define OM_INIT_SERVICE(fn)  OM_INIT(fn, OM_INIT_LEVEL_SERVICE,  OM_INIT_PRIO_DEFAULT)
-#define OM_INIT_SYSTEM(fn)   OM_INIT(fn, OM_INIT_LEVEL_SYSTEM,   OM_INIT_PRIO_DEFAULT)
+#define OM_INIT_EARLIEST(fn)    OM_INIT(fn, OM_INIT_LEVEL_EARLIEST, OM_INIT_PRIO_DEFAULT)
+#define OM_INIT_BOARD(fn)       OM_INIT(fn, OM_INIT_LEVEL_BOARD, OM_INIT_PRIO_DEFAULT)
+#define OM_INIT_DRIVER(fn)      OM_INIT(fn, OM_INIT_LEVEL_DRIVER, OM_INIT_PRIO_DEFAULT)
+#define OM_INIT_SERVICE(fn)     OM_INIT(fn, OM_INIT_LEVEL_SERVICE, OM_INIT_PRIO_DEFAULT)
+#define OM_INIT_SYSTEM(fn)      OM_INIT(fn, OM_INIT_LEVEL_SYSTEM, OM_INIT_PRIO_DEFAULT)
 #define OM_INIT_APPLICATION(fn) OM_INIT(fn, OM_INIT_LEVEL_APPLICATION, OM_INIT_PRIO_DEFAULT)
-#define OM_INIT_LATE(fn)     OM_INIT(fn, OM_INIT_LEVEL_LATE,     OM_INIT_PRIO_DEFAULT)
+#define OM_INIT_LATE(fn)        OM_INIT(fn, OM_INIT_LEVEL_LATE, OM_INIT_PRIO_DEFAULT)
 
 /*===========================================================================
  * 编排

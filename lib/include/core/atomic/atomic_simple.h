@@ -4,8 +4,7 @@
 #include "atomic.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /*
@@ -86,19 +85,19 @@ extern "C"
 #define OM_FAA_RLX(ptr, val) om_fetch_add(ptr, val, MO_RELAXED)
 #define OM_FAA_ACQ(ptr, val) om_fetch_add(ptr, val, MO_ACQUIRE)
 #define OM_FAA_REL(ptr, val) om_fetch_add(ptr, val, MO_RELEASE)
-#define OM_FAA_AR(ptr, val) om_fetch_add(ptr, val, MO_ACQ_REL)
+#define OM_FAA_AR(ptr, val)  om_fetch_add(ptr, val, MO_ACQ_REL)
 
 // --- Fetch Sub (返回旧值) ---
 #define OM_FAS_RLX(ptr, val) om_fetch_sub(ptr, val, MO_RELAXED)
 #define OM_FAS_ACQ(ptr, val) om_fetch_sub(ptr, val, MO_ACQUIRE)
 #define OM_FAS_REL(ptr, val) om_fetch_sub(ptr, val, MO_RELEASE)
-#define OM_FAS_AR(ptr, val) om_fetch_sub(ptr, val, MO_ACQ_REL)
+#define OM_FAS_AR(ptr, val)  om_fetch_sub(ptr, val, MO_ACQ_REL)
 
 // --- Helper: Increment / Decrement (常用操作) ---
 #define OM_INC_RLX(ptr) OM_FAA_RLX(ptr, 1)
-#define OM_INC_AR(ptr) OM_FAA_AR(ptr, 1)
+#define OM_INC_AR(ptr)  OM_FAA_AR(ptr, 1)
 #define OM_DEC_RLX(ptr) OM_FAS_RLX(ptr, 1)
-#define OM_DEC_AR(ptr) OM_FAS_AR(ptr, 1)
+#define OM_DEC_AR(ptr)  OM_FAS_AR(ptr, 1)
 
 // ============================================================================
 // 6. Bitwise Logic (Fetch And / Or / Xor)
@@ -108,19 +107,19 @@ extern "C"
 #define OM_FAND_RLX(ptr, val) om_fetch_and(ptr, val, MO_RELAXED)
 #define OM_FAND_ACQ(ptr, val) om_fetch_and(ptr, val, MO_ACQUIRE)
 #define OM_FAND_REL(ptr, val) om_fetch_and(ptr, val, MO_RELEASE)
-#define OM_FAND_AR(ptr, val) om_fetch_and(ptr, val, MO_ACQ_REL)
+#define OM_FAND_AR(ptr, val)  om_fetch_and(ptr, val, MO_ACQ_REL)
 
 // --- Fetch Or (按位或 - 常用于设置标志位) ---
 #define OM_FOR_RLX(ptr, val) om_fetch_or(ptr, val, MO_RELAXED)
 #define OM_FOR_ACQ(ptr, val) om_fetch_or(ptr, val, MO_ACQUIRE)
 #define OM_FOR_REL(ptr, val) om_fetch_or(ptr, val, MO_RELEASE)
-#define OM_FOR_AR(ptr, val) om_fetch_or(ptr, val, MO_ACQ_REL)
+#define OM_FOR_AR(ptr, val)  om_fetch_or(ptr, val, MO_ACQ_REL)
 
 // --- Fetch Xor (按位异或 - 常用于翻转位) ---
 #define OM_FXOR_RLX(ptr, val) om_fetch_xor(ptr, val, MO_RELAXED)
 #define OM_FXOR_ACQ(ptr, val) om_fetch_xor(ptr, val, MO_ACQUIRE)
 #define OM_FXOR_REL(ptr, val) om_fetch_xor(ptr, val, MO_RELEASE)
-#define OM_FXOR_AR(ptr, val) om_fetch_xor(ptr, val, MO_ACQ_REL)
+#define OM_FXOR_AR(ptr, val)  om_fetch_xor(ptr, val, MO_ACQ_REL)
 
 // ============================================================================
 // 7. Fences (内存屏障)
@@ -129,7 +128,7 @@ extern "C"
 // 线程屏障 (全局可见性同步)
 #define OM_FENCE_ACQ() om_thread_fence(MO_ACQUIRE)
 #define OM_FENCE_REL() om_thread_fence(MO_RELEASE)
-#define OM_FENCE_AR() om_thread_fence(MO_ACQ_REL)
+#define OM_FENCE_AR()  om_thread_fence(MO_ACQ_REL)
 #define OM_FENCE_SEQ() om_thread_fence(MO_SEQ_CST) // 最强屏障
 
 // 编译器/信号屏障 (防止编译器重排，不生成 CPU 指令)

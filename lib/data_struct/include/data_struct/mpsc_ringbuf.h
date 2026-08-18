@@ -18,8 +18,7 @@
 #include <string.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #define MPSCRB_NOT_READY 0 /* 槽位数据尚未写入完毕 */
@@ -38,14 +37,13 @@ typedef OM_ATOMIC_T(unsigned char) OmAtomicU8;
  * 并发约束：多写者、单读者。写者之间通过 CAS 互斥，读者独占 readPos。
  * 适用场景：ISR→Task、Task→Task、ISR+Task→Task 的定长消息投递。
  */
-typedef struct MpscRingbuf
-{
-    unsigned char* buf;       /* 数据缓冲区 */
-    OmAtomicUint  writePos;   /* 写位置（单调递增，多生产者 CAS 竞争） */
-    OmAtomicUint  readPos;    /* 读位置（单调递增，单消费者独占） */
-    OmAtomicU8*   ready;      /* per-slot 就绪标志数组（1 字节/slot） */
-    unsigned int  mask;       /* capacity - 1，capacity 必须为 2 的幂 */
-    unsigned int  esize;      /* 元素大小（字节） */
+typedef struct MpscRingbuf {
+    unsigned char *buf;    /* 数据缓冲区 */
+    OmAtomicUint writePos; /* 写位置（单调递增，多生产者 CAS 竞争） */
+    OmAtomicUint readPos;  /* 读位置（单调递增，单消费者独占） */
+    OmAtomicU8 *ready;     /* per-slot 就绪标志数组（1 字节/slot） */
+    unsigned int mask;     /* capacity - 1，capacity 必须为 2 的幂 */
+    unsigned int esize;    /* 元素大小（字节） */
 } MpscRingbuf;
 
 /**
@@ -58,7 +56,7 @@ typedef struct MpscRingbuf
  * @return `true` 成功；`false` 参数非法
  * @note item_count 非 2 的幂时会触发死循环断言
  */
-bool mpscrb_init(MpscRingbuf* rb, uint8_t* buf, OmAtomicU8* ready, unsigned int item_size,
+bool mpscrb_init(MpscRingbuf *rb, uint8_t *buf, OmAtomicU8 *ready, unsigned int item_size,
                  unsigned int item_count);
 
 /**
@@ -70,8 +68,8 @@ bool mpscrb_init(MpscRingbuf* rb, uint8_t* buf, OmAtomicU8* ready, unsigned int 
  * @return `true` 成功；`false` 参数非法或分配失败
  * @note 数据缓冲区和就绪标志数组合并为一次连续分配
  */
-bool mpscrb_alloc(MpscRingbuf* rb, unsigned int item_size, unsigned int item_count,
-                  void* (*pmalloc)(size_t));
+bool mpscrb_alloc(MpscRingbuf *rb, unsigned int item_size, unsigned int item_count,
+                  void *(*pmalloc)(size_t));
 
 /**
  * @brief 销毁使用 mpscrb_alloc 创建的 MPSC 环形缓冲区并释放缓冲区
@@ -79,7 +77,7 @@ bool mpscrb_alloc(MpscRingbuf* rb, unsigned int item_size, unsigned int item_cou
  * @param pfree 内存释放函数，传 NULL 时回退到标准库 free
  * @note 调用方需确保无并发访问
  */
-void mpscrb_free(MpscRingbuf* rb, void (*pfree)(void*));
+void mpscrb_free(MpscRingbuf *rb, void (*pfree)(void *));
 
 /**
  * @brief 生产者写入一个元素（CAS + Ready Flag）
@@ -89,7 +87,7 @@ void mpscrb_free(MpscRingbuf* rb, void (*pfree)(void*));
  * @note 可在任意上下文调用（线程 / ISR）
  * @note MPSC：同一时刻允许多个生产者并发写入
  */
-bool mpscrb_in(MpscRingbuf* rb, const void* data);
+bool mpscrb_in(MpscRingbuf *rb, const void *data);
 
 /**
  * @brief 消费者读取并消费一个元素
@@ -99,7 +97,7 @@ bool mpscrb_in(MpscRingbuf* rb, const void* data);
  * @note SPSC 消费端：同一时刻仅允许一个消费者
  * @note 队首槽位已预留但数据尚未写入完毕时返回 `false`（延迟可见）
  */
-bool mpscrb_out(MpscRingbuf* rb, void* buf);
+bool mpscrb_out(MpscRingbuf *rb, void *buf);
 
 /**
  * @brief 消费者窥视一个元素（非消费式）
@@ -109,7 +107,7 @@ bool mpscrb_out(MpscRingbuf* rb, void* buf);
  * @note 窥视后数据保留在队列中，需配合 mpscrb_out 消费
  * @note SPSC 消费端：同一时刻仅允许一个消费者
  */
-bool mpscrb_out_peek(MpscRingbuf* rb, void* buf);
+bool mpscrb_out_peek(MpscRingbuf *rb, void *buf);
 
 /* ---- 状态查询（inline，零系统调用开销） ---- */
 
@@ -118,7 +116,7 @@ bool mpscrb_out_peek(MpscRingbuf* rb, void* buf);
  * @param rb MpscRingbuf 实例指针
  * @return 槽位总数
  */
-static inline unsigned int mpscrb_cap(MpscRingbuf* const rb)
+static inline unsigned int mpscrb_cap(MpscRingbuf *const rb)
 {
     return rb->mask + 1U;
 }
@@ -128,7 +126,7 @@ static inline unsigned int mpscrb_cap(MpscRingbuf* const rb)
  * @param rb MpscRingbuf 实例指针
  * @return 已预留数量（含尚未就绪的槽位，是可读元素数的上界）
  */
-static inline unsigned int mpscrb_len(MpscRingbuf* const rb)
+static inline unsigned int mpscrb_len(MpscRingbuf *const rb)
 {
     unsigned int write_pos = OM_LOAD_ACQ(&rb->writePos);
     unsigned int read_pos  = OM_LOAD_ACQ(&rb->readPos);
@@ -140,7 +138,7 @@ static inline unsigned int mpscrb_len(MpscRingbuf* const rb)
  * @param rb MpscRingbuf 实例指针
  * @return 可用槽位数
  */
-static inline unsigned int mpscrb_avail(MpscRingbuf* const rb)
+static inline unsigned int mpscrb_avail(MpscRingbuf *const rb)
 {
     return mpscrb_cap(rb) - mpscrb_len(rb);
 }
@@ -150,7 +148,7 @@ static inline unsigned int mpscrb_avail(MpscRingbuf* const rb)
  * @param rb MpscRingbuf 实例指针
  * @return `true` 为空；`false` 不为空
  */
-static inline bool mpscrb_is_empty(MpscRingbuf* const rb)
+static inline bool mpscrb_is_empty(MpscRingbuf *const rb)
 {
     unsigned int write_pos = OM_LOAD_ACQ(&rb->writePos);
     unsigned int read_pos  = OM_LOAD_ACQ(&rb->readPos);
@@ -162,7 +160,7 @@ static inline bool mpscrb_is_empty(MpscRingbuf* const rb)
  * @param rb MpscRingbuf 实例指针
  * @return `true` 已满；`false` 未满
  */
-static inline bool mpscrb_is_full(MpscRingbuf* const rb)
+static inline bool mpscrb_is_full(MpscRingbuf *const rb)
 {
     return mpscrb_len(rb) > rb->mask;
 }

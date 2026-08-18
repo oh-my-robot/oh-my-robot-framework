@@ -8,8 +8,7 @@
 #include <string.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /**
@@ -64,14 +63,13 @@ extern "C"
  *   - Pipe      : Ringbuf + 信号量，阻塞式流式传输
  *   - DoubleBuf : 帧式，零拷贝，最新覆盖，容量恒为 2
  */
-typedef struct DoubleBuf
-{
-    uint8_t     *page[2];    /**< page[0]: Page 0（低地址），page[1]: Page 1（高地址） */
-    size_t       page_size;  /**< 单个 page 的字节大小 */
-    OmAtomicUint idx;        /**< 当前写 page 索引 (0 或 1)；读 page 索引为 idx ^ 1 */
-    size_t       len[2];     /**< len[0]: Page 0 有效数据, len[1]: Page 1 有效数据 */
-    OmAtomicUint drop_cnt;   /**< 被覆盖丢弃的帧计数 */
-    bool         owned;      /**< 内存是否由 dbuf_alloc 动态分配 */
+typedef struct DoubleBuf {
+    uint8_t *page[2];      /**< page[0]: Page 0（低地址），page[1]: Page 1（高地址） */
+    size_t page_size;      /**< 单个 page 的字节大小 */
+    OmAtomicUint idx;      /**< 当前写 page 索引 (0 或 1)；读 page 索引为 idx ^ 1 */
+    size_t len[2];         /**< len[0]: Page 0 有效数据, len[1]: Page 1 有效数据 */
+    OmAtomicUint drop_cnt; /**< 被覆盖丢弃的帧计数 */
+    bool owned;            /**< 内存是否由 dbuf_alloc 动态分配 */
 } DoubleBuf;
 
 /*===========================================================================

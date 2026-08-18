@@ -28,7 +28,7 @@
 #include "algorithm/protocol/crc.h"
 #define NULL ((void *)0)
 // crc8 generator polynomial:G(x)=x8+x5+x4+1
-static const uint8_t crc8_init = 0xff;
+static const uint8_t crc8_init     = 0xff;
 static const uint8_t crc8_tab[256] = {
     0x00,
     0x5e,
@@ -288,7 +288,7 @@ static const uint8_t crc8_tab[256] = {
     0x35,
 };
 
-static uint16_t crc_init = 0xffff;
+static uint16_t crc_init               = 0xffff;
 static const uint16_t w_crc_table[256] = {
     0x0000, 0x1189, 0x2312, 0x329b, 0x4624, 0x57ad, 0x6536, 0x74bf, 0x8c48, 0x9dc1, 0xaf5a, 0xbed3, 0xca6c, 0xdbe5, 0xe97e, 0xf8f7,
     0x1081, 0x0108, 0x3393, 0x221a, 0x56a5, 0x472c, 0x75b7, 0x643e, 0x9cc9, 0x8d40, 0xbfdb, 0xae52, 0xdaed, 0xcb64, 0xf9ff, 0xe876,
@@ -315,8 +315,7 @@ static const uint16_t w_crc_table[256] = {
 static uint8_t get_crc8_check_sum(uint8_t *pch_message, uint16_t dw_length, uint8_t uc_cr_c8)
 {
     uint8_t uc_index;
-    while (dw_length--)
-    {
+    while (dw_length--) {
         uc_index = uc_cr_c8 ^ (*pch_message++);
         uc_cr_c8 = crc8_tab[uc_index];
     }
@@ -347,7 +346,7 @@ void append_crc8_check_sum(uint8_t *pch_message, uint16_t dw_length)
     uint8_t uc_crc = 0;
     if ((pch_message == 0) || (dw_length <= 2))
         return;
-    uc_crc = get_crc8_check_sum((uint8_t *)pch_message, dw_length - 1, crc8_init);
+    uc_crc                     = get_crc8_check_sum((uint8_t *)pch_message, dw_length - 1, crc8_init);
     pch_message[dw_length - 1] = uc_crc;
 }
 
@@ -359,12 +358,10 @@ void append_crc8_check_sum(uint8_t *pch_message, uint16_t dw_length)
 static uint16_t get_crc16_check_sum(uint8_t *pch_message, uint32_t dw_length, uint16_t w_crc)
 {
     uint8_t ch_data;
-    if (pch_message == NULL)
-    {
+    if (pch_message == NULL) {
         return 0xFFFF;
     }
-    while (dw_length--)
-    {
+    while (dw_length--) {
         ch_data = *pch_message++;
         (w_crc) = ((uint16_t)(w_crc) >> 8) ^ w_crc_table[((uint16_t)(w_crc) ^ (uint16_t)(ch_data)) & 0x00ff];
     }
@@ -379,8 +376,7 @@ static uint16_t get_crc16_check_sum(uint8_t *pch_message, uint32_t dw_length, ui
 uint8_t verify_crc16_check_sum(uint8_t *pch_message, uint32_t dw_length)
 {
     uint16_t w_expected = 0;
-    if ((pch_message == NULL) || (dw_length <= 2))
-    {
+    if ((pch_message == NULL) || (dw_length <= 2)) {
         return 0;
     }
     w_expected = get_crc16_check_sum(pch_message, dw_length - 2, crc_init);
@@ -396,11 +392,10 @@ uint8_t verify_crc16_check_sum(uint8_t *pch_message, uint32_t dw_length)
 void append_crc16_check_sum(uint8_t *pch_message, uint32_t dw_length)
 {
     uint16_t w_crc = 0;
-    if ((pch_message == NULL) || (dw_length <= 2))
-    {
+    if ((pch_message == NULL) || (dw_length <= 2)) {
         return;
     }
-    w_crc = get_crc16_check_sum((uint8_t *)pch_message, dw_length - 2, crc_init);
+    w_crc                      = get_crc16_check_sum((uint8_t *)pch_message, dw_length - 2, crc_init);
     pch_message[dw_length - 2] = (uint8_t)(w_crc & 0x00ff);
     pch_message[dw_length - 1] = (uint8_t)((w_crc >> 8) & 0x00ff);
 }

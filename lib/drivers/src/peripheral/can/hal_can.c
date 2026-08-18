@@ -4,8 +4,7 @@
 
 /* CAN鎶ユ枃瀹瑰櫒 */
 typedef struct CanMsgContainer CanMsgContainer;
-typedef struct CanMsgContainer
-{
+typedef struct CanMsgContainer {
     CanMsgList listNode;
     uint8_t container[8];
 } OM_PACKED CanMsgContainer;
@@ -17,7 +16,7 @@ static OmRet can_classic_validate_data_len(uint32_t data_len)
 
 static void *can_msgbuffer_alloc(ListHead *free_list_head, uint32_t msg_num)
 {
-    size_t size = msg_num * sizeof(CanMsgContainer);
+    size_t size      = msg_num * sizeof(CanMsgContainer);
     void *msg_buffer = osal_malloc(size);
     if (msg_buffer == NULL)
         return NULL;
@@ -25,8 +24,7 @@ static void *can_msgbuffer_alloc(ListHead *free_list_head, uint32_t msg_num)
 
     // Add all CAN message containers into the free list.
     CanMsgContainer *msg_list = (CanMsgContainer *)msg_buffer;
-    for (size_t i = 0; i < msg_num; i++)
-    {
+    for (size_t i = 0; i < msg_num; i++) {
         INIT_LIST_HEAD(&msg_list[i].listNode.fifoListNode);
         INIT_LIST_HEAD(&msg_list[i].listNode.matchedListNode);
         list_add(&msg_list[i].listNode.fifoListNode, free_list_head);
@@ -36,7 +34,7 @@ static void *can_msgbuffer_alloc(ListHead *free_list_head, uint32_t msg_num)
 }
 
 static CanAdapterInterface can_adapter_interface = {
-    .msgbufferAlloc = can_msgbuffer_alloc,
+    .msgbufferAlloc  = can_msgbuffer_alloc,
     .validateDataLen = can_classic_validate_data_len,
 };
 

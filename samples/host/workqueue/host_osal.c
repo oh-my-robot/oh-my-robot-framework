@@ -28,7 +28,10 @@ static void ensure_cs(void)
     }
 }
 
-int osal_is_in_isr(void) { return 0; }
+int osal_is_in_isr(void)
+{
+    return 0;
+}
 
 void osal_irq_lock_task(void)
 {
@@ -36,7 +39,10 @@ void osal_irq_lock_task(void)
     EnterCriticalSection(&g_cs);
 }
 
-void osal_irq_unlock_task(void) { LeaveCriticalSection(&g_cs); }
+void osal_irq_unlock_task(void)
+{
+    LeaveCriticalSection(&g_cs);
+}
 
 OsalIrqIsrState osal_irq_lock_from_isr(void)
 {
@@ -50,7 +56,10 @@ void osal_irq_unlock_from_isr(OsalIrqIsrState state)
     osal_irq_unlock_task();
 }
 
-void osal_sleep_ms(uint32_t ms) { Sleep(ms); }
+void osal_sleep_ms(uint32_t ms)
+{
+    Sleep(ms);
+}
 
 /* ===================================================================
  * Semaphore — Win32 CreateSemaphore
@@ -97,7 +106,10 @@ OsalStatus osal_sem_post(OsalSem *sem)
     return OSAL_OK;
 }
 
-OsalStatus osal_sem_post_from_isr(OsalSem *sem) { return osal_sem_post(sem); }
+OsalStatus osal_sem_post_from_isr(OsalSem *sem)
+{
+    return osal_sem_post(sem);
+}
 
 /* ===================================================================
  * Thread — Win32 CreateThread
@@ -109,14 +121,14 @@ struct OsalThreadHandle_s {
 
 typedef struct {
     OsalThreadEntryFunction entry;
-    void                   *arg;
+    void *arg;
 } ThreadStartCtx;
 
 static DWORD WINAPI thread_start_wrapper(LPVOID param)
 {
-    ThreadStartCtx *ctx = (ThreadStartCtx *)param;
+    ThreadStartCtx *ctx        = (ThreadStartCtx *)param;
     OsalThreadEntryFunction fn = ctx->entry;
-    void *arg = ctx->arg;
+    void *arg                  = ctx->arg;
     free(ctx);
     fn(arg);
     return 0;
@@ -148,7 +160,10 @@ OsalStatus osal_thread_create(OsalThread **thread, const OsalThreadAttr *attr,
     return OSAL_OK;
 }
 
-void osal_thread_exit(void) { ExitThread(0); }
+void osal_thread_exit(void)
+{
+    ExitThread(0);
+}
 
 /* ===================================================================
  * Completion — Win32 Event (manual-reset)

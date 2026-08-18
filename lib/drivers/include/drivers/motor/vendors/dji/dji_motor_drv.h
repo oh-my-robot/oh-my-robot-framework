@@ -93,11 +93,11 @@ typedef void (*DJIMotorErrorCallback)(DJIMotorDrv *motor, uint8_t error_code);
  * @brief DJI 发送单元（1 个 TxUnit 对应 1 帧 CAN 控制帧）
  */
 struct DJIMotorTxUnit {
-    ListHead list; /**< 发送链表节点 */
-    uint32_t canId;        /**< 该发送单元绑定的标准帧 ID */
-    uint8_t txBuffer[8];   /**< 8 字节控制缓存，每 2 字节对应一台电机 */
-    uint8_t isDirty;       /**< 脏标记，1 表示缓存已更新 */
-    uint8_t usageMask;     /**< 槽位占用位图，bit0~bit3 对应 4 台电机 */
+    ListHead list;       /**< 发送链表节点 */
+    uint32_t canId;      /**< 该发送单元绑定的标准帧 ID */
+    uint8_t txBuffer[8]; /**< 8 字节控制缓存，每 2 字节对应一台电机 */
+    uint8_t isDirty;     /**< 脏标记，1 表示缓存已更新 */
+    uint8_t usageMask;   /**< 槽位占用位图，bit0~bit3 对应 4 台电机 */
 };
 
 /**
@@ -109,8 +109,8 @@ struct DJIMotorDrv {
      */
     struct
     {
-        uint16_t rxId;            /**< 反馈帧 ID */
-        uint8_t txBufIdx;         /**< 在 txBuffer 中的起始字节下标（0/2/4/6） */
+        uint16_t rxId;          /**< 反馈帧 ID */
+        uint8_t txBufIdx;       /**< 在 txBuffer 中的起始字节下标（0/2/4/6） */
         DJIMotorTxUnit *txUnit; /**< 对应发送单元 */
         DJIMotorType type;      /**< 电机型号 */
     } link;
@@ -128,15 +128,15 @@ struct DJIMotorDrv {
         uint8_t errorCode;     /**< 当前错误码 */
         uint8_t lastErrorCode; /**< 上一帧错误码（用于边沿检测） */
 
-        int32_t totalAngle; /**< 多圈累计角度原始值 */
-        uint16_t lastAngle; /**< 上一帧单圈角度 */
-        int32_t roundCount; /**< 累计圈数 */
+        int32_t totalAngle;               /**< 多圈累计角度原始值 */
+        uint16_t lastAngle;               /**< 上一帧单圈角度 */
+        int32_t roundCount;               /**< 累计圈数 */
         uint32_t lastFeedbackTimestampMs; /**< 最近一次有效反馈时间戳 */
     } measure;
 
-    int16_t targetOutput;            /**< 当前目标输出值 */
-    DJIMotorCtrlMode mode;         /**< 控制模式 */
-    float scale;                     /**< 反馈值缩放系数 */
+    int16_t targetOutput;                /**< 当前目标输出值 */
+    DJIMotorCtrlMode mode;               /**< 控制模式 */
+    float scale;                         /**< 反馈值缩放系数 */
     DJIMotorErrorCallback errorCallback; /**< 错误状态回调 */
 };
 
@@ -145,10 +145,10 @@ struct DJIMotorDrv {
  */
 typedef struct
 {
-    Device* canDev;                                /**< 绑定的 CAN 设备 */
-    CanFilterHandle filterHandle;                 /**< 接收过滤器句柄 */
-    DJIMotorDrv *rxMap[DJI_MOTOR_RX_MAP_SIZE];   /**< O(1) 的接收 ID 映射表 */
-    ListHead txList;                        /**< 待发送控制帧链表 */
+    Device *canDev;                            /**< 绑定的 CAN 设备 */
+    CanFilterHandle filterHandle;              /**< 接收过滤器句柄 */
+    DJIMotorDrv *rxMap[DJI_MOTOR_RX_MAP_SIZE]; /**< O(1) 的接收 ID 映射表 */
+    ListHead txList;                           /**< 待发送控制帧链表 */
 } DJIMotorBus;
 
 /* --- Core API --- */
@@ -159,7 +159,7 @@ typedef struct
  * @param can_dev 已打开的 CAN 设备
  * @return `OM_OK` 表示成功，其他值表示初始化失败原因
  */
-OmRet dji_motor_bus_init(DJIMotorBus *bus, Device* can_dev);
+OmRet dji_motor_bus_init(DJIMotorBus *bus, Device *can_dev);
 
 /**
  * @brief 注册单个电机到指定总线
@@ -208,7 +208,7 @@ static inline void dji_motor_config_error_callback(DJIMotorDrv *motor, DJIMotorE
 static inline void dji_motor_clear_error(DJIMotorDrv *motor)
 {
     if (motor) {
-        motor->measure.errorCode = 0;
+        motor->measure.errorCode     = 0;
         motor->measure.lastErrorCode = 0;
     }
 }
@@ -295,9 +295,9 @@ static inline uint8_t dji_motor_get_error_code(DJIMotorDrv *motor)
 static inline void dji_motor_reset_feedback(DJIMotorDrv *motor)
 {
     if (motor) {
-        motor->measure.totalAngle = 0;
-        motor->measure.roundCount = 0;
-        motor->measure.angle = 0;
+        motor->measure.totalAngle              = 0;
+        motor->measure.roundCount              = 0;
+        motor->measure.angle                   = 0;
         motor->measure.lastFeedbackTimestampMs = 0u;
     }
 }

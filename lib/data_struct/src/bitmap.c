@@ -24,9 +24,9 @@ OmRet om_bitmap_rom_init(AwBitmapRom *bitmap, unsigned long *buffer, size_t bit_
     if (bitmap == NULL || buffer == NULL || bit_count == 0U)
         return OM_ERROR_PARAM;
 
-    bitmap->meta.bitCount = bit_count;
+    bitmap->meta.bitCount  = bit_count;
     bitmap->meta.wordCount = om_bitmap_word_count(bit_count);
-    bitmap->words = buffer;
+    bitmap->words          = buffer;
 
     memset(bitmap->words, 0, bitmap->meta.wordCount * sizeof(unsigned long));
     return OM_OK;
@@ -37,7 +37,7 @@ bool om_bitmap_rom_test(const AwBitmapRom *bitmap, size_t bit_index)
     if (bitmap == NULL || bitmap->words == NULL || bit_index >= bitmap->meta.bitCount)
         return false;
 
-    size_t word_index = om_bitmap_word_index(bit_index);
+    size_t word_index      = om_bitmap_word_index(bit_index);
     unsigned long bit_mask = om_bitmap_bit_mask(bit_index);
     return (bitmap->words[word_index] & bit_mask) != 0U;
 }
@@ -47,7 +47,7 @@ void om_bitmap_rom_set(AwBitmapRom *bitmap, size_t bit_index)
     if (bitmap == NULL || bitmap->words == NULL || bit_index >= bitmap->meta.bitCount)
         return;
 
-    size_t word_index = om_bitmap_word_index(bit_index);
+    size_t word_index      = om_bitmap_word_index(bit_index);
     unsigned long bit_mask = om_bitmap_bit_mask(bit_index);
     bitmap->words[word_index] |= bit_mask;
 }
@@ -57,7 +57,7 @@ void om_bitmap_rom_clear(AwBitmapRom *bitmap, size_t bit_index)
     if (bitmap == NULL || bitmap->words == NULL || bit_index >= bitmap->meta.bitCount)
         return;
 
-    size_t word_index = om_bitmap_word_index(bit_index);
+    size_t word_index      = om_bitmap_word_index(bit_index);
     unsigned long bit_mask = om_bitmap_bit_mask(bit_index);
     bitmap->words[word_index] &= ~bit_mask;
 }
@@ -67,9 +67,9 @@ OmRet om_bitmap_atomic_init(AwBitmapAtomic *bitmap, OmAtomicUlong *buffer, size_
     if (bitmap == NULL || buffer == NULL || bit_count == 0U)
         return OM_ERROR_PARAM;
 
-    bitmap->meta.bitCount = bit_count;
+    bitmap->meta.bitCount  = bit_count;
     bitmap->meta.wordCount = om_bitmap_word_count(bit_count);
-    bitmap->words = buffer;
+    bitmap->words          = buffer;
 
     for (size_t index = 0; index < bitmap->meta.wordCount; index++)
         OM_STORE(&bitmap->words[index], 0UL, MO_CONSUME);
@@ -81,9 +81,9 @@ unsigned long *om_bitmap_rom_buffer_alloc(size_t bit_count, void *(*pmalloc)(siz
     if (bit_count == 0U)
         return NULL;
 
-    size_t word_count = om_bitmap_word_count(bit_count);
+    size_t word_count           = om_bitmap_word_count(bit_count);
     void *(*alloc_func)(size_t) = (pmalloc != NULL) ? pmalloc : malloc;
-    unsigned long *buffer = (unsigned long *)alloc_func(word_count * sizeof(unsigned long));
+    unsigned long *buffer       = (unsigned long *)alloc_func(word_count * sizeof(unsigned long));
     if (buffer != NULL)
         memset(buffer, 0, word_count * sizeof(unsigned long));
     return buffer;
@@ -94,9 +94,9 @@ OmAtomicUlong *om_bitmap_atomic_buffer_alloc(size_t bit_count, void *(*pmalloc)(
     if (bit_count == 0U)
         return NULL;
 
-    size_t word_count = om_bitmap_word_count(bit_count);
+    size_t word_count           = om_bitmap_word_count(bit_count);
     void *(*alloc_func)(size_t) = (pmalloc != NULL) ? pmalloc : malloc;
-    OmAtomicUlong *buffer = (OmAtomicUlong *)alloc_func(word_count * sizeof(OmAtomicUlong));
+    OmAtomicUlong *buffer       = (OmAtomicUlong *)alloc_func(word_count * sizeof(OmAtomicUlong));
     if (buffer != NULL)
         memset(buffer, 0, word_count * sizeof(OmAtomicUlong));
     return buffer;
@@ -104,8 +104,7 @@ OmAtomicUlong *om_bitmap_atomic_buffer_alloc(size_t bit_count, void *(*pmalloc)(
 
 void om_bitmap_buffer_free(void *buffer, void (*pfree)(void *))
 {
-    if (buffer != NULL)
-    {
+    if (buffer != NULL) {
         void (*free_func)(void *) = (pfree != NULL) ? pfree : free;
         free_func(buffer);
     }
@@ -116,8 +115,8 @@ bool om_bitmap_atomic_test(const AwBitmapAtomic *bitmap, size_t bit_index)
     if (bitmap == NULL || bitmap->words == NULL || bit_index >= bitmap->meta.bitCount)
         return false;
 
-    size_t word_index = om_bitmap_word_index(bit_index);
-    unsigned long bit_mask = om_bitmap_bit_mask(bit_index);
+    size_t word_index        = om_bitmap_word_index(bit_index);
+    unsigned long bit_mask   = om_bitmap_bit_mask(bit_index);
     unsigned long word_value = OM_LOAD(&bitmap->words[word_index], MO_CONSUME);
     return (word_value & bit_mask) != 0U;
 }
@@ -127,8 +126,8 @@ bool om_bitmap_atomic_try_set(AwBitmapAtomic *bitmap, size_t bit_index)
     if (bitmap == NULL || bitmap->words == NULL || bit_index >= bitmap->meta.bitCount)
         return false;
 
-    size_t word_index = om_bitmap_word_index(bit_index);
-    unsigned long bit_mask = om_bitmap_bit_mask(bit_index);
+    size_t word_index       = om_bitmap_word_index(bit_index);
+    unsigned long bit_mask  = om_bitmap_bit_mask(bit_index);
     unsigned long old_value = OM_FETCH_OR(&bitmap->words[word_index], bit_mask, MO_ACQ_REL);
     return (old_value & bit_mask) == 0U;
 }
@@ -138,7 +137,7 @@ void om_bitmap_atomic_clear(AwBitmapAtomic *bitmap, size_t bit_index)
     if (bitmap == NULL || bitmap->words == NULL || bit_index >= bitmap->meta.bitCount)
         return;
 
-    size_t word_index = om_bitmap_word_index(bit_index);
+    size_t word_index      = om_bitmap_word_index(bit_index);
     unsigned long bit_mask = om_bitmap_bit_mask(bit_index);
     OM_FETCH_AND(&bitmap->words[word_index], ~bit_mask, MO_ACQ_REL);
 }
@@ -148,14 +147,12 @@ OmRet om_bitmap_atomic_alloc_first_zero(AwBitmapAtomic *bitmap, size_t start_hin
     if (bitmap == NULL || bitmap->words == NULL || bit_out == NULL || bitmap->meta.bitCount == 0U)
         return OM_ERROR_PARAM;
 
-    size_t bit_count = bitmap->meta.bitCount;
+    size_t bit_count   = bitmap->meta.bitCount;
     size_t start_index = start_hint % bit_count;
 
-    for (size_t offset = 0; offset < bit_count; offset++)
-    {
+    for (size_t offset = 0; offset < bit_count; offset++) {
         size_t bit_index = (start_index + offset) % bit_count;
-        if (om_bitmap_atomic_try_set(bitmap, bit_index))
-        {
+        if (om_bitmap_atomic_try_set(bitmap, bit_index)) {
             *bit_out = bit_index;
             return OM_OK;
         }

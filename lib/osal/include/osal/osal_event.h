@@ -32,7 +32,7 @@ typedef struct OsalEventFlagsHandle_s OsalEventFlags;
  * @return `OSAL_OK` 成功；失败返`OSAL_INVALID/OSAL_NO_RESOURCE`
  * @note 禁止ISR 中调用
  */
-OsalStatus osal_event_flags_create(OsalEventFlags** event_flags);
+OsalStatus osal_event_flags_create(OsalEventFlags **event_flags);
 
 /**
  * @brief 删除事件标志组（线程上下文）
@@ -41,7 +41,7 @@ OsalStatus osal_event_flags_create(OsalEventFlags** event_flags);
  * @note 禁止ISR 中调用
  * @note 严格前置条件：调用方需确保无并发访问且无等待者
  */
-OsalStatus osal_event_flags_delete(OsalEventFlags* event_flags);
+OsalStatus osal_event_flags_delete(OsalEventFlags *event_flags);
 
 /**
  * @brief 设置事件位（线程上下文）
@@ -50,7 +50,7 @@ OsalStatus osal_event_flags_delete(OsalEventFlags* event_flags);
  * @return `OSAL_OK` 成功；失败返`OSAL_INVALID`
  * @note 禁止ISR 中调用
  */
-OsalStatus osal_event_flags_set(OsalEventFlags* event_flags, uint32_t flags);
+OsalStatus osal_event_flags_set(OsalEventFlags *event_flags, uint32_t flags);
 
 /**
  * @brief 设置事件位（中断上下文）
@@ -59,7 +59,7 @@ OsalStatus osal_event_flags_set(OsalEventFlags* event_flags, uint32_t flags);
  * @return `OSAL_OK` 成功；失败返`OSAL_INVALID/OSAL_NO_RESOURCE`
  * @note 仅允许在 ISR 中调用；在线程上下文调用返回 `OSAL_INVALID`
  */
-OsalStatus osal_event_flags_set_from_isr(OsalEventFlags* event_flags, uint32_t flags);
+OsalStatus osal_event_flags_set_from_isr(OsalEventFlags *event_flags, uint32_t flags);
 
 /**
  * @brief 清除事件位（线程上下文）
@@ -68,7 +68,7 @@ OsalStatus osal_event_flags_set_from_isr(OsalEventFlags* event_flags, uint32_t f
  * @return `OSAL_OK` 成功；失败返`OSAL_INVALID`
  * @note 禁止ISR 中调用
  */
-OsalStatus osal_event_flags_clear(OsalEventFlags* event_flags, uint32_t flags);
+OsalStatus osal_event_flags_clear(OsalEventFlags *event_flags, uint32_t flags);
 
 /**
  * @brief 等待事件标志（线程上下文）
@@ -80,7 +80,7 @@ OsalStatus osal_event_flags_clear(OsalEventFlags* event_flags, uint32_t flags);
  * @return `OSAL_OK` 成功；失败返`OSAL_WOULD_BLOCK/OSAL_TIMEOUT/OSAL_INVALID`
  * @note 禁止ISR 中调用
  */
-OsalStatus osal_event_flags_wait(OsalEventFlags* event_flags, uint32_t wait_mask, uint32_t* out_value,
-                                    uint32_t timeout_ms, uint32_t options);
+OsalStatus osal_event_flags_wait(OsalEventFlags *event_flags, uint32_t wait_mask, uint32_t *out_value,
+                                 uint32_t timeout_ms, uint32_t options);
 
 #endif

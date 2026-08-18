@@ -10,8 +10,7 @@
 #include "osal/osal.h"
 #include "systems/supercap/supercap.h"
 
-struct Supercap
-{
+struct Supercap {
     int placeholder; /**< 占位，模块尚未实现 */
 };
 
@@ -41,8 +40,8 @@ void supercap_shutdown(Supercap *cap)
  *          下列 volatile 全局用于硬件调试观察（验证 init 线程确实跑了 SYSTEM 级、
  *          且能在初始化期阻塞——后者在调度器前会死锁，故能区分上下文）。
  */
-volatile int g_supercap_init_entered;  /* 进入回调置 1 */
-volatile int g_supercap_init_blocked;  /* 阻塞返回后置 1（证明 post-scheduler） */
+volatile int g_supercap_init_entered; /* 进入回调置 1 */
+volatile int g_supercap_init_blocked; /* 阻塞返回后置 1（证明 post-scheduler） */
 
 static OmRet supercap_self_init(void)
 {

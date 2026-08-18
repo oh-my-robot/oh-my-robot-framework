@@ -23,31 +23,27 @@
  * 测试结果追踪
  * -------------------------------------------------------------------------- */
 
-static int g_total = 0;
-static int g_failed = 0;
+static int g_total        = 0;
+static int g_failed       = 0;
 static int g_current_test = 0;
 
 #define EXPECT(cond)                                               \
-    do                                                             \
-    {                                                              \
+    do {                                                           \
         g_total++;                                                 \
-        if (!(cond))                                               \
-        {                                                          \
+        if (!(cond)) {                                             \
             g_failed++;                                            \
             fprintf(stderr, "  FAIL %s:%d\n", __FILE__, __LINE__); \
         }                                                          \
     } while (0)
 
 #define TEST_BEGIN(name)                              \
-    do                                                \
-    {                                                 \
+    do {                                              \
         g_current_test++;                             \
         printf("[%2d] %-30s ", g_current_test, name); \
     } while (0)
 
 #define TEST_END()      \
-    do                  \
-    {                   \
+    do {                \
         printf("OK\n"); \
     } while (0)
 
@@ -74,7 +70,7 @@ static void tw_handler(Work *w)
 static void tw_init(TW *t, int id, OsalSem *s)
 {
     work_init(&t->w, tw_handler, NULL);
-    t->s = s;
+    t->s  = s;
     t->ex = 0;
     t->id = id;
 }
@@ -99,7 +95,7 @@ static int wait_sem(OsalSem *s, uint32_t timeout_ms)
 static void t_null_params(void)
 {
     TEST_BEGIN("null_params");
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_init(&wq, &cfg) == OM_OK);
@@ -121,7 +117,7 @@ static void t_null_params(void)
 static void t_lifecycle(void)
 {
     TEST_BEGIN("lifecycle");
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_get_state(&wq) == WORKQUEUE_STATE_UNINIT);
@@ -144,7 +140,7 @@ static void t_lifecycle(void)
 static void t_basic(void)
 {
     TEST_BEGIN("basic");
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_init(&wq, &cfg) == OM_OK);
@@ -168,7 +164,7 @@ static void t_basic(void)
 static void t_dedup(void)
 {
     TEST_BEGIN("dedup");
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_init(&wq, &cfg) == OM_OK);
@@ -197,7 +193,7 @@ static void t_dedup(void)
 static void t_cancel_pending(void)
 {
     TEST_BEGIN("cancel_pending");
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_init(&wq, &cfg) == OM_OK);
@@ -223,7 +219,7 @@ static void t_cancel_pending(void)
 static void t_cancel_completed(void)
 {
     TEST_BEGIN("cancel_completed");
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_init(&wq, &cfg) == OM_OK);
@@ -249,7 +245,7 @@ static void t_cancel_completed(void)
 static void t_cancel_one_of_many(void)
 {
     TEST_BEGIN("cancel_one_of_many");
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_init(&wq, &cfg) == OM_OK);
@@ -281,7 +277,7 @@ static void t_cancel_one_of_many(void)
 static void t_cancel_reenqueue(void)
 {
     TEST_BEGIN("cancel_reenqueue");
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_init(&wq, &cfg) == OM_OK);
@@ -295,7 +291,7 @@ static void t_cancel_reenqueue(void)
     EXPECT(!work_is_busy(&t.w));
 
     OsalSem *sem = make_sem();
-    t.s = sem;
+    t.s          = sem;
     EXPECT(workqueue_enqueue(&wq, &t.w) == OM_OK);
     EXPECT(wait_sem(sem, 5000u));
     EXPECT(t.ex == 1);
@@ -310,7 +306,7 @@ static void t_cancel_reenqueue(void)
 static void t_multi(void)
 {
     TEST_BEGIN("multi");
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_init(&wq, &cfg) == OM_OK);
@@ -339,7 +335,7 @@ static void t_stress(void)
 {
     TEST_BEGIN("stress (20 items)");
 #define N 20
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_init(&wq, &cfg) == OM_OK);
@@ -368,7 +364,7 @@ static void t_stress(void)
 static void t_stop_drain(void)
 {
     TEST_BEGIN("stop_drain");
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_init(&wq, &cfg) == OM_OK);
@@ -392,7 +388,7 @@ static void t_stop_drain(void)
 static void t_enq_stopped(void)
 {
     TEST_BEGIN("enq_stopped");
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_init(&wq, &cfg) == OM_OK);
@@ -411,7 +407,7 @@ static void t_enq_stopped(void)
 static void t_query(void)
 {
     TEST_BEGIN("query");
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_init(&wq, &cfg) == OM_OK);
@@ -441,7 +437,7 @@ static void t_query(void)
 static void t_flush(void)
 {
     TEST_BEGIN("flush");
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_init(&wq, &cfg) == OM_OK);
@@ -474,7 +470,7 @@ static void t_flush(void)
 static void t_wait_idle(void)
 {
     TEST_BEGIN("wait_idle");
-    Workqueue wq = {0};
+    Workqueue wq        = {0};
     WorkqueueConfig cfg = {"t", 8192u, 2u};
 
     EXPECT(workqueue_init(&wq, &cfg) == OM_OK);
@@ -522,8 +518,8 @@ int main(void)
     printf("=== Workqueue Host Test ===\n\n");
 
     /** 显式归零：全局变量默认零初始化，但显式重置便于将来 main 被复用（如 host 框架重跑）。 */
-    g_total = 0;
-    g_failed = 0;
+    g_total        = 0;
+    g_failed       = 0;
     g_current_test = 0;
 
     t_null_params();
@@ -544,8 +540,7 @@ int main(void)
 
     printf("\n=== Results: %d/%d passed",
            g_total - g_failed, g_total);
-    if (g_failed)
-    {
+    if (g_failed) {
         printf(" (%d FAILED)", g_failed);
     }
     printf(" ===\n");

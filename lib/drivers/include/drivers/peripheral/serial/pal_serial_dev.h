@@ -9,11 +9,11 @@
 extern "C" {
 #endif
 
-typedef struct SerialCfg  SerialCfg;
-typedef struct SerialInterface  SerialInterface;
-typedef struct HalSerial  HalSerial;
-typedef struct SerialFifo  SerialFifo;
-typedef struct SerialPriv  SerialPriv;
+typedef struct SerialCfg SerialCfg;
+typedef struct SerialInterface SerialInterface;
+typedef struct HalSerial HalSerial;
+typedef struct SerialFifo SerialFifo;
+typedef struct SerialPriv SerialPriv;
 
 /* 数据位，由一些辅助运算的 magic number 构成*/
 typedef enum DataBits {
@@ -110,12 +110,12 @@ typedef enum {
  * @{
  */
 #define SERIAL_CMD_SET_IOTPYE (DEVICE_CMD_SET_IOTYPE) // 指的是设置中断、DMA的收发，移植必须要实现的命令
-#define SERIAL_CMD_CLR_IOTPYE (0x01U) // 清除中断、DMA的收发
-#define SERIAL_CMD_SET_CFG    (DEVICE_CMD_CFG) // 配置串口
-#define SERIAL_CMD_CLOSE      (0x03U) // 关闭串口
-#define SERIAL_CMD_FLUSH      (0x04U) // 清空缓冲区
-#define SERIAL_CMD_SUSPEND    (0x05U) // 挂起串口
-#define SERIAL_CMD_RESUME     (0x06U) // 恢复串口
+#define SERIAL_CMD_CLR_IOTPYE (0x01U)                 // 清除中断、DMA的收发
+#define SERIAL_CMD_SET_CFG    (DEVICE_CMD_CFG)        // 配置串口
+#define SERIAL_CMD_CLOSE      (0x03U)                 // 关闭串口
+#define SERIAL_CMD_FLUSH      (0x04U)                 // 清空缓冲区
+#define SERIAL_CMD_SUSPEND    (0x05U)                 // 挂起串口
+#define SERIAL_CMD_RESUME     (0x06U)                 // 恢复串口
 /**
  * @defgroup SERIAL_CMD_PARAM
  * @}
@@ -141,15 +141,15 @@ typedef enum {
 } SerialWaitWakeReason;
 
 typedef struct SerialCfg {
-    uint32_t baudrate;               // 波特率
+    uint32_t baudrate;             // 波特率
     DataBits dataBits;             // 数据位
     StopBits stopBits : 2;         // 停止位
     Parity parity : 2;             // 校验位
     FlowCtrl flowCtrl : 2;         // 硬件流控
     Oversampling overSampling : 1; // 采样率
-    uint32_t reserved : 25;          // 保留位，若是更改了本结构体，请务必记得更新该值
-    uint32_t txBufSize;              // 发送缓冲区大小
-    uint32_t rxBufSize;              // 接收缓冲区大小
+    uint32_t reserved : 25;        // 保留位，若是更改了本结构体，请务必记得更新该值
+    uint32_t txBufSize;            // 发送缓冲区大小
+    uint32_t rxBufSize;            // 接收缓冲区大小
 } SerialCfg;
 
 #define SERIAL_MIN_TX_BUFSZ (64U)
@@ -162,9 +162,9 @@ typedef struct SerialCfg {
 #define SERIAL_BLOCK_TX_WAIT_TIMEOUT_MS (120000U)
 #define SERIAL_BLOCK_RX_WAIT_TIMEOUT_MS (120000U)
 
-#define SERIAL_RXFLUSH      (0U)
-#define SERIAL_TXFLUSH      (1U)
-#define SERIAL_TXRXFLUSH    (2U)
+#define SERIAL_RXFLUSH                  (0U)
+#define SERIAL_TXFLUSH                  (1U)
+#define SERIAL_TXRXFLUSH                (2U)
 
 /* 阻塞读写等待策略（可按项目覆写） */
 #ifndef SERIAL_BLOCK_WAIT_SLICE_MS
@@ -181,7 +181,7 @@ typedef struct SerialCfg {
 
 /* 默认配置 */
 #define SERIAL_DEFAULT_CFG                                                                                                        \
-    (SerialCfg)                                                                                                                 \
+    (SerialCfg)                                                                                                                   \
     {                                                                                                                             \
         .baudrate = 115200U, .dataBits = DATA_BITS_8, .stopBits = STOP_BITS_1, .parity = PARITY_NONE, .flowCtrl = FLOW_CTRL_NONE, \
         .overSampling = OVERSAMPLING_16, .txBufSize = SERIAL_MIN_TX_BUFSZ, .rxBufSize = SERIAL_MIN_RX_BUFSZ                       \
@@ -192,44 +192,44 @@ typedef struct SerialCfg {
  * @note 该结构体定义了串口的基本操作函数，包括配置、发送、接收、控制和传输。 —— 语义
  */
 typedef struct SerialInterface {
-    OmRet (*configure)(HalSerial* serial, SerialCfg* cfg);
-    OmRet (*putByte)(HalSerial* serial, uint8_t data);     // 非阻塞发送一个字节，返回是否成功，成功返回OM_OK，失败返回OM_ERR
-    OmRet (*getByte)(HalSerial* serial, uint8_t *buf);     // 非阻塞接收一个字节，返回是否成功，成功返回OM_OK，失败返回OM_ERR
-    OmRet (*control)(HalSerial* serial, uint32_t cmd, void *arg);
-    size_t (*transmit)(HalSerial* serial, const uint8_t *data, size_t length);
+    OmRet (*configure)(HalSerial *serial, SerialCfg *cfg);
+    OmRet (*putByte)(HalSerial *serial, uint8_t data); // 非阻塞发送一个字节，返回是否成功，成功返回OM_OK，失败返回OM_ERR
+    OmRet (*getByte)(HalSerial *serial, uint8_t *buf); // 非阻塞接收一个字节，返回是否成功，成功返回OM_OK，失败返回OM_ERR
+    OmRet (*control)(HalSerial *serial, uint32_t cmd, void *arg);
+    size_t (*transmit)(HalSerial *serial, const uint8_t *data, size_t length);
 } SerialInterface;
 
 typedef struct SerialFifo {
-    Ringbuf rb;                       // 环形缓冲区
-    Completion cpt;                   // 完成信号
-    volatile int32_t loadSize;          // 串口加载的总数据长度
-    volatile SerialFifoStatus status; // fifo状态
+    Ringbuf rb;                               // 环形缓冲区
+    Completion cpt;                           // 完成信号
+    volatile int32_t loadSize;                // 串口加载的总数据长度
+    volatile SerialFifoStatus status;         // fifo状态
     volatile SerialWaitWakeReason waitReason; // 阻塞等待唤醒原因
 } SerialFifo;
 
 // TODO: 引入超时机制
 typedef struct SerialPriv {
-    SerialFifo* txFifo;
-    SerialFifo* rxFifo;
+    SerialFifo *txFifo;
+    SerialFifo *rxFifo;
 } SerialPriv;
 
 // 串口实例 结构体
 typedef struct HalSerial {
-    Device parent;                // 设备父类
-    SerialInterface* interface;    // 串口接口
-    SerialCfg cfg;        // 配置信息
-    SerialPriv priv;    // 私有属性
+    Device parent;              // 设备父类
+    SerialInterface *interface; // 串口接口
+    SerialCfg cfg;              // 配置信息
+    SerialPriv priv;            // 私有属性
 } HalSerial;
 
-OmRet serial_register(HalSerial* serial, char *name, void *handle, uint32_t regparams);
-OmRet serial_hw_isr(HalSerial* serial, SerialEvent event, void *arg, size_t arg_size);
+OmRet serial_register(HalSerial *serial, char *name, void *handle, uint32_t regparams);
+OmRet serial_hw_isr(HalSerial *serial, SerialEvent event, void *arg, size_t arg_size);
 
-static inline SerialFifo* serial_get_rxfifo(HalSerial* serial)
+static inline SerialFifo *serial_get_rxfifo(HalSerial *serial)
 {
     return serial->priv.rxFifo;
 }
 
-static inline SerialFifo* serial_get_txfifo(HalSerial* serial)
+static inline SerialFifo *serial_get_txfifo(HalSerial *serial)
 {
     return serial->priv.txFifo;
 }
@@ -241,7 +241,7 @@ static inline SerialFifo* serial_get_txfifo(HalSerial* serial)
  * @return uint32_t 接收mask
  * @note 这个函数将被底层驱动调用获取mask，该值用于统一不同数据位之间接收数据的差异。一般用不着
  */
-static inline uint32_t serial_get_rxmask(HalSerial* serial)
+static inline uint32_t serial_get_rxmask(HalSerial *serial)
 {
     return (((uint32_t)(serial->cfg.parity == PARITY_NONE) << ((serial->cfg.dataBits >> 16))) | serial->cfg.dataBits) & 0x1FF;
 }
