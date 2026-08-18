@@ -1,0 +1,99 @@
+# CI：format + build + host-test 三件套（Linux/Rust/Zephyr 同款"全量 gate"哲学）
+# - 零第三方 action 依赖（除 xmake setup）；固定 clang 版本防格式判定漂移
+# - 取代过时的 style-gate.yml（xmake format/check 命令已不存在，100% 失败）
+name: ci
+
+on:
+  pull_request:
+    branches:
+      - integration
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  # ① 格式 gate：全量 clang-format-17（固定版本；仓库规模小，全量秒级）
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install clang-format-17
+        run: sudo apt-get install -y clang-format-17
+
+      - name: Check format
+        run: |
+          find lib platform samples -name '*.[ch]' -print0 | xargs -0 clang-format-17 --dry-run --Werror
+
+  # ② 编译 gate：交叉构建全库（验证 PR 可编译；binary 构建依赖板级 preset 留本地）
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+          actions-cache-folder: '.xmake-cache'
+
+      - name: Setup GNU ARM Embedded Toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: 'latest'
+
+      - name: Create om_preset.lua (CI toolchain paths)
+        # gnu-rm 工具链要求显式 sdk/bin 路径（本地由 om_preset.lua 提供）；
+        # CI 无 preset——arm-none-eabi-gcc-action 安装于 /usr/local，此处生成最小 preset
+        run: |
+          cat > om_preset.lua << 'EOF'
+          local preset = {
+            board = {name = "rm-c-board"},
+            os = {name = "freertos"},
+            toolchain_default = {name = "gnu-rm"},
+            toolchain_presets = {
+              ["gnu-rm"] = {
+                sdk = "/usr/local",
+                bin = "/usr/local/bin",
+              },
+            },
+          }
+          function get_preset() return preset end
+          EOF
+
+      - name: Configure
+        run: xmake f -c --board=rm-c-board --os=freertos --toolchain=gnu-rm -m debug
+
+      - name: Build libraries
+        run: xmake build
+
+  # ③ 测试 gate：kernel-core host 侧 45 断言（om_core_test，linux 用 gcc 免 mingw 问题）
+  host-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+          actions-cache-folder: '.xmake-cache'
+
+      - name: Configure
+        run: xmake f -c -P samples/host/om_core_test -p linux -m debug
+
+      - name: Build
+        run: xmake build -P samples/host/om_core_test
+
+      - name: Run init tests
+        run: xmake run -P samples/host/om_core_test om_core_init_test
+
+      - name: Run abort tests
+        run: xmake run -P samples/host/om_core_test om_core_init_test_abort
+
+      - name: Run fatal tests
+        run: xmake run -P samples/host/om_core_test om_core_fatal_test
