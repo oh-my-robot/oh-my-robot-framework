@@ -53,6 +53,7 @@ local board = {
         "vendor/STM32/STM32F4/adapters/spi/bsp_spi_f4.c",
         "vendor/STM32/STM32F4/adapters/spi/bsp_spi_f4_init.c",
         "vendor/STM32/STM32F4/adapters/pwm/bsp_pwm_f4.c",
+        "vendor/STM32/STM32F4/adapters/flash/bsp_flash_f4.c",
     },
     osal = {
         freertos = "boards/rm-a-board/osal/freertos",
