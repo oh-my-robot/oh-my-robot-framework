@@ -22,4 +22,8 @@
 #include "pwm/pal_pwm_dev.h"
 #endif
 
+#ifdef OM_USE_HAL_FLASH
+#include "flash/pal_flash_dev.h"
+#endif
+
 #endif // __PAL_DEV_H__
