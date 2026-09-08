@@ -81,7 +81,7 @@ OMR 存储系统（目标形态）
 | ER-1 | 免擦器件并入可擦族：erase 回调允许缺省（注册校验放宽），免擦设备上 flash_erase 返回 NOT_SUPPORTED | MRAM/自动擦 NOR 需求出现 | 免擦能力位 + 软件擦平原语 |
 | ER-2 | NAND 独立面：坏块查询/标记、ECC 语义（几何与 ops 扩维，或独立 API 族） | NAND 进入目标平台 | NAND 独立 API / 无 NAND trait 先例 |
 | ER-3 | 随机器件族落地：read/write/get_size 无擦除接口（可选 cell 语义） | EEPROM/FRAM 消费场景出现 | eeprom 设备类 / nvmem 子系统 |
-| ER-4 | 管理模块化：分区表/槽布局（boot 序列步骤③已排期）、磨损环形（存储/日志层） | 进入步骤③④ | flash_map / 分区表先例 |
+| ER-4 | 管理模块化：分区表/槽布局、磨损环形（存储/日志层） | **已部分承接**（2026-09-07）：步骤② 布局数值拍板（bootloader 64K + A/B 双槽 + meta 独立区——ADR-0021 (boot_multi_strategy_skeleton)/multi_strategy_boot_design.md Q-02/03）；分区表抽象（P-03）随步骤② 前置落地；磨损环形仍待存储/日志层（步骤④） | flash_map / 分区表先例 |
 | ER-5 | 块设备族落地：disk 风格接口（扇区读写 + 几何 + 可选 ioctl），对接 SD/eMMC/U 盘/虚拟盘；上层 FS（FAT/littlefs）或 raw 流式 | SD/eMMC 接入需求出现（如日志/OTA 固件暂存放 SD） | disk 抽象层先例 |
 
 ## 5. 分层纪律（沉淀）
