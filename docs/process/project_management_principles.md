@@ -203,13 +203,7 @@ Epic 必须同时满足：
 
 ## 12. 新人 onboarding
 
-1. 阅读 `docs/process/jira_quick_start.md`。
-2. 获取 Jira `OMR` 访问权限。
-3. 阅读本文件第 1–5 节，理解工作主线、Epic、Issue 的区别。
-4. 在 Jira 中查看当前工作主线、看板和字段。
-5. 选择一个工作主线，认领一个 `good-first-issue` 或由 Owner 分配任务。
-6. 创建 Issue，按第 10 节命名分支和 PR。
-7. 与 Owner 过一遍 DoR / DoD。
+从 `docs/process/jira_quick_start.md` 开始；规则细节看本文件第 1–5 节。
 
 ## 13. 变更记录
 
