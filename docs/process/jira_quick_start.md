@@ -1,6 +1,7 @@
 # OM 项目管理速查
 
-> 详细规范：`docs/process/project_management_spec.md`
+> 原则：[project_management_principles.md](project_management_principles.md)
+> 当前配置：[project_management_config.md](project_management_config.md)
 > 适用项目：Jira `OMR`
 
 ## 30 秒模型
@@ -11,13 +12,20 @@
         └── Story / Task / Bug（1–3 天）
               └── Subtask（≤ 1 天）
 
-模块 / 芯片平台 / 运行环境 = 字段
+工作流 / 模块 / 芯片平台 / 运行环境 = 字段
 版本 = Fix Version
 ```
 
 一句话：**工作流管“为什么做”，Epic 管“交付什么”，Issue 管“怎么做”，模块管“在哪做”，版本管“何时交付”。**
 
-## 5 个工作流
+术语区分：
+
+- **工作流（Workstream）**：长期战略分组，如“启动与升级”
+- **状态流转（Workflow）**：Jira 状态机，如“待办 → 进行中”
+
+## 当前工作流
+
+> 这是当前配置，不是固定规则；以 `project_management_config.md` 为准。
 
 | 工作流 | 范围 |
 |---|---|
@@ -27,24 +35,25 @@
 | 存储系统 | Flash、分区、存储器件（W25Q256 等） |
 | 平台支持 | BSP、芯片平台、板级支持包 |
 
-工作流可以暂时没有 Epic。**没有启动的工作流不要建占位 Epic。**
+工作流可以暂时没有活跃 Epic。**没有启动的工作流不要建占位 Epic。**
 
-## 4 个字段
+## 当前字段
 
-| 字段 | 值 | 填在哪 |
+> 字段和选项是当前配置，见 `project_management_config.md`。
+
+| 字段 | 作用 | 填在哪 |
 |---|---|---|
-| **工作流** | 框架拆分 / 启动与升级 / 通信设施 / 存储系统 / 平台支持 | Epic 必填 |
-| **模块** | Core / DataStruct / Algorithm / Osal / Sync / Async / Ipc / Drivers / Services / Systems / Platform / Build / Tools / Samples / Docs / CI / CrossModule | Story / Task / Bug 必填 |
-| **芯片平台** | platform-agnostic / STM32F4 / MSPM0G3507 | 涉及硬件时填 |
-| **运行环境** | platform-agnostic / FreeRTOS / bare-metal / Windows | 涉及 OS / host 时填 |
+| **工作流** | 长期分组 | Epic 必填 |
+| **模块** | 架构层 / 代码位置 | Story / Task / Bug 必填 |
+| **芯片平台** | 目标芯片 | 涉及硬件时填 |
+| **运行环境** | OS / RTOS / host | 涉及 OS / host 时填 |
+| **修复版本** | 目标发布版本 | 发布相关必填 |
+| **优先级** | 排期 | 按需 |
+| **标签** | 跨切面属性 | 按需，见白名单 |
 
-另外：
+## 当前状态流转
 
-- **修复版本**：目标版本，必填（发布相关）
-- **优先级**：排期依据
-- **标签**：只放跨切面属性，见下方白名单
-
-## 5 个状态
+> 这是当前配置，不是固定规则。
 
 ```
 待办 → 进行中 → 评审中 → 待验证 → 完成
@@ -60,7 +69,7 @@
 
 规则：
 
-- `待验证` 属于进行中类，不是完成类。
+- 验证类状态必须属于进行中类，不是完成类。
 - 验证失败 → 回到 `进行中`。
 - 阻塞用标签 `blocked`，不加状态。
 
@@ -95,7 +104,9 @@
 - [ ] 不兼容变更加 `breaking-change`
 - [ ] 修复版本已填
 
-## 标签白名单
+## 当前标签白名单
+
+> 当前配置，见 `project_management_config.md`。
 
 | 标签 | 用途 |
 |---|---|
@@ -110,12 +121,13 @@
 ## 新人 10 分钟
 
 1. 读这份速查。
-2. 获取 Jira `OMR` 权限。
-3. 读 5 个工作流的定义（见规范第 3 节）。
-4. 选一个工作流，认领一个 `good-first-issue`。
-5. 用模板建 Issue，填好工作流 / 模块 / 版本。
-6. 按规范命名分支和 PR。
-7. 与 Owner 过一遍 DoR / DoD。
+2. 读 `project_management_principles.md` 第 3–4 节。
+3. 读 `project_management_config.md`，了解当前工作流、状态和字段。
+4. 获取 Jira `OMR` 权限。
+5. 选一个工作流，认领一个 `good-first-issue`。
+6. 用模板建 Issue，填好工作流 / 模块 / 版本。
+7. 按规范命名分支和 PR。
+8. 与 Owner 过一遍 DoR / DoD。
 
 ## 常用 JQL
 
