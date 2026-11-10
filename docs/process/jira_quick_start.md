@@ -6,10 +6,10 @@
 ## 30 秒模型
 
 ```
-工作主线（长期）
-  └── Epic（1–3 个月，有目标版本）
-        └── Story / Task / Bug（1–3 天）
-              └── Subtask（≤ 1 天）
+工作主线
+  └── Epic（有边界、有目标版本）
+        └── Story / Task / Bug（可执行任务）
+              └── Subtask（实现步骤）
 ```
 
 - **工作主线（Workstream）**：长期战略分组，回答“为什么做”
@@ -76,6 +76,8 @@
 6. 与 Owner 过一遍 DoR / DoD。
 
 ## 常用 JQL
+
+JQL（Jira Query Language）是 Jira 的查询语言，用于筛选 issue。
 
 ```jql
 -- 我的待办
