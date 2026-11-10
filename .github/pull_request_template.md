@@ -15,7 +15,7 @@ Closes OMR-XXX
 
 ## DoD
 
-- [ ] Jira issue 已填 `工作流` / `模块` / `修复版本`
+- [ ] Jira issue 已填 `工作主线` / `模块` / `修复版本`
 - [ ] 合入 `integration`
 - [ ] 文档 / ADR 已更新
 - [ ] 不兼容变更已加 `breaking-change` 标签
