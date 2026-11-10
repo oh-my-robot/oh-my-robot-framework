@@ -149,54 +149,6 @@ local function resolve_framework_main_default(value)
     return normalized
 end
 
---- 持久化 flash 预设到配置
----@param config table 配置对象
----@param preset table|nil 预设配置
----@return nil
-local function persist_flash_preset(config, preset)
-    local flash = preset and preset.flash or nil
-    if type(flash) ~= "table" then
-        return
-    end
-    local has_value = false
-    --- 写入单个字段
-    ---@param key string 字段名
-    ---@param value any 字段值
-    ---@return nil
-    local function set_flash_value(key, value)
-        if value == nil then
-            return
-        end
-        config.set("om_flash_" .. key, value)
-        has_value = true
-    end
-    -- 通用字段
-    set_flash_value("flasher", flash.flasher)
-    set_flash_value("target", flash.target)
-    set_flash_value("firmware", flash.firmware)
-    set_flash_value("file", flash.file)
-    set_flash_value("prefer_hex", flash.prefer_hex)
-    set_flash_value("reset", flash.reset)
-    set_flash_value("run", flash.run)
-    set_flash_value("native_output", flash.native_output)
-    -- jlink 子表
-    if type(flash.jlink) == "table" then
-        set_flash_value("jlink_device", flash.jlink.device)
-        set_flash_value("jlink_interface", flash.jlink.interface)
-        set_flash_value("jlink_speed", flash.jlink.speed)
-        set_flash_value("jlink_program", flash.jlink.program)
-    end
-    -- daplink 子表
-    if type(flash.daplink) == "table" then
-        set_flash_value("daplink_config", flash.daplink.config)
-        set_flash_value("daplink_frequency", flash.daplink.frequency)
-        set_flash_value("daplink_program", flash.daplink.program)
-    end
-    if has_value then
-        config.save()
-    end
-end
-
 local board_values = list_board_names()
 local default_board = resolve_default_value(defaults.board, board_values, "board")
 local os_values = list_os_names()
@@ -232,7 +184,6 @@ option("board")
         local preset = oh_my_robot.get_preset()
         local preset_board = preset and preset.board and preset.board.name or nil
         apply_preset_option(option, config, board_values, preset_board, "board")
-        persist_flash_preset(config, preset)
 
         -- 解析板级与架构参数
         local board_name = resolve_option_value(option, default_board, "board")

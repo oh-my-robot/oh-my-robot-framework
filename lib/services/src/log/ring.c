@@ -8,9 +8,9 @@
  *          级）ringbuf_in；满 = 丢新 + 计数。
  *          消费触发（OM_LOG_ASYNC 选择）：1 = 日志线程（**调度器在 log_async.c**——
  *          门铃创建/线程本体/等待循环；本文件仅生产侧 空→非空 才 post（pipe 模式））；
- *          0 = 现场触发——生产后判定 any_accepts(本消息) 为真 → drain 全量
- *          （保生产序，含本消息与滞留段）→ 现场 emit；无后端 → 滞留环中
- *          （"deferred"回归形态）。
+ *          0 = 现场触发——生产后按 accept_mask(本消息) != 0（被任一后端按
+ *          (module, level) 生效级接受）→ drain 全量（保生产序，含本消息与滞留段）
+ *          → 现场 emit；全拒 → 滞留环中（"deferred"回归形态）。
  *          消费（log_ring_drain）：循环 ringbuf_out → log_emit_args（单消费者 SPSC 读侧）；
  *          尾部丢弃后验告警（log_drop_warn——节流 + 增量；直接 emit 不走环防递归）。
  */
@@ -57,7 +57,8 @@ void log_ring_produce(LogRing *ring, const OmLogMsg *msg)
         (void)osal_sem_post_auto(ring->doorbell); /* 线程/ISR 自动分流（post_from_isr 语义） */
     }
 #else
-    bool fire = log_backend_any_accepts(msg->level); /* 现场判定（临界区内读表——v1 同构） */
+    /* 现场判定：本消息被任一后端接受才 drain（临界区内读表——含按模块覆盖的生效级裁判） */
+    bool fire = log_backend_accept_mask(msg->module, msg->level) != 0;
 #endif
     om_hw_restore_interrupt(key);
 #if !OM_LOG_ASYNC

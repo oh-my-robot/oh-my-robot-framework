@@ -1,15 +1,15 @@
 /**
  * @file main.c
- * @brief 片内 Flash v1 真机验证（rm-a/F427：同步语义 + 异步执行模型 + 边界）
+ * @brief 片内 Flash v1 真机验证（rm-a/F427：同步语义 + 执行模型 + 边界）
  *
  * 覆盖（运行于验证线程 NORMAL；心跳线程 HIGH 全程打点 = 擦除期间 log 活性
- * 证据——v1 域 worker sleep 让出，心跳不应断流）：
+ * 证据——后端等硬件完成时让出，心跳不应断流）：
  *   G1 几何/区域核对 + dual-bank 探测
  *   G2 同步语义：边界拒绝（越界/未对齐/半扇区）、尾扇区擦写读环、
  *      跨 bank 混合扇区擦、16KB 大块写读、program AND 物理语义、
  *      受保护扇区擦除错误事件路径（nWRP 临时保护；无保护位时 skip）
- *   G3 异步模型：设备级回调 erase→write→read 链、read-BUSY（擦除中）、
- *      队列满 BUSY（连续 async）、回调内同步调用 BUSY 拒绝
+ *   G3 执行模型：调用者上下文同步返回、擦除期间心跳不断流（让出契约）、
+ *      并访线程的读等锁而非 BUSY（每设备互斥）
  *
  * 安全性：验证专用区 = bank2 空区（app 镜像只占低地址）；操作前 blank 检查，
  * 非空白（非本程序残留）跳过并报告。观测：串口（-DOM_LOG_SERIAL=1）。
@@ -50,21 +50,24 @@ OM_INIT_DRIVER(flash_verify_log_port_init);
 static FlashDev *g_flash;
 static int g_pass;
 static int g_fail;
-static OsalSem *g_evt;
+static OsalSem *g_peerGo;           /* G3 并访探针起跑门 */
+static volatile uint32_t g_hbCount; /* 心跳计数：擦除期间 log 活性的证据 */
 
-#define CHECK(cond, ...)                          \
-    do                                            \
-    {                                             \
-        if (cond)                                 \
-        {                                         \
-            g_pass++;                             \
-            OM_LOG_INFO("  PASS: " __VA_ARGS__);  \
-        }                                         \
-        else                                      \
-        {                                         \
-            g_fail++;                             \
-            OM_LOG_ERROR("  FAIL: " __VA_ARGS__); \
-        }                                         \
+#define CHECK(cond, ...)                                                               \
+    do                                                                                 \
+    {                                                                                  \
+        if (cond)                                                                      \
+        {                                                                              \
+            g_pass++;                                                                  \
+            OM_LOG_INFO("  PASS: " __VA_ARGS__);                                       \
+        }                                                                              \
+        else                                                                           \
+        {                                                                              \
+            g_fail++;                                                                  \
+            OM_LOG_ERROR("  FAIL: " __VA_ARGS__);                                      \
+        }                                                                              \
+        osal_sleep_ms(20); /* 输出节流：串口后端非阻塞提交（txFifo 满即静默截断）， */ \
+        /* 爆发式输出会被通道吃掉——逐条让出，验证结果才完整 */                         \
     } while (0)
 
 /* 验证专用区（rm-a/F427 2MB）：全部擦写用例集中 bank2 尾 128K 扇区（s23@0x1E0000）——
@@ -80,6 +83,7 @@ static void flash_verify_heartbeat(void *arg)
     (void)arg;
     for (;;)
     {
+        g_hbCount++;
         OM_LOG_INFO("hb %d t=%u", i++, (unsigned)osal_time_now_monotonic());
         osal_sleep_ms(200);
     }
@@ -150,18 +154,19 @@ static void verify_boundary_rejects(void)
 {
     OM_LOG_INFO("--- G2a boundary rejects ---");
     uint8_t byte = 0x11;
-    CHECK(flash_read(g_flash, CAP_FULL, &byte, 1u) == OM_ERR_INVALID_ARG,
-          "read at capacity rejected");
-    CHECK(flash_read(g_flash, CAP_FULL - 1u, &byte, 2u) == OM_ERR_INVALID_ARG,
-          "read crossing end rejected");
+    /* 两类码刻意分开：越界 = 改地址即可（RANGE）；未对齐/空参 = 参数不成立
+     * （INVALID_ARG）。越界先于对齐报出——以下反例按各自的主因取码 */
+    CHECK(flash_read(g_flash, CAP_FULL, &byte, 1u) == OM_ERR_RANGE, "read at capacity rejected (RANGE)");
+    CHECK(flash_read(g_flash, CAP_FULL - 1u, &byte, 2u) == OM_ERR_RANGE,
+          "read crossing end rejected (RANGE)");
     CHECK(flash_write(g_flash, REG_TAIL + 2u, &byte, 4u) == OM_ERR_INVALID_ARG,
           "write misaligned addr rejected");
     CHECK(flash_write(g_flash, REG_TAIL, &byte, 2u) == OM_ERR_INVALID_ARG,
           "write len misaligned rejected");
     CHECK(flash_erase(g_flash, REG_TAIL, 0x10000u) == OM_ERR_INVALID_ARG,
           "erase half (64K of 128K) sector rejected");
-    CHECK(flash_erase(g_flash, REG_TAIL + 1u, 0x20000u) == OM_ERR_INVALID_ARG,
-          "erase misaligned addr rejected");
+    CHECK(flash_erase(g_flash, REG_TAIL + 1u, 0x20000u) == OM_ERR_RANGE,
+          "erase off+len crossing end rejected (RANGE wins over misalign)");
     CHECK(flash_erase(g_flash, 0u, 0u) == OM_OK, "erase len==0 no-op");
     CHECK(flash_write(g_flash, REG_TAIL, &byte, 0u) == OM_OK, "write len==0 no-op");
     CHECK(flash_read(g_flash, REG_TAIL, NULL, 0u) == OM_OK, "read len==0 no-op");
@@ -237,164 +242,76 @@ static void verify_tail_roundtrip(void)
 }
 
 /* ===================================================================
- * G3: 异步执行模型（设备级回调）
+ * G3: 执行模型（调用者上下文同步 + 每设备互斥 + 让出契约）
  * =================================================================== */
 
-static int g_cbCount;
-static OmRet g_cbRet;
-static int g_chainStage;
+static volatile uint32_t g_peerRet; /* 并访线程的 read 返回码 */
+static volatile uint32_t g_peerT0;  /* 并访线程 read 起止时刻 */
+static volatile uint32_t g_peerT1;
+static volatile uint32_t g_eraseT0; /* 本线程擦除起止时刻 */
+static volatile uint32_t g_eraseT1;
 
-/* G3.1 链回调：erase 完成 → 提交 write → write 完成 → read 校验 → 事件 */
-static void chain_cb(FlashDev *dev, OmRet status, void *param)
+/** @brief 并访线程：等门后发起一次读，记录起止（读应等到擦除结束才返回） */
+static void flash_peer_probe(void *arg)
 {
-    (void)param;
-    g_cbCount++;
-    if (g_chainStage == 0)
+    (void)arg;
+    (void)osal_sem_wait(g_peerGo, OSAL_WAIT_FOREVER);
+    osal_sleep_ms(100); /* 落在擦除窗口内（整扇区擦 ~秒级） */
+    uint8_t b = 0;
+    g_peerT0 = (uint32_t)osal_time_now_monotonic();
+    g_peerRet = (uint32_t)flash_read(g_flash, REG_TAIL + 0x1000u, &b, 1u);
+    g_peerT1 = (uint32_t)osal_time_now_monotonic();
+    for (;;)
     {
-        g_chainStage = 1;
-        if (status != OM_OK)
-        {
-            osal_sem_post(g_evt);
-            return;
-        }
-        static uint8_t pat[512];
-        for (uint32_t i = 0; i < sizeof(pat); i++)
-        {
-            pat[i] = (uint8_t)(0x21 + i);
-        }
-        g_cbRet = flash_write_async(dev, REG_TAIL, pat, sizeof(pat));
-        if (g_cbRet != OM_OK)
-        {
-            osal_sem_post(g_evt);
-        }
+        osal_sleep_ms(60000);
+    }
+}
+
+static void verify_sync_model(void)
+{
+    OM_LOG_INFO("--- G3 execution model (sync + per-device lock) ---");
+
+    OsalThread *peer = NULL;
+    OsalThreadAttr pattr = {"flash_peer", 2048u, OSAL_PRIO_NORMAL_BASE};
+    (void)osal_thread_create(&peer, &pattr, flash_peer_probe, NULL);
+
+    if (!flash_verify_is_blank(REG_TAIL))
+    {
+        OM_LOG_ERROR("tail NOT blank; execution-model cases skipped");
+        g_fail++;
         return;
     }
-    static uint8_t rbuf[512];
-    OmRet r = flash_read(dev, REG_TAIL, rbuf, sizeof(rbuf));
-    CHECK(r == OM_OK && rbuf[0] == 0x21 && rbuf[511] == (uint8_t)(0x21 + 511),
-          "async chain content verified in callback");
-    if (r != OM_OK || rbuf[0] != 0x21)
+
+    /* G3.1 同步 + 让出：整扇区擦除期间调用者阻塞，但心跳（HIGH）不断流——
+     * 后端等待硬件完成时让出 CPU，其它任务不被饿死（本层不持线程） */
+    uint32_t hb0 = g_hbCount;
+    g_peerT0 = 0u;
+    g_peerT1 = 0u;
+    g_peerRet = 0xFFFFFFFFu;
+    osal_sem_post(g_peerGo); /* 放行并访线程：读与擦除竞争同一设备 */
+    g_eraseT0 = (uint32_t)osal_time_now_monotonic();
+    OmRet eret = flash_erase(g_flash, REG_TAIL, TAIL_SIZE);
+    g_eraseT1 = (uint32_t)osal_time_now_monotonic();
+    CHECK(eret == OM_OK, "tail erase completes in caller context (ret=%d)", (int)eret);
+    CHECK(g_hbCount > hb0, "heartbeat kept running during erase (yield, %u->%u)",
+          (unsigned)hb0, (unsigned)g_hbCount);
+
+    /* G3.2 每设备互斥：擦除在途时另一线程的读不返回 BUSY，而是等锁；
+     * 其返回时刻须不早于擦除结束——数据通路上不存在与擦除交错的读 */
+    for (int i = 0; i < 500 && g_peerT1 == 0u; i++)
     {
-        OM_LOG_INFO("  dbg chain: r=%d wret=%d first=%02X", (int)r, (int)g_cbRet, rbuf[0]);
+        osal_sleep_ms(10);
     }
-    osal_sem_post(g_evt);
-}
+    CHECK(g_peerT1 != 0u, "peer read returned");
+    CHECK(g_peerRet == (uint32_t)OM_OK,
+          "peer read serialized behind erase (ret=%u, no BUSY rejection)",
+          (unsigned)g_peerRet);
+    CHECK(g_peerT1 + 5u >= g_eraseT1,
+          "peer read finished after erase (t=%u vs erase end %u)", (unsigned)g_peerT1,
+          (unsigned)g_eraseT1);
 
-/* G3.3 回调内同步调用 → 同域拒绝 */
-static void sync_in_worker_cb(FlashDev *dev, OmRet status, void *param)
-{
-    (void)status;
-    (void)param;
-    g_cbCount++;
-    g_cbRet = flash_erase(dev, REG_TAIL, TAIL_SIZE); /* 应被同域拒绝 BUSY */
-    osal_sem_post(g_evt);
-}
-
-/* G3.2 无操作计数回调 */
-static void count_cb(FlashDev *dev, OmRet status, void *param)
-{
-    (void)dev;
-    (void)status;
-    (void)param;
-    g_cbCount++;
-}
-
-static void verify_async_model(void)
-{
-    OM_LOG_INFO("--- G3 async execution model ---");
-
-    /* G3.1 设备级回调链（erase → write → read 校验），区=尾扇区（先清） */
-    CHECK(flash_erase(g_flash, REG_TAIL, 0x20000u) == OM_OK, "prep: tail erased");
-    g_cbCount = 0;
-    g_chainStage = 0;
-    g_cbRet = OM_OK;
-    flash_set_done_cb(g_flash, chain_cb, NULL);
-    CHECK(flash_erase_async(g_flash, REG_TAIL, 0x20000u) == OM_OK,
-          "async erase submitted (returns immediately)");
-    CHECK(osal_sem_wait(g_evt, 5000u) == OSAL_OK, "async chain completed");
-    CHECK(g_cbCount == 2, "device callback fired twice (erase+write)");
-    CHECK(flash_erase(g_flash, REG_TAIL, TAIL_SIZE) == OM_OK, "tail restored (repeatable run)");
-
-    /* G3.2 read-BUSY：async 擦除（tail 整扇区，~2s 在途）时同步读被拒 */
-    if (flash_verify_is_blank(REG_TAIL))
-    {
-        flash_set_done_cb(g_flash, count_cb, NULL);
-        g_cbCount = 0;
-        CHECK(flash_erase_async(g_flash, REG_TAIL, TAIL_SIZE) == OM_OK,
-              "async tail erase in flight");
-        osal_sleep_ms(100); /* 128K 擦 ~2s，仍在途 */
-        uint8_t b = 0;
-        CHECK(flash_read(g_flash, REG_TAIL + 0x1000u, &b, 1u) == OM_ERR_FLASH_BUSY,
-              "read rejected while erase in flight (no mixed read)");
-        for (int i = 0; i < 300 && g_cbCount < 1; i++)
-        {
-            osal_sleep_ms(10);
-        }
-        CHECK(g_cbCount == 1, "in-flight erase completed via callback");
-        b = 0;
-        CHECK(flash_read(g_flash, REG_TAIL + 0x1000u, &b, 1u) == OM_OK, "read OK after erase done");
-    }
-    else
-    {
-        OM_LOG_INFO("tail not blank; read-BUSY case skipped");
-    }
-
-    /* G3.3 队列满 BUSY：tail 擦除在途（慢），连续 3 个 async → 第 3 个 BUSY */
-    flash_set_done_cb(g_flash, count_cb, NULL);
-    g_cbCount = 0;
-    if (flash_verify_is_blank(REG_TAIL))
-    {
-        CHECK(flash_erase_async(g_flash, REG_TAIL, TAIL_SIZE) == OM_OK,
-              "req1 in-flight (tail erase)");
-        osal_sleep_ms(100); /* 确保 req1 已在执行 */
-        CHECK(flash_erase_async(g_flash, REG_TAIL, TAIL_SIZE) == OM_OK, "req2 queued");
-        CHECK(flash_erase_async(g_flash, REG_TAIL, TAIL_SIZE) == OM_ERR_FLASH_BUSY,
-              "req3 rejected: queue full (depth 2)");
-        for (int i = 0; i < 400 && g_cbCount < 2; i++)
-        {
-            osal_sleep_ms(10);
-        }
-        CHECK(g_cbCount == 2, "both queued erases completed");
-    }
-    else
-    {
-        OM_LOG_INFO("tail not blank; queue-full case skipped");
-    }
-
-    /* G3.4 回调内同步调用 → BUSY 拒绝（不死锁） */
-    flash_set_done_cb(g_flash, sync_in_worker_cb, NULL);
-    g_cbCount = 0;
-    g_cbRet = OM_OK;
-    if (flash_verify_is_blank(REG_TAIL))
-    {
-        CHECK(flash_erase_async(g_flash, REG_TAIL, TAIL_SIZE) == OM_OK,
-              "async erase w/ sync-in-callback");
-        CHECK(osal_sem_wait(g_evt, 5000u) == OSAL_OK, "callback executed (no deadlock)");
-        CHECK(g_cbRet == OM_ERR_FLASH_BUSY, "sync wait inside worker rejected (BUSY)");
-    }
-    else
-    {
-        OM_LOG_INFO("tail not blank; sync-in-callback case skipped");
-    }
-
-    /* G3.5 无完成通知（setter 清空） */
-    flash_set_done_cb(g_flash, NULL, NULL);
-    if (flash_verify_is_blank(REG_TAIL))
-    {
-        CHECK(flash_erase_async(g_flash, REG_TAIL, TAIL_SIZE) == OM_OK,
-              "async erase w/ no done cb submitted");
-        for (int i = 0; i < 300; i++)
-        {
-            if (flash_verify_is_blank(REG_TAIL))
-            {
-                break;
-            }
-            osal_sleep_ms(10);
-        }
-        CHECK(flash_verify_is_blank(REG_TAIL), "no-cb async erase completed");
-    }
-
-    flash_set_done_cb(g_flash, NULL, NULL);
+    /* G3.3 擦除自检结果可见：擦后整扇区为擦后值 */
+    CHECK(flash_verify_is_blank(REG_TAIL), "erased region reads back as erasedValue");
 }
 
 /* ===================================================================
@@ -419,7 +336,7 @@ static void flash_verify_thread(void *arg)
     osal_sleep_ms(150);
     verify_tail_roundtrip();
     osal_sleep_ms(150);
-    verify_async_model();
+    verify_sync_model();
     osal_sleep_ms(150);
 
     OM_LOG_INFO("=== flash v1 verify: %d passed, %d failed ===", g_pass, g_fail);
@@ -436,7 +353,7 @@ static OmRet flash_verify_main(void)
     OsalThreadAttr vattr = {"flash_vfy", 2048u, OSAL_PRIO_NORMAL_BASE};
     OsalThreadAttr hattr = {"flash_hb", 2048u, OSAL_PRIO_HIGH_BASE};
 
-    osal_sem_create(&g_evt, 1u, 0u);
+    osal_sem_create(&g_peerGo, 1u, 0u);
     (void)osal_thread_create(&vthread, &vattr, flash_verify_thread, NULL);
     (void)osal_thread_create(&hthread, &hattr, flash_verify_heartbeat, NULL);
     return OM_OK;

@@ -18,7 +18,7 @@ target("tar_board")
         local board_root = os.scriptdir()
         local bsp_root = path.join(board_root, "..", "..")
         local om_root = path.join(bsp_root, "..", "..")
-        local modules_root = path.join(om_root, "build", "modules")
+        local modules_root = path.join(om_root, "xmake", "modules")
 
         local bsp = import("bsp", {rootdir = bsp_root})
         local om_robot = import("oh-my-robot", {rootdir = modules_root})

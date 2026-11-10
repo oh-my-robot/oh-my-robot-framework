@@ -2,6 +2,10 @@
 
 > **状态**：v1 定稿（2026-09-06，异步模型重构——F-04 经真机验证修订）。开工序列步骤 ① 的接口文档。升格 ADR 时机：异步接口经片内适配器（STM32F4）落地并真机验证后。
 >
+> **⚠️ 本文已被 ADR-0027 修订，部分内容与代码不符（2026-10-01 标注）**：文中描述的**异步执行模型整套已从代码删除**——`FlashDomain`、分域 worker、per-device 请求队列、`OM_FLASH_QUEUE_DEPTH`、`flash_write_async` / `flash_erase_async` / `flash_set_done_cb` / `FlashDoneCb`、`flash_domain.c` 均不存在。现形态为**调用者上下文同步执行 + 每设备睡眠互斥量**，后端"等待 BSY 必须让出 CPU"由契约升为**承重条款**（见 `docs/adr/0027`）。
+> **仍有效**：几何双模（均匀 / 区域表）、整扇区制擦除、program 语义、完成源可插拔（EOP 中断主路径 / 轮询退化，D-07）、擦后校验。
+> **修订归口**：本文属 boot/OTA 工作流的档案，逐条修订归该工作流；此处仅作过期标注，避免读者据以施工。逐条清单见 `docs/internal/active/issue_000_partition_completion/doc_alignment.md`。
+>
 > **版本沿革**：v0（同步阻塞语义，F-01..F-05）→ 真机验证暴露"同步忙等饿死低优先级线程、系统卡顿"→ 多片/多介质调研（双层锁、read 语义）→ **v1：写/擦异步化 + read 同步保留 + 多片独立并发** → v1 二次修订（异步执行架构调研）：**per-device 定长请求队列 + 分域 worker（执行者按物理串行域划分）+ 完成源可插拔（片内 EOP 中断 / 软件轮询让出）**；纠偏：F4 片内 flash 有 EOP 完成中断（此前"无中断"表述错误）。
 >
 > **约束锚点**：同目录 `reference_design_notes.md` 的 `P-xx` / `K-xx`；与 `multi_strategy_boot_design.md` 同族。

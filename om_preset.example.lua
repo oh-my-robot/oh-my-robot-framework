@@ -21,26 +21,6 @@ local preset = {
       bin = "D:/ProgramFiles/ProgramTools/TI/CCS/ccs/tools/compiler/ti-cgt-armllvm_4.0.2.LTS/bin",
     },
   },
-  flash = {
-    flasher = "jlink",                -- 默认烧录器：jlink / daplink
-    target = "robot_project",
-    firmware = nil,
-    prefer_hex = true,
-    reset = true,
-    run = true,
-    native_output = false,
-    jlink = {
-      device = "STM32F407IG",
-      interface = "swd",
-      speed = 4000,
-      program = "D:/Program Files/ProgramTools/SEGGER/Jlink/JLink.exe",
-    },
-    daplink = {
-      program = "D:/openocd-win/bin/openocd.exe",
-      config = ".vscode/daplink.cfg",
-      frequency = 4000,
-    },
-  },
 }
 
 function get_preset()

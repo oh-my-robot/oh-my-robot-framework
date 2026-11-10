@@ -38,15 +38,14 @@
 - [`oh-my-robot/xmake/config/`](../../xmake/config/)：构建选项与默认值。
 - [`oh-my-robot/xmake/rules/`](../../xmake/rules/)：规则定义（上下文注入、板级资源、镜像转换）。
 - [`oh-my-robot/xmake/toolchains/`](../../xmake/toolchains/)：工具链数据与脚本逻辑。
-- [`oh-my-robot/xmake/tasks/`](../../xmake/tasks/)：自定义任务（如 flash 烧录）。
+- [`oh-my-robot/xmake/tasks/`](../../xmake/tasks/)：自定义任务（如工作区生成）。
 - [`oh-my-robot/platform/bsp/`](../../platform/bsp/)：BSP 数据加载、合并、板级构建脚本。
 - [`oh-my-robot/platform/osal/`](../../platform/osal/)：OS 抽象层与 OS 端口。
 - [`oh-my-robot/platform/sync/`](../../platform/sync/)：同步原语与可选加速后端。
 自定义任务：
 - `xmake init_workspace`：为当前 `oh-my-robot` checkout 生成轻量项目壳，并创建本地 `oh-my-robot` 目录链接/junction，解决单独 worktree 缺少顶层 `xmake.lua` 的问题。
-- `xmake flash`：通过 J-Link Commander 烧录，默认优先使用 HEX，可通过 `--firmware` 指定 ELF/HEX，并可通过 `--native_output=true` 透传原生输出。
-- `xmake flash`：通过策略模式支持 J-Link (JLink.exe) 与 DAPLink (OpenOCD) 两种烧录器，通过 `--flasher` 或 `flash.flasher` 切换。J-Link 链路生成 `.jlink` 命令文件调用 JLink.exe；DAPLink 链路通过 OpenOCD `program` 命令完成烧录与校验。
-- 调试器支持矩阵（当前）：`om_preset.flash` 同时支持 `jlink` 与 `daplink`，通过策略模式注册表统一管理。
+- 烧录/调试不在 XMake 内承担：构建只产出 `.elf` / `.hex` / `.bin` 与 `compile_commands.json`；下载与调试交给外部工具（J-Link Commander、OpenOCD、pyOCD、Cortex-Debug 等）。
+- 内存报告与链接契约校验通过 `tools/omcheck/` 独立脚本执行；XMake 只负责在构建后调用。
 
 
 ## 5. 目录职责与依赖方向简图
@@ -123,10 +122,10 @@ flowchart LR
   - 注入 `arch_flags` 与 `toolchain_flags`。
   - 当 LTO 计划开启时，按工具链收敛注入显式参数（`gnu-rm`: `-flto`；`armclang`: `-flto/--lto`），确保参数落地一致。
   - 配置阶段校验硬浮点支持，并确保工具链已完成检测。
-  - 构建后输出 `build mode` 与 `memory distribution`：
+  - 构建后输出 `build mode` 与内存用量：
     - `build mode` 通过目标模式接口判定（`debug`/`release`）。
-    - `memory distribution` 输出 `FLASH/RAM` 的 `used/total/percent`（优先解析 ELF 用量与链接脚本容量）。
-  - 构建后执行链接契约校验（`tar_os`/`tar_sync` 关键强符号检查），失败即终止构建。
+    - 内存用量由 `tools/omcheck/mem_report.py` 调用工具链 `size` / `fromelf` 输出 `FLASH/RAM` 已用量；不解析链接脚本。
+  - 构建后通过 `tools/omcheck/link_guard.py` 执行链接契约校验（`tar_os`/`tar_sync` 关键强符号与 `.om_init` 段边界检查），失败即终止构建。
 - `oh_my_robot.board_assets`：
   - 注入启动文件与链接脚本。
   - 依赖 `toolchain_linker_flag`。
@@ -151,12 +150,12 @@ flowchart LR
 ### 8.5 armclang 运行时与 semihosting 维护约束
 - 运行时决策入口：[`oh-my-robot/xmake/toolchains/toolchain_runtime.lua`](../../xmake/toolchains/toolchain_runtime.lua)。
   - `resolve_semihosting_mode()` 只接受 `off/on`。
-  - `resolve_runtime_payload("armclang", "off")` 返回 [`oh-my-robot/xmake/runtime/armclang/semihost_stub.c`](../../xmake/runtime/armclang/semihost_stub.c)。
+  - `resolve_runtime_payload("armclang", "off")` 返回 [`oh-my-robot/platform/runtime/armclang/semihost_stub.c`](../../platform/runtime/armclang/semihost_stub.c)。
   - `resolve_runtime_payload("armclang", "on")` 返回空注入。
 - 注入生效点：[`oh-my-robot/xmake/rules/context.lua`](../../xmake/rules/context.lua) 的 `oh_my_robot.context` 规则。
   - 仅对 `target:kind() == "binary"` 注入运行时 payload。
   - 静态库目标不应注入 semihost stub，避免污染库边界。
-- stub 语义约束（[`oh-my-robot/xmake/runtime/armclang/semihost_stub.c`](../../xmake/runtime/armclang/semihost_stub.c)）：
+- stub 语义约束（[`oh-my-robot/platform/runtime/armclang/semihost_stub.c`](../../platform/runtime/armclang/semihost_stub.c)）：
   - 目标是“去 semihost 依赖”，不是“模拟完整主机文件系统”。
   - `_sys_open` 返回伪句柄用于保障 C 运行库初始化继续执行。
   - `_sys_exit` 保持死循环，避免落入未定义宿主行为。
@@ -470,17 +469,17 @@ end
 - FreeRTOS 端口文件缺失：`tar_os` 加载时失败。
 - `semihosting` 值非法：`options.lua`/`toolchain_runtime.lua` 会在配置期报错（仅允许 `off/on`）。
 - `gnu-rm` 下 LTO 未开启：`auto` 策略要求 `gcc >= 14.2.0`；低于门槛会自动关闭并在摘要输出原因（典型旧版问题：`offset out of range`）。
-- `armclang semihost stub missing`：[`oh-my-robot/xmake/runtime/armclang/semihost_stub.c`](../../xmake/runtime/armclang/semihost_stub.c) 缺失或路径变更未同步。
+- `armclang semihost stub missing`：[`oh-my-robot/platform/runtime/armclang/semihost_stub.c`](../../platform/runtime/armclang/semihost_stub.c) 缺失或路径变更未同步。
 - `armclang toolset_as unsupported`：仅支持 `toolset_as=armclang`；请移除自定义回退配置。
 - `armclang version not supported`：当前版本门禁为 `>= 6.14`，请升级 Arm Compiler 6。
 - `Fatal error: L6050U`：当前 `armlink` 为 Lite 授权导致代码大小受限；先执行 `armlink --vsn` 确认 `Product`，若为 `MDK-ARM Lite` 则需切换到非 Lite 授权或改用 `gnu-rm`。
 - 出现 `attempt to concatenate a nil value (global 'sourcefile')`：请检查本机 XMake 是否低于 `3.0.7`，并升级后重试。
 - Cortex-Debug `armclang + load` 初始化异常：优先切换为 `restore <profile>.hex` 下载链路。
 - weak 覆盖未生效：检查 `override_sources` 是否登记、是否被 `oh_my_robot.board_assets` 注入到 `binary`，并核对最终 ELF 符号是否仍为 `W/weak`。
-- 预设中配置了 `flash.daplink` 但 OpenOCD 找不到：检查 `flash.daplink.program` 路径是否正确，或确认 OpenOCD 已加入 PATH。
 - `[oh-my-robot] link contract check failed`：`tar_os`/`tar_sync` 的关键符号未以强符号形态提供；应回查模块构建输入与依赖传播，不要在应用目标补直连依赖。
 
 ## 13. 变更记录
+- 2026-11-10：构建系统瘦身——移除 `xmake flash` 与烧录/调试集成（转外部工具）；移除 armclang ELF LOAD segment 修补（调试统一走 `.hex` 下载）；内存报告与链接契约校验外置到 `tools/omcheck/`；`xmake init_workspace` 的壳生成逻辑外置到 `tools/omworkspace/`；semihosting stub 迁至 `platform/runtime/armclang/`。
 - 2026-05-23：`xmake flash` 重构为策略模式，新增 DAPLink (OpenOCD) 烧录器支持。`flash` 预设格式升级：新增 `flash.flasher` 通用字段与 `flash.daplink` 子表，通用字段（`target`/`firmware`/`prefer_hex`/`reset`/`run`/`native_output`）提升至 `flash` 层级对两种烧录器均生效。同步更新全部构建文档与 VSCode 调试模板。
 - 2026-03-26：preset 解析链路收敛为”只读取项目根 `om_preset.lua`”；`xmake init_workspace` 会在项目壳中创建本地 `oh-my-robot` 目录链接/junction，并自动落一份项目级 `om_preset.lua` 模板；新增 `--preset=<path>` 后，可直接把指定 preset 源文件复制到项目壳根目录；`docs/process/git_collaboration_spec.md` 已补充“外部 worktree 开发 + 外层项目根独立构建”的推荐用法，`quick_start.md` 收回到项目根首次构建口径。
 - 2026-02-19：LTO 在 debug/release 统一纳入策略控制；收敛为“gnu-rm 按版本门槛启用（>=14.2.0）、armclang 默认开启”，并在 `oh_my_robot.context` 按工具链显式注入 LTO 参数。

@@ -60,6 +60,12 @@
 /* ===================================================================
  * 无 OS 形态（OM_OSAL_PORT == OSAL_PORT_NONE）：同步直调坍缩
  *
+ * 守卫约定（勿简化）：条件一律写作 `defined(OM_OSAL_PORT) && (... == OSAL_PORT_NONE)`，
+ * 非坍缩侧写作 `!defined(OM_OSAL_PORT) || (... != OSAL_PORT_NONE)`——宏未定义时
+ * （未注入编译选项的构建，如 host 测试）安全默认到**有 OS** 路径。裸写
+ * `#if (OM_OSAL_PORT == OSAL_PORT_NONE)` 时两宏均按 0 比较 → 0 == 0 为真 →
+ * 静默坍缩且不建线程（回归实证：partition_test 32/0 → 29/3）。
+ *
  * 无后台执行者（无线程调度）——队列不建 worker：
  *   - init/deinit/start/stop：纯状态机（start = 状态迁移 no-op）；
  *   - enqueue（任务上下文）：当场直调 work->func——入队即执行，
@@ -88,7 +94,7 @@
  * 对应 Linux kernel process_one_work() 的简化版。
  * =================================================================== */
 
-#if (OM_OSAL_PORT != OSAL_PORT_NONE)
+#if !defined(OM_OSAL_PORT) || (OM_OSAL_PORT != OSAL_PORT_NONE)
 /**
  * @brief Worker 线程入口函数
  *
@@ -160,7 +166,7 @@ static void workqueue_worker_entry(void *arg)
         }
     }
 }
-#endif /* OM_OSAL_PORT != OSAL_PORT_NONE */
+#endif /* !defined(OM_OSAL_PORT) || (OM_OSAL_PORT != OSAL_PORT_NONE) */
 
 /* ===================================================================
  * 生命周期管理：init / deinit
@@ -190,7 +196,7 @@ OmRet workqueue_init(Workqueue *wq, const WorkqueueConfig *cfg)
     wq->thread = NULL;
     wq->sem = NULL;
 
-#if (OM_OSAL_PORT == OSAL_PORT_NONE)
+#if defined(OM_OSAL_PORT) && (OM_OSAL_PORT == OSAL_PORT_NONE)
     /** 坍缩形态：无后台执行者——不建信号量/completion；栈/优先级无意义 */
     wq->state = WORKQUEUE_STATE_IDLE;
     wq->name = cfg->name ? cfg->name : "wq";
@@ -243,7 +249,7 @@ OmRet workqueue_deinit(Workqueue *wq)
     if (wq->state != WORKQUEUE_STATE_IDLE)
         return OM_ERROR;
 
-#if (OM_OSAL_PORT != OSAL_PORT_NONE)
+#if !defined(OM_OSAL_PORT) || (OM_OSAL_PORT != OSAL_PORT_NONE)
     if (wq->sem)
     {
         osal_sem_delete(wq->sem);
@@ -289,7 +295,7 @@ OmRet workqueue_start(Workqueue *wq)
         osal_irq_unlock(key);
     }
 
-#if (OM_OSAL_PORT == OSAL_PORT_NONE)
+#if defined(OM_OSAL_PORT) && (OM_OSAL_PORT == OSAL_PORT_NONE)
     /** 坍缩形态：无 worker 线程可启动——状态迁移即全部 */
     return OM_OK;
 #else
@@ -359,7 +365,7 @@ OmRet workqueue_stop(Workqueue *wq)
         osal_irq_unlock(key);
     }
 
-#if (OM_OSAL_PORT == OSAL_PORT_NONE)
+#if defined(OM_OSAL_PORT) && (OM_OSAL_PORT == OSAL_PORT_NONE)
     /** 坍缩形态：无 worker 可停；入队即执行故无 pending 可排空 */
     wq->state = WORKQUEUE_STATE_IDLE;
     return OM_OK;
@@ -435,7 +441,7 @@ OmRet workqueue_enqueue(Workqueue *wq, Work *work)
         return OM_ERROR;
     }
 
-#if (OM_OSAL_PORT == OSAL_PORT_NONE)
+#if defined(OM_OSAL_PORT) && (OM_OSAL_PORT == OSAL_PORT_NONE)
     /** 坍缩直调：入队即执行（任务上下文）。ISR 无执行载体——显式拒绝：
      *  ISR 交接走同步面 *_from_isr + 任务上下文提交。 */
     if (osal_is_in_isr())

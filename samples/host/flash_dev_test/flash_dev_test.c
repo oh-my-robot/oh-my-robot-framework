@@ -1,6 +1,6 @@
 /**
  * @file   flash_dev_test.c
- * @brief  FlashDev v1 框架 host 仿真测试（同步语义 + 异步执行模型）
+ * @brief  FlashDev v1 框架 host 仿真测试（同步语义 + 每设备互斥）
  *
  * 夹具：flash_sim_u（均匀 256KB：扇区 4KB×64、writeUnit 4）
  *       flash_sim_f（F407 形 1MB：双 bank 非均一 16K×4+64K+128K×3）
@@ -8,9 +8,9 @@
  * 测试面（v1）：
  *   T1 注册/查找/几何合法性    T2 读语义
  *   T3 擦除语义（均匀/非均一）  T4 program 语义
- *   T5 DevInterface            T6 多设备独立域并行
- *   T7 异步执行模型（async 链/队列满 BUSY/回调内同步拒绝/回调内再提交）
- *   T8 后端错误注入传播（同步/异步回调收错、失败不落位、队列不楔死）
+ *   T5 DevInterface            T6 跨设备并行（锁按设备实例）
+ *   T7 执行模型（调用者上下文同步 + 同设备互斥）
+ *   T8 后端错误注入传播（同步返回错误、失败不落位、擦后校验、锁不泄漏）
  *
  * 返回码：g_fail == 0 退出 0，否则退出 1。
  */
@@ -22,7 +22,6 @@
 
 #include "drivers/model/device.h"
 #include "drivers/peripheral/flash/pal_flash_dev.h"
-#include "osal/osal_sem.h"
 #include "osal/osal_thread.h"
 #include "osal/osal_time.h"
 
@@ -32,10 +31,12 @@
 #include <windows.h>
 #define THREAD_FN(fn) static DWORD WINAPI fn(LPVOID arg)
 typedef HANDLE ThreadHandle;
+typedef DWORD(WINAPI *ThreadFn)(LPVOID);
 #else
 #include <pthread.h>
 #define THREAD_FN(fn) static void *fn(void *arg)
 typedef pthread_t ThreadHandle;
+typedef void *(*ThreadFn)(void *);
 #endif
 
 /* ===================================================================
@@ -117,21 +118,120 @@ static FlashSim sim_f;
 
 static uint8_t g_buf[8192]; /* 主线程读写缓冲 */
 
-/* 异步测试事件（每用例一个轮次） */
-static OsalSem *g_evt;
-static volatile int g_cbCount;
-static OmRet g_cbSyncRet;
-static volatile OmRet g_cbErrStatus; /* T8：回调收到的后端错误码 */
+/* ===================================================================
+ * 线程辅助（T6/T7 并发用例共用）
+ * =================================================================== */
 
-static void test_evt_init(void)
+static unsigned long test_thread_id(void)
 {
-    osal_sem_create(&g_evt, 1u, 0u);
+#ifdef _WIN32
+    return (unsigned long)GetCurrentThreadId();
+#else
+    return (unsigned long)pthread_self();
+#endif
 }
 
-static int test_evt_wait(uint32_t timeout_ms)
+static long test_atomic_inc(volatile long *p)
 {
-    return osal_sem_wait(g_evt, timeout_ms) == OSAL_OK;
+#ifdef _WIN32
+    return InterlockedIncrement(p);
+#else
+    return __sync_add_and_fetch(p, 1);
+#endif
 }
+
+static long test_atomic_dec(volatile long *p)
+{
+#ifdef _WIN32
+    return InterlockedDecrement(p);
+#else
+    return __sync_sub_and_fetch(p, 1);
+#endif
+}
+
+static ThreadHandle test_thread_spawn(ThreadFn fn, void *arg)
+{
+    ThreadHandle th = {0};
+#ifdef _WIN32
+    th = CreateThread(NULL, 0, fn, arg, 0, NULL);
+#else
+    if (pthread_create(&th, NULL, fn, arg) != 0)
+    {
+        th = 0;
+    }
+#endif
+    return th;
+}
+
+static void test_thread_join(ThreadHandle th)
+{
+    if (!th)
+    {
+        return; /* 创建失败：无可等待对象 */
+    }
+#ifdef _WIN32
+    WaitForSingleObject(th, INFINITE);
+    CloseHandle(th);
+#else
+    pthread_join(th, NULL);
+#endif
+}
+
+/* ===================================================================
+ * 后端探针：包裹 sim 后端，统计"同时处于后端内的调用数"与后端实际线程
+ *
+ * 互斥成立时该数恒为 1，且同设备并发线程的峰值也是 1；
+ * 跨设备并行时峰值应达到 2。计数即锁有效性的直接证据，不依赖耗时。
+ * =================================================================== */
+
+static volatile long g_inBackend;
+static volatile long g_maxInBackend;
+static volatile unsigned long g_backendTid;
+
+static void backend_enter(void)
+{
+    long n = test_atomic_inc(&g_inBackend);
+    if (n > g_maxInBackend)
+    {
+        g_maxInBackend = n;
+    }
+    g_backendTid = test_thread_id();
+}
+
+static void backend_exit(void)
+{
+    (void)test_atomic_dec(&g_inBackend);
+}
+
+static OmRet wrap_read(FlashDev *dev, uint32_t addr, void *buf, size_t len)
+{
+    backend_enter();
+    OmRet r = flash_sim_read(dev, addr, buf, len);
+    backend_exit();
+    return r;
+}
+
+static OmRet wrap_write(FlashDev *dev, uint32_t addr, const void *data, size_t len)
+{
+    backend_enter();
+    OmRet r = flash_sim_write(dev, addr, data, len);
+    backend_exit();
+    return r;
+}
+
+static OmRet wrap_erase(FlashDev *dev, uint32_t addr, size_t len)
+{
+    backend_enter();
+    OmRet r = flash_sim_erase(dev, addr, len);
+    backend_exit();
+    return r;
+}
+
+static const FlashOps wrap_ops = {
+    .read = wrap_read,
+    .write = wrap_write,
+    .erase = wrap_erase,
+};
 
 /* ===================================================================
  * T1: 注册 / 查找 / 几何
@@ -141,10 +241,10 @@ static void test_register_find(void)
 {
     printf("[T1] register / find / geometry\n");
 
-    CHECK(flash_register(&dev_u, "flash_sim_u", &geom_uniform, &sim_ops, &sim_u, NULL) == OM_OK,
-          "register uniform flash_sim_u (auto domain)");
-    CHECK(flash_register(&dev_f, "flash_sim_f", &geom_f407, &sim_ops, &sim_f, NULL) == OM_OK,
-          "register non-uniform flash_sim_f (auto domain)");
+    CHECK(flash_register(&dev_u, "flash_sim_u", &geom_uniform, &wrap_ops, &sim_u) == OM_OK,
+          "register uniform flash_sim_u");
+    CHECK(flash_register(&dev_f, "flash_sim_f", &geom_f407, &wrap_ops, &sim_f) == OM_OK,
+          "register non-uniform flash_sim_f");
     CHECK(flash_find("flash_sim_u") == &dev_u, "flash_find by name");
     CHECK(flash_find("no_such_dev") == NULL, "flash_find miss -> NULL");
     CHECK(flash_find(NULL) == NULL, "flash_find(NULL) -> NULL");
@@ -155,31 +255,31 @@ static void test_register_find(void)
     memset(&bad, 0, sizeof(bad));
     FlashGeometry bad_geom = geom_uniform;
     bad_geom.capacity = 0;
-    CHECK(flash_register(&bad, "flash_bad0", &bad_geom, &sim_ops, NULL, NULL) ==
+    CHECK(flash_register(&bad, "flash_bad0", &bad_geom, &sim_ops, NULL) ==
               OM_ERR_INVALID_ARG,
           "reject capacity==0");
     bad_geom = geom_uniform;
     bad_geom.sectorSize = 0;
     bad_geom.sectorRegions = NULL;
-    CHECK(flash_register(&bad, "flash_bad1", &bad_geom, &sim_ops, NULL, NULL) ==
+    CHECK(flash_register(&bad, "flash_bad1", &bad_geom, &sim_ops, NULL) ==
               OM_ERR_INVALID_ARG,
           "reject non-uniform w/o region table");
     bad_geom = geom_uniform;
     bad_geom.sectorSize = 1000u;
-    CHECK(flash_register(&bad, "flash_bad2", &bad_geom, &sim_ops, NULL, NULL) ==
+    CHECK(flash_register(&bad, "flash_bad2", &bad_geom, &sim_ops, NULL) ==
               OM_ERR_INVALID_ARG,
           "reject capacity %% sectorSize != 0");
     bad_geom = geom_uniform;
     bad_geom.writeUnit = 0;
-    CHECK(flash_register(&bad, "flash_bad3", &bad_geom, &sim_ops, NULL, NULL) ==
+    CHECK(flash_register(&bad, "flash_bad3", &bad_geom, &sim_ops, NULL) ==
               OM_ERR_INVALID_ARG,
           "reject writeUnit==0");
     FlashOps no_ops = sim_ops;
     no_ops.erase = NULL;
-    CHECK(flash_register(&bad, "flash_bad4", &geom_uniform, &no_ops, NULL, NULL) ==
+    CHECK(flash_register(&bad, "flash_bad4", &geom_uniform, &no_ops, NULL) ==
               OM_ERR_INVALID_ARG,
           "reject ops missing erase");
-    CHECK(flash_register(&bad, "flash_sim_u", &geom_uniform, &sim_ops, NULL, NULL) ==
+    CHECK(flash_register(&bad, "flash_sim_u", &geom_uniform, &sim_ops, NULL) ==
               OM_ERR_CONFLICT,
           "duplicate name -> CONFLICT");
 }
@@ -205,8 +305,8 @@ static void test_read(void)
     CHECK(true, "erased bytes read back as 0xFF");
 
     CHECK(flash_read(&dev_u, 0u, NULL, 0u) == OM_OK, "len==0 w/ NULL buf -> OK");
-    CHECK(flash_read(&dev_u, CAP_U, g_buf, 1u) == OM_ERR_INVALID_ARG, "addr==capacity OOB");
-    CHECK(flash_read(&dev_u, CAP_U - 1u, g_buf, 2u) == OM_ERR_INVALID_ARG, "len crosses end");
+    CHECK(flash_read(&dev_u, CAP_U, g_buf, 1u) == OM_ERR_RANGE, "addr==capacity OOB");
+    CHECK(flash_read(&dev_u, CAP_U - 1u, g_buf, 2u) == OM_ERR_RANGE, "len crosses end");
     CHECK(flash_read(&dev_u, 0u, NULL, 1u) == OM_ERR_INVALID_ARG, "buf NULL w/ len>0");
     CHECK(flash_read(NULL, 0u, g_buf, 1u) == OM_ERR_INVALID_ARG, "dev NULL");
 }
@@ -310,7 +410,7 @@ static void test_device_interface(void)
 }
 
 /* ===================================================================
- * T6: 多设备独立域并行（慢设备不拖累快设备）
+ * T6: 跨设备并行（锁按设备实例：一个设备不让其它设备等待）
  * =================================================================== */
 
 typedef struct
@@ -367,44 +467,33 @@ THREAD_FN(flash_para_worker)
     return 0;
 }
 
-static void test_parallel_domains(void)
+static void test_cross_device_parallel(void)
 {
-    printf("[T6] multi-device parallel domains\n");
+    printf("[T6] cross-device parallelism (per-device lock)\n");
 
-    /* u 慢（每操作 8ms，总 ~数百 ms）；f 瞬时。若共享执行者，f 会被 u 拖到
-     * u 之后才完成；独立域下 f 应远早于 u 完成。 */
-    flash_sim_set_delay(&sim_u, 8u);
-    flash_sim_set_delay(&sim_f, 0u);
+    /* 两设备各设延迟，使两 worker 大部分时间停在后端内：跨设备并发达标时
+     * 后端内在飞调用数会达到 2（同设备并发用例 T7.3 的峰值为 1） */
+    g_inBackend = 0;
+    g_maxInBackend = 0;
+    flash_sim_set_delay(&sim_u, 2u);
+    flash_sim_set_delay(&sim_f, 2u);
 
-    ParaArg au = {&dev_u, 0x10000u, 0x8000u, 15u, 0u, 0u}; /* 32KB = 8 扇区，u 区 */
-    ParaArg af = {&dev_f, 0x80000u, 0x4000u, 30u, 0u, 0u}; /* 16KB = bank2 首 16K 扇区 */
-    ThreadHandle th_u;
-    ThreadHandle th_f;
-
-#ifdef _WIN32
-    th_u = CreateThread(NULL, 0, flash_para_worker, &au, 0, NULL);
-    th_f = CreateThread(NULL, 0, flash_para_worker, &af, 0, NULL);
-    CHECK(th_u != NULL && th_f != NULL, "spawn parallel workers");
-    WaitForMultipleObjects(2, (HANDLE[]){th_u, th_f}, TRUE, INFINITE);
-    CloseHandle(th_u);
-    CloseHandle(th_f);
-#else
-    CHECK(pthread_create(&th_u, NULL, flash_para_worker, &au) == 0, "spawn worker u");
-    CHECK(pthread_create(&th_f, NULL, flash_para_worker, &af) == 0, "spawn worker f");
-    pthread_join(th_u, NULL);
-    pthread_join(th_f, NULL);
-#endif
+    ParaArg au = {&dev_u, 0x10000u, 0x1000u, 3u, 0u, 0u}; /* 1 扇区 */
+    ParaArg af = {&dev_f, 0x80000u, 0x4000u, 3u, 0u, 0u}; /* bank2 首个 16K 扇区 */
+    ThreadHandle th_u = test_thread_spawn(flash_para_worker, &au);
+    ThreadHandle th_f = test_thread_spawn(flash_para_worker, &af);
+    CHECK(th_u != 0 && th_f != 0, "spawn cross-device workers");
+    test_thread_join(th_u);
+    test_thread_join(th_f);
 
     CHECK(au.fails == 0 && af.fails == 0, "both workers clean (no cross-talk)");
-    printf("  info: slow-u elapsed=%u ms, fast-f elapsed=%u ms\n", (unsigned)au.elapsedMs,
+    printf("  info: u elapsed=%u ms, f elapsed=%u ms\n", (unsigned)au.elapsedMs,
            (unsigned)af.elapsedMs);
-    CHECK(au.elapsedMs >= 200u, "slow device actually took its own time (%u ms)",
-          (unsigned)au.elapsedMs);
-    /* 若共享执行者：f 请求排队在 u 之后，完成时刻 > u 总时长；独立域下 f 先于 u 完成 */
-    CHECK(af.elapsedMs < au.elapsedMs,
-          "fast device not dragged by slow device (independent domains)");
+    CHECK(g_maxInBackend >= 2, "two devices were in backend at the same time (peak=%ld)",
+          g_maxInBackend);
+    CHECK(g_inBackend == 0, "in-flight counter balanced after cross-device run");
 
-    /* 数据完整性：u 区 = u pattern */
+    /* 数据完整性：各设备区 = 各自 pattern */
     uint8_t probe = 0;
     flash_read(&dev_u, 0x10000u, &probe, 1u);
     CHECK(probe == (uint8_t)(0xA0 | (0x10000u >> 12)), "u region holds own pattern");
@@ -412,156 +501,54 @@ static void test_parallel_domains(void)
     CHECK(probe == (uint8_t)(0xA0 | (0x80000u >> 12)), "f region holds own pattern");
 
     flash_sim_set_delay(&sim_u, 0u);
+    flash_sim_set_delay(&sim_f, 0u);
 }
 
 /* ===================================================================
- * T7: 异步执行模型
+ * T7: 执行模型——调用者上下文同步 + 每设备互斥
  * =================================================================== */
 
-/* 无操作回调（计数用） */
-static void t7_noop_cb(FlashDev *dev, OmRet status, void *param)
+static void test_sync_model(void)
 {
-    (void)dev;
-    (void)status;
-    (void)param;
-    g_cbCount++;
-}
+    printf("[T7] execution model (caller context + per-device lock)\n");
 
-/* T7.1 设备级链回调：阶段机推进 erase → write → read 校验 → 事件
- * （设备完成通知是"单一入口"：回调内按阶段自推进，典型链式用法） */
-static int g_chainStage;
-
-static void t7_chain_cb(FlashDev *dev, OmRet status, void *param)
-{
-    (void)param;
-    g_cbCount++;
-    if (g_chainStage == 0)
-    {
-        /* erase 完成 → 提交 write */
-        g_chainStage = 1;
-        if (status != OM_OK)
-        {
-            osal_sem_post(g_evt);
-            return;
-        }
-        static uint8_t pat[128];
-        for (uint32_t i = 0; i < sizeof(pat); i++)
-        {
-            pat[i] = (uint8_t)(0x11 + i);
-        }
-        g_cbSyncRet = flash_write_async(dev, 0x20000u, pat, sizeof(pat));
-        if (g_cbSyncRet != OM_OK)
-        {
-            printf("  dbg: cb write_async ret=%d\n", (int)g_cbSyncRet);
-            osal_sem_post(g_evt); /* 失败也放行，避免测试死等 */
-        }
-        return;
-    }
-    /* write 完成 → read 校验 */
-    static uint8_t rbuf[128];
-    OmRet r = flash_read(dev, 0x20000u, rbuf, sizeof(rbuf)); /* 回调内直跑（设备空闲） */
-    if (r == OM_OK && rbuf[0] == 0x11 && rbuf[127] == (uint8_t)(0x11 + 127))
-    {
-        CHECK(true, "async chain content verified in callback");
-    }
-    else
-    {
-        CHECK(false, "async chain content mismatch (r=%d)", (int)r);
-    }
-    osal_sem_post(g_evt);
-}
-
-/* T7.3 回调内同步调用 → 同域拒绝 BUSY */
-static void t7_cb_sync_in_worker(FlashDev *dev, OmRet status, void *param)
-{
-    (void)status;
-    (void)param;
-    g_cbCount++;
-    g_cbSyncRet = flash_erase(dev, 0x30000u, SECT_U); /* 应被同域拒绝 */
-    osal_sem_post(g_evt);
-}
-
-/* T7.5 无完成通知（setter 未注册）：入队即忘（轮询式等完成） */
-static void test_async_null_done(void)
-{
-    flash_set_done_cb(&dev_u, NULL, NULL);
-    CHECK(flash_erase_async(&dev_u, 0x3C000u, SECT_U) == OM_OK,
-          "async erase w/ no done cb submitted");
-    for (int i = 0; i < 200; i++)
-    {
-        uint8_t b = 0;
-        flash_read(&dev_u, 0x3C000u, &b, 1u);
-        if (b == 0xFF)
-        {
-            break; /* 完成（擦后空白） */
-        }
-        osal_sleep_ms(5);
-    }
-    uint8_t b = 0;
-    flash_read(&dev_u, 0x3C000u, &b, 1u);
-    CHECK(b == 0xFF, "NULL-done async completed (region erased)");
-}
-
-static void test_async(void)
-{
-    printf("[T7] async execution model\n");
-
-    /* T7.1 设备级回调链（erase 完成 → 回调内提交 write → 校验） */
-    g_cbCount = 0;
-    g_chainStage = 0;
-    g_cbSyncRet = OM_OK;
-    flash_set_done_cb(&dev_u, t7_chain_cb, NULL);
-    CHECK(flash_erase_async(&dev_u, 0x20000u, SECT_U) == OM_OK,
-          "async erase submitted (returns immediately)");
-    CHECK(test_evt_wait(2000u), "async chain completed via callbacks");
-    CHECK(g_cbCount == 2, "two callbacks fired (erase+write)");
-
-    /* T7.2 队列满 → BUSY（慢后端稳定在途：req1 执行 40ms 期间 req2 排队占满 2 槽） */
-    flash_sim_set_delay(&sim_u, 40u);
-    g_cbCount = 0;
-    flash_set_done_cb(&dev_u, t7_noop_cb, NULL);
-    CHECK(flash_erase_async(&dev_u, 0x30000u, SECT_U) == OM_OK,
-          "req1 submitted (in-flight)");
-    osal_sleep_ms(10); /* req1 仍在执行（40ms 未完） */
-    CHECK(flash_erase_async(&dev_u, 0x31000u, SECT_U) == OM_OK,
-          "req2 submitted (queued)");
-    osal_sleep_ms(5);
-    CHECK(flash_erase_async(&dev_u, 0x32000u, SECT_U) == OM_ERR_FLASH_BUSY,
-          "req3 rejected: queue full");
-    for (int i = 0; i < 100 && g_cbCount < 2; i++)
-    {
-        osal_sleep_ms(10);
-    }
-    CHECK(g_cbCount == 2, "both queued requests completed");
+    /* T7.1 后端在调用者线程上执行：本层不持有任何线程 */
+    g_backendTid = 0u;
     flash_sim_set_delay(&sim_u, 0u);
+    CHECK(flash_read(&dev_u, 0u, g_buf, 4u) == OM_OK, "read via instrumented backend");
+    CHECK(g_backendTid == test_thread_id(), "backend ran on the calling thread");
 
-    /* T7.3 回调内同步调用（同域 worker）→ BUSY 拒绝，不死锁 */
-    g_cbCount = 0;
-    g_cbSyncRet = OM_OK;
-    flash_sim_set_delay(&sim_u, 10u);
-    flash_set_done_cb(&dev_u, t7_cb_sync_in_worker, NULL);
-    CHECK(flash_erase_async(&dev_u, 0x30000u, SECT_U) == OM_OK,
-          "async erase w/ sync-in-callback submitted");
-    CHECK(test_evt_wait(2000u), "callback executed (no deadlock)");
-    CHECK(g_cbSyncRet == OM_ERR_FLASH_BUSY, "sync wait inside worker rejected (BUSY)");
+    /* T7.2 同步返回：调用返回时操作已结束、结果已定，无通知机制参与 */
+    flash_sim_set_delay(&sim_u, 5u);
+    uint32_t t0 = (uint32_t)osal_time_now_monotonic();
+    CHECK(flash_erase(&dev_u, 0x20000u, SECT_U) == OM_OK, "erase via instrumented backend");
+    uint32_t dt = (uint32_t)osal_time_now_monotonic() - t0;
+    CHECK(dt >= 5u, "call returned no earlier than backend completion (%u ms)", (unsigned)dt);
+
+    /* T7.3 同设备互斥：两线程并发同设备，后端内在飞调用数恒为 1
+     * （两线程各占独立扇区、各持自 pattern——互斥失效时计数与数据同时可见） */
+    g_inBackend = 0;
+    g_maxInBackend = 0;
+    flash_sim_set_delay(&sim_u, 2u);
+    ParaArg a1 = {&dev_u, 0x0000u, 0x2000u, 6u, 0u, 0u};
+    ParaArg a2 = {&dev_u, 0x2000u, 0x2000u, 6u, 0u, 0u};
+    ThreadHandle th1 = test_thread_spawn(flash_para_worker, &a1);
+    ThreadHandle th2 = test_thread_spawn(flash_para_worker, &a2);
+    CHECK(th1 != 0 && th2 != 0, "spawn same-device workers");
+    test_thread_join(th1);
+    test_thread_join(th2);
+    CHECK(a1.fails == 0 && a2.fails == 0, "same-device workers clean (no torn operation)");
+    CHECK(g_maxInBackend == 1, "backend never entered concurrently on one device (peak=%ld)",
+          g_maxInBackend);
+    CHECK(g_inBackend == 0, "in-flight counter balanced after same-device run");
+
     flash_sim_set_delay(&sim_u, 0u);
-
-    /* T7.5 done == NULL */
-    test_async_null_done();
 }
 
 /* ===================================================================
  * T8: 后端错误注入——错误传播语义（后端 IO 错误必须到达调用者：
- *     同步原语返回错误码、异步回调收到错误、失败不落位、队列不楔死）
+ *     同步返回错误码、失败不落位、擦后校验识别结构性不可用、锁不泄漏）
  * =================================================================== */
-
-static void t8_err_cb(FlashDev *dev, OmRet status, void *param)
-{
-    (void)dev;
-    (void)param;
-    g_cbErrStatus = status;
-    osal_sem_post(g_evt);
-}
 
 static void test_backend_error(void)
 {
@@ -597,26 +584,27 @@ static void test_backend_error(void)
               g_buf[0] == 0xFF,
           "failed write left content untouched");
 
-    /* T8.3 异步：注入下回调收到 IO 错误；槽释放——解除后新请求正常完成 */
-    flash_sim_set_fail(&sim_u, true);
-    g_cbErrStatus = OM_OK;
-    flash_set_done_cb(&dev_u, t8_err_cb, NULL);
-    CHECK(flash_erase_async(&dev_u, 0x3F000u, SECT_U) == OM_OK,
-          "async erase submitted while backend failing");
-    CHECK(test_evt_wait(2000u), "callback fired on backend error");
-    CHECK(g_cbErrStatus == OM_ERR_FLASH_IO, "async callback received backend IO error");
+    /* T8.3 擦后校验：后端"报告成功但不落位"（擦除单元失效）→ UNUSABLE。
+     * 与 IO 刻意分开：IO 是这一次操作失败（重试同一区），UNUSABLE 是这块区
+     * 已验证不可用（跳过该区）——合用一个码则消费者无从选择策略 */
+    flash_sim_set_silent_erase_fail(&sim_u, true);
+    CHECK(flash_erase(&dev_u, 0x3F000u, SECT_U) == OM_ERR_FLASH_UNUSABLE,
+          "silent erase failure caught by post-erase verify (UNUSABLE, not IO)");
+    CHECK(flash_read(&dev_u, 0x3F000u, g_buf, 4u) == OM_OK && g_buf[0] == 0x00,
+          "region really unerased (verdict came from the medium, not the report)");
+    flash_sim_set_silent_erase_fail(&sim_u, false);
+    CHECK(flash_erase(&dev_u, 0x3F000u, SECT_U) == OM_OK, "verify passes once medium recovers");
 
+    /* T8.4 错误路径不泄漏设备锁：注入失败后锁已释放（直接探测锁对象，
+     * 不用 flash_* 调用——锁若泄漏，同线程重入会死等） */
+    flash_sim_set_fail(&sim_u, true);
+    (void)flash_erase(&dev_u, 0x3F000u, SECT_U);
+    (void)flash_write(&dev_u, 0x3F000u, pat, sizeof(pat));
     flash_sim_set_fail(&sim_u, false);
-    g_cbCount = 0;
-    flash_set_done_cb(&dev_u, t7_noop_cb, NULL);
-    CHECK(flash_erase_async(&dev_u, 0x3F000u, SECT_U) == OM_OK,
-          "async erase OK after fault cleared (queue not wedged)");
-    for (int i = 0; i < 100 && g_cbCount < 1; i++)
-    {
-        osal_sleep_ms(10);
-    }
-    CHECK(g_cbCount == 1, "post-error async completed via callback");
-    flash_set_done_cb(&dev_u, NULL, NULL);
+    CHECK(dev_u.lock != NULL && osal_mutex_lock(dev_u.lock, 200u) == OSAL_OK,
+          "device lock free after backend errors (no leak on error path)");
+    osal_mutex_unlock(dev_u.lock);
+    CHECK(flash_erase(&dev_u, 0x3F000u, SECT_U) == OM_OK, "device usable after errors");
 }
 
 /* ===================================================================
@@ -630,7 +618,6 @@ int main(void)
     flash_sim_init(&sim_u, CAP_U, 0xFFu, 4u);
     flash_sim_init(&sim_f, CAP_F, 0xFFu, 4u);
     CHECK(sim_u.mem != NULL && sim_f.mem != NULL, "sim memory allocated");
-    test_evt_init();
 
     test_register_find();
     test_read();
@@ -638,13 +625,12 @@ int main(void)
     test_program();
     test_device_interface();
     test_erase_nonuniform();
-    test_parallel_domains();
-    test_async();
+    test_cross_device_parallel();
+    test_sync_model();
     test_backend_error();
 
     flash_sim_deinit(&sim_u);
     flash_sim_deinit(&sim_f);
-    osal_sem_delete(g_evt);
 
     printf("=== %d passed, %d failed ===\n", g_pass, g_fail);
     return g_fail == 0 ? 0 : 1;

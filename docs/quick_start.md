@@ -198,7 +198,7 @@ target_end()
 - `set_policy("build.optimization.lto", false)`：默认关闭顶层 LTO，由 OM 上下文规则按工具链决定是否启用。
 - `add_rules("plugin.compile_commands.autoupdate", ...)`：自动生成 `compile_commands.json`（给 Clangd 用）。
 - `includes("oh-my-robot")`：加载 OM 构建入口。
-- `target("robot_project")`：定义最终编译目标的“目标名”（供 `xmake flash --target=...`、`flash.jlink.target` 使用）。
+- `target("robot_project")`：定义最终编译目标名（也是 `.vscode/launch.json` 中 `executable` 的文件名前缀）。
 - `set_kind("binary")`：目标是可执行镜像。
 - `set_filename("robot_project.elf")`：输出文件名（供调试配置中的 `executable` 路径使用）。
 - `add_deps("tar_oh_my_robot")`：依赖 OM 的聚合静态库目标。
@@ -230,7 +230,7 @@ xmake
 - 项目根目录下的 `om_preset.lua`
 
 作用：
-- 固定本机的工具链路径、默认板卡、默认 OS、烧录参数。
+- 固定本机的工具链路径、默认板卡、默认 OS。
 - 避免每次 `xmake f` 都手工输入 `--sdk` 和 `--bin`。
 - 这个文件只对当前项目根生效。
 
@@ -267,27 +267,6 @@ local preset = {
     },
   },
 
-  -- 烧录器预设
-  flash = {
-    flasher = "jlink",                -- 默认烧录器：jlink / daplink
-    target = "robot_project",
-    firmware = nil,
-    prefer_hex = true,
-    reset = true,
-    run = true,
-    native_output = false,
-    jlink = {
-      device = "STM32F407IG",
-      interface = "swd",
-      speed = 4000,
-      program = "D:/Program Files/ProgramTools/SEGGER/Jlink/JLink.exe", -- 找不到 JLink 时请改
-    },
-    daplink = {
-      program = "D:/openocd-win/bin/openocd.exe",   -- 找不到 openocd 时请改
-      config = ".vscode/daplink.cfg",               -- OpenOCD 配置文件路径
-      frequency = 4000,
-    },
-  },
 }
 
 function get_preset()
@@ -295,46 +274,21 @@ function get_preset()
 end
 ```
 
-### 3.3 重要说明：当前调试器支持范围
-- `om_preset.flash` 同时支持 `flash.jlink` 与 `flash.daplink` 两种调试器。
-- 通过 `flash.flasher` 字段指定默认烧录器（`"jlink"` 或 `"daplink"`），命令行 `--flasher=...` 可覆盖。
-- J-Link 使用 JLink.exe 命令行工具烧录；DAPLink 使用 OpenOCD 烧录。
-- 通用字段（`target`/`firmware`/`prefer_hex`/`reset`/`run`/`native_output`）对两种烧录器均生效。
+### 3.3 烧录与调试（外部工具）
+- `om_preset.lua` 只负责 board/os/toolchain 选择与路径配置，不包含烧录/调试参数。
+- 烧录/下载使用外部工具（J-Link Commander、OpenOCD、pyOCD 等）；XMake 只产出 `.elf` / `.hex` / `.bin`。
+- 调试使用外部工具（VSCode Cortex-Debug 等）；armclang 推荐 `.elf` 作符号、`.hex` 作下载。
 
-### 3.4 每个常用参数是什么意思
-参数优先级（非常重要）：
-- 命令行参数 > 项目根 `om_preset.lua` > 构建系统默认值
+### 3.4 构建参数速查
+参数优先级：命令行参数 > 项目根 `om_preset.lua` > 构建系统默认值。
 
-当前仓库可选值（按现有实现）：
-- `board.name`：`rm-c-board`
-- `os.name`：`freertos`
-- `toolchain_default.name`：`gnu-rm` 或 `armclang`
-
-| 字段 | 含义 | 你是否通常需要修改 |
+| 字段 | 含义 | 通常是否需要修改 |
 | --- | --- | --- |
 | `board.name` | 选择板卡 | 一般不改（除非新增板卡） |
 | `os.name` | 选择 OS/RTOS | 一般不改（当前常用 `freertos`） |
-| `toolchain_default.name` | 默认使用哪个工具链 | 可按习惯改 |
-| `toolchain_presets.<name>.sdk` | 工具链根目录 | 通常必须改成你本机路径 |
-| `toolchain_presets.<name>.bin` | 工具链可执行目录 | 通常必须改成你本机路径 |
-| `flash.flasher` | 默认烧录器类型 | 可选 `"jlink"` / `"daplink"` |
-| `flash.target` | 烧录目标名（XMake 目标名） | 必须与 `target("...")` 一致 |
-| `flash.firmware` | 手工指定固件路径 | 一般留空，自动选产物 |
-| `flash.prefer_hex` | 自动选择固件时优先 HEX | 一般保留 `true` |
-| `flash.reset` | 烧录前后是否复位 | 一般保留 `true` |
-| `flash.run` | 烧录后是否运行 | 调试停机时可改 |
-| `flash.native_output` | 是否显示原生 CLI 输出 | 排错时改为 `true` |
-| `flash.jlink.device` | 芯片名（J-Link 用） | 芯片变化时改 |
-| `flash.jlink.interface` | 调试接口（如 `swd`） | 一般不改 |
-| `flash.jlink.speed` | 下载速度（kHz） | 速度不稳时改 |
-| `flash.jlink.program` | `JLink.exe` 路径 | 自动发现失败时改 |
-| `flash.daplink.program` | `openocd.exe` 路径 | 自动发现失败时改 |
-| `flash.daplink.config` | OpenOCD 配置文件路径 | 按探针类型修改 |
-| `flash.daplink.frequency` | 适配器频率（Hz） | 速度不稳时改 |
-
-兼容项说明：
-- `flash.file` 与 `flash.firmware` 都可识别，但新配置建议只用 `flash.firmware`。
-- 旧格式（`flash.jlink` 内直接写 `target`/`firmware` 等通用字段）仍然兼容，但推荐将通用字段提升到 `flash` 层级。
+| `toolchain_default.name` | 默认工具链 | 可按习惯改 |
+| `toolchain_presets.<name>.sdk` | 工具链根目录 | 必须改成你本机路径 |
+| `toolchain_presets.<name>.bin` | 工具链可执行目录 | 必须改成你本机路径 |
 
 ### 3.5 写完后怎么确认没写错
 ```powershell
@@ -342,22 +296,7 @@ xmake f -c --toolchain=gnu-rm -m debug
 xmake f -c --toolchain=armclang -m debug --semihosting=off
 ```
 
-期望结果：
-- 不报 `sdk/bin not found`。
-- 若报 `armclang toolset_as unsupported`：请不要手工指定 `toolset_as=armasm`，当前版本仅支持 `toolset_as=armclang`。
-- 若需要检查烧录器输出：
-```powershell
-xmake flash --native_output=true
-```
-- 若需使用 DAPLink 烧录：
-```powershell
-xmake flash --flasher=daplink
-```
-
-### 3.6 `flash.target` 到底要填什么（高频混淆）
-- `flash.target` 填的是 **XMake 目标名**，不是文件名。
-- 在本项目里，它应当与 `xmake.lua` 里的 `target("robot_project")` 保持一致。
-- 它不等于 `set_filename("robot_project.elf")` 里的文件名。
+期望结果：不报 `sdk/bin not found`；armclang 不支持 `toolset_as=armasm`。
 
 ## 4. 配置 VSCode 调试（`.vscode/launch.json`）
 
@@ -486,23 +425,21 @@ xmake flash --flasher=daplink
   - 若构建使用 `--semihosting=off`，可移除 semihosting 相关命令，仅保留 `set mem inaccessible-by-default off`。
 
 ### 4.6 与 `om_preset.lua` 的关系
-- `om_preset.lua`：决定构建与烧录默认参数（例如工具链路径、J-Link/OpenOCD 参数）。
-- `.vscode/launch.json`：决定 VSCode 调试时如何连接并加载程序。
+- `om_preset.lua`：决定构建默认参数（例如工具链路径、board/os）；不包含烧录/调试参数。
+- `.vscode/launch.json`：决定 VSCode 调试时如何连接并加载程序（外部工具配置）。
 - `.vscode/daplink.cfg`：OpenOCD 配置文件，指定调试探针与目标芯片。
 - 各文件路径都要指向你本机真实安装位置。
 
 ### 4.7 跨模块 `name` 映射关系（必须一致的部分）
 | 概念 | 配置位置 | 示例 | 关系规则 |
 | --- | --- | --- | --- |
-| XMake 目标名 | `xmake.lua` 的 `target(“...”)` | `target(“robot_project”)` | 这是”目标 ID”，给 `xmake flash --target=...` 与 `flash.target` 使用 |
-| 烧录目标名 | `om_preset.lua` 的 `flash.target` | `target = “robot_project”` | 必须与 `target(“...”)` 完全一致 |
-| 输出文件名 | `xmake.lua` 的 `set_filename(“...”)` | `set_filename(“robot_project.elf”)` | 仅决定产物文件名，不参与目标查找 |
+| XMake 目标名 | `xmake.lua` 的 `target(“...”)` | `target(“robot_project”)` | 这是目标 ID |
+| 输出文件名 | `xmake.lua` 的 `set_filename(“...”)` | `set_filename(“robot_project.elf”)` | 仅决定产物文件名 |
 | 调试符号文件路径 | `.vscode/launch.json` 的 `executable` | `build/cross/arm/debug/robot_project.elf` | 必须指向 `set_filename` 生成的真实 ELF 路径 |
 | OpenOCD 配置 | `.vscode/daplink.cfg` | `adapter serial 5627220232` | 指定 CMSIS-DAP 探针序列号与目标芯片 |
-| 调试配置显示名 | `.vscode/launch.json` 的 `name` | `Debug (OpenOCD / DAPLink)` | 仅用于界面显示，与构建/烧录逻辑无绑定 |
+| 调试配置显示名 | `.vscode/launch.json` 的 `name` | `Debug (OpenOCD / DAPLink)` | 仅用于界面显示，与构建逻辑无绑定 |
 
 快速判断是否填错：
-- `xmake flash` 报 “target not found”：先检查 `flash.target` 与 `target(“...”)` 是否一致。
 - VSCode 报找不到可执行文件：先检查 `launch.json` 的 `executable` 是否对应 `set_filename(...)` 的实际输出路径。
 
 ## 5. 新手常见错误

@@ -119,6 +119,11 @@ uint32_t log_dropped_overflow(void);
  *  @return >=0 = moduleId；-2 = 表满；-3 = 参数非法 */
 int log_module_check_in(const OmLogModule *module);
 
+/** @brief 按名解析模块 id（只读——backend.c 覆盖表按 id 索引用）
+ *  @param name 模块名
+ *  @return >=0 = moduleId；-1 = 未登记/不存在（首次打日志后登记——惰性语义） */
+int log_module_resolve_id(const char *name);
+
 /** @brief emit（日志线程/就绪路径）：后端接受判定 → 头部 + 流式格式化 + 尾部
  + 扇出
  *  @param msg 消息包（module/level/fmt/args/n 全内含——最小参数形态）
@@ -166,7 +171,7 @@ typedef struct
  *  @param ring 环实例（服务主体持有）
  *  @param msg 参数包（core.c 打包后传入）
  *  @note OM_LOG_ASYNC：门铃空→非空才 post（pipe 模式——节省唤醒）；
- *        =0：后接现场判定（any_accepts → drain 全量保生产序） */
+ *        =0：后接现场判定（accept_mask != 0 → drain 全量保生产序） */
 void log_ring_produce(LogRing *ring, const OmLogMsg *msg);
 
 /** @brief 消费抽环：逐条 out → log_emit_args（格式化+扇出；单消费者——SPSC 读侧）；
@@ -208,16 +213,20 @@ bool log_drop_warn(LogDropWarnState *st, const OmLogModule *module, const char *
 /** @brief 框架内部告警模块实例（"log"——丢弃告警的消息头 module 标注；不进模块注册表） */
 const OmLogModule *log_service_module(void);
 
-/** @brief 是否有后端接受该级别（过滤流水线第②步，临界区内调用）
+/** @brief 接受位图求值：bit i = 后端 i 接受该 (module, level)（used && level >= 生效级；
+ *         生效级 = 按模块覆盖命中 ? 覆盖值 : 默认级；moduleId < 0 = 未登记/表满 →
+ *         覆盖表不可查 → 按默认级（兜底））
+ *  @param module 消息模块实例
  *  @param level 消息级别
- *  @return true = 至少一个已注册后端满足 level >= 其后端级别 */
-bool log_backend_any_accepts(OmLogLevel level);
+ *  @return 接受位图（0 = 被全部后端拒绝 → 调用方零格式化快路径；一条消息求值一次，
+ *          逐段推送按位图位移——push_mask 零查表） */
+uint8_t log_backend_accept_mask(const OmLogModule *module, OmLogLevel level);
 
-/** @brief 扇出：对每个接受该级别的后端依次 push（临界区内调用）
- *  @param level 消息级别（per-backend 过滤依据）
+/** @brief 扇出：对 mask 置位的后端逐段 push（表序；不做二次过滤判定——mask 即裁判结果）
+ *  @param mask 接受位图（log_backend_accept_mask 产物）
  *  @param seg 段数据
  *  @param len 段字节数 */
-void log_backend_push_all(OmLogLevel level, const char *seg, size_t len);
+void log_backend_push_mask(uint8_t mask, const char *seg, size_t len);
 
 /** @brief panic 投递：无过滤遍历全部已注册后端，panic 钩子优先（NULL→push 尽力）
  *  @param seg 段数据

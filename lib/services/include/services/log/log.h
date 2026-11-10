@@ -1,7 +1,8 @@
 /**
  * @file log.h
  * @brief log 服务公共 API（services 层）
- * @details 统一消息环 + 流式格式化 + 模块注册制 + 后端抽象广播（per-backend 级别）。
+ * @details 统一消息环 + 流式格式化 + 模块注册制 + 后端抽象广播（后端级 = 默认级 +
+ *          按模块覆盖——每条消息按 (module, level) 交付前求值一次）。
  *          设计文档：services/log/README.md。
  *          用法：
  *            OM_LOG_MODULE(supercap, OM_LOG_LEVEL_INFO);   // 每个 .c 顶部一次
@@ -119,6 +120,34 @@ OmRet om_log_module_set_level(const char *module_name, OmLogLevel level);
 
 /** @brief 查询模块级别 */
 OmRet om_log_module_get_level(const char *module_name, OmLogLevel *level);
+
+/** @brief 设置后端对某模块的覆盖级别（后端过滤级 = 默认级 + 按模块覆盖——
+ *  消息命中覆盖即按覆盖值裁判，未命中回默认级）
+ *  @param backend_name 后端名称（strcmp 按名查找；未找到 NOT_FOUND）
+ *  @param module_name 模块名（模块首次打日志后才登记——未登记 NOT_FOUND，与
+ *        om_log_module_set_level 同惰性语义）
+ *  @param level 覆盖级别（>= OM_LOG_LEVEL_MAX = INVALID_ARG；OM_LOG_LEVEL_OFF = 显式拒——
+ *        该模块对该后端全拒；注册默认 OFF + 覆盖抬升 = 白名单形态）
+ *  @return OM_OK 成功；OM_ERR_NOT_FOUND 后端名/模块名未找到；OM_ERR_INVALID_ARG
+ *         参数非法或级别越界 */
+OmRet om_log_backend_set_module_level(const char *backend_name, const char *module_name,
+                                      OmLogLevel level);
+
+/** @brief 清除后端对某模块的覆盖（生效级回退该后端默认级）
+ *  @param backend_name 后端名称
+ *  @param module_name 模块名（未登记模块 = NOT_FOUND——模块首次打日志后登记，见
+ *        om_log_backend_set_module_level）
+ *  @return OM_OK 成功；OM_ERR_NOT_FOUND 后端名/模块名未找到；OM_ERR_INVALID_ARG 参数非法 */
+OmRet om_log_backend_clear_module_level(const char *backend_name, const char *module_name);
+
+/** @brief 查询后端对某模块的生效级（覆盖命中 → 覆盖值；未覆盖 → 该后端默认级）
+ *  @param backend_name 后端名称
+ *  @param module_name 模块名（未登记模块 = NOT_FOUND——模块首次打日志后登记，见
+ *        om_log_backend_set_module_level）
+ *  @param level 输出（NULL → OM_ERR_INVALID_ARG）
+ *  @return OM_OK 成功；OM_ERR_NOT_FOUND 后端名/模块名未找到；OM_ERR_INVALID_ARG 参数非法 */
+OmRet om_log_backend_get_module_level(const char *backend_name, const char *module_name,
+                                      OmLogLevel *level);
 
 /** @brief 读取日志统计（累计丢弃数——超限 + 消息环满）
  *  @param stats 输出（NULL → OM_ERR_INVALID_ARG）

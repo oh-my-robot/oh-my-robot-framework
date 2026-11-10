@@ -1,35 +1,23 @@
 /**
  * @file   hal_flash.c
- * @brief  Flash 设备抽象框架实现 v1（注册/几何校验/请求队列/执行路由/busy 协议）
+ * @brief  Flash 设备抽象框架实现（注册/几何校验/擦后校验/设备锁）
  *
- * 职责（docs/boot_ota/flash_dev_design.md v1 + flash_dev_impl_design.md）：
- * - 参数与几何校验（越界/写对齐/擦除整扇区边界）；
- * - 异步执行路由：请求提交到设备所属域（worker 线程），完成回调/同步唤醒；
- * - 设备 busy 协议：read 同步直跑与写/擦执行互斥（杜绝混合读）；
- * - 后端 ops 只做物理操作（同步实现 + 等待让出），不感知队列/域。
+ * 职责：
+ * - 参数与几何校验（越界、写对齐、擦除整扇区边界）；
+ * - 擦后校验与重试（擦除报告的"成功"未必为真）；
+ * - 每设备睡眠互斥量：读/写/擦共用，操作在调用者上下文同步执行；
+ * - 后端 ops 只做物理操作（同步实现 + 等待让出），不感知锁。
  *
- * 槽占用模型：槽空闲 = work 状态 IDLE（workqueue 在 func 返回后才置 IDLE）。
- * 空闲槽才可提交 → 队列深度 = 并发等待者数（OM_FLASH_QUEUE_DEPTH）；
- * 提交在 irq_lock 临界区内完成（含 enqueue），杜绝两提交者选中同一槽。
+ * 本层不持有线程。其它任务不被饿死由后端让出契约承担（见头文件）。
  */
-
-#include <string.h>
 
 #include "drivers/peripheral/flash/pal_flash_dev.h"
 
 /*===========================================================================
- * 请求类型
+ * 几何辅助
  *===========================================================================*/
 
-#define FLASH_REQ_WRITE 1u
-#define FLASH_REQ_ERASE 2u
-
-/*===========================================================================
- * 几何辅助（双模：均匀单值 / 非均一区域表）
- *===========================================================================*/
-
-/** @brief 定位 addr 所在扇区：回填其起始偏移与大小
- *  @retval true 命中（addr < capacity）；false addr 越界或几何非法 */
+/** @brief 定位 addr 所在扇区：回填其起始偏移与大小 */
 static bool flash_geom_sector_at(const FlashGeometry *g, uint32_t addr, uint32_t *start,
                                  uint32_t *size)
 {
@@ -78,7 +66,7 @@ static bool flash_geom_is_sector_boundary(const FlashGeometry *g, uint32_t off)
     return off == start;
 }
 
-/** @brief [addr, addr+len) ⊆ [0, capacity)，64 位中间量防溢出 */
+/** @brief [addr, addr+len) 落在 [0, capacity) 内，64 位中间量防溢出 */
 static bool flash_range_valid(const FlashGeometry *g, uint32_t addr, size_t len)
 {
     if (addr > g->capacity)
@@ -88,8 +76,12 @@ static bool flash_range_valid(const FlashGeometry *g, uint32_t addr, size_t len)
     return (uint64_t)len <= (uint64_t)g->capacity - addr;
 }
 
+/*===========================================================================
+ * 路径校验
+ *===========================================================================*/
+
 /** @brief 擦除整扇区制校验：addr 与 addr+len 都必须是扇区边界
- *  （范围两端都是边界 ⇔ 区间恰为若干连续整扇区之并，跨大小不同的区域也成立） */
+ *  （范围两端都是边界，等价于区间恰为若干连续整扇区之并，跨大小不同的区域也成立） */
 static OmRet flash_erase_validate(const FlashGeometry *g, uint32_t addr, size_t len)
 {
     if (len == 0)
@@ -98,7 +90,7 @@ static OmRet flash_erase_validate(const FlashGeometry *g, uint32_t addr, size_t 
     }
     if (!flash_range_valid(g, addr, len))
     {
-        return OM_ERR_INVALID_ARG;
+        return OM_ERR_RANGE; /* 越界与未对齐分开报：调用方行动不同（改地址 vs 改长度/粒度） */
     }
     if (!flash_geom_is_sector_boundary(g, addr))
     {
@@ -111,111 +103,78 @@ static OmRet flash_erase_validate(const FlashGeometry *g, uint32_t addr, size_t 
     return OM_OK;
 }
 
+/** @brief 写（program）制校验：数据非空 + 范围内 + 两地址端 writeUnit 对齐
+ *  写单位在全器件均一，故对齐判定用模运算即可。
+ *  （擦除单位可以非均一，其校验不能退化成模运算——见 flash_erase_validate） */
+static OmRet flash_write_validate(const FlashGeometry *g, uint32_t addr, const void *data,
+                                  size_t len)
+{
+    if (len == 0)
+    {
+        return OM_OK;
+    }
+    if (!data)
+    {
+        return OM_ERR_INVALID_ARG;
+    }
+    if (!flash_range_valid(g, addr, len))
+    {
+        return OM_ERR_RANGE; /* 越界与未对齐分开报（同 flash_erase_validate） */
+    }
+    if (addr % g->writeUnit != 0 || len % g->writeUnit != 0)
+    {
+        return OM_ERR_INVALID_ARG;
+    }
+    return OM_OK;
+}
+
 /*===========================================================================
- * 槽管理（槽空闲 = work IDLE；提交全程在 irq_lock 临界区内）
+ * 擦后校验
  *===========================================================================*/
 
-/** @brief 找空闲请求槽（work IDLE）；无则返回 NULL（须持锁调用） */
-static FlashRequest *flash_find_free_slot(FlashDev *dev)
+/** 擦后校验的分块读粒度：栈上小块逐段比对。粒度即每次后端读调用的开销
+ *  （外置器件每调一次 = 一条命令+地址的总线事务），故取页量级的折中值：
+ *  再放大只省总线开销却多占调用者栈，再缩小则事务开销按比例上升 */
+#define FLASH_VERIFY_CHUNK 256u
+
+/** @brief 擦后校验：擦除报告的"成功"未必为真——擦除单元失效时数据仍不为擦后值。
+ *  本层是唯一能廉价发现此事的层：消费者若各自校验，漏掉一处就是静默坏数据，
+ *  而"以为已擦"是追加型存储最致命的假设。
+ *  @param dev 设备（调用者已持设备锁，读回不会与外部操作交错）
+ *  @retval OM_OK                 全段已达 erasedValue
+ *  @retval OM_ERR_FLASH_IO       读回本身失败——不构成"不可用"判据，按读错误原样上报
+ *  @retval OM_ERR_FLASH_UNUSABLE 存在未达擦后值的字节，该区结构性不可用
+ *  @note 几何未声明擦除单位者（经适配器包装的免擦介质）无从校验，跳过。 */
+static OmRet flash_verify_erased(FlashDev *dev, uint32_t addr, size_t len)
 {
-    for (uint32_t i = 0; i < OM_FLASH_QUEUE_DEPTH; i++)
+    if (!flash_geom_needs_erase(dev->geom))
     {
-        if (!work_is_busy(&dev->slots[i].work))
+        return OM_OK;
+    }
+    uint8_t buf[FLASH_VERIFY_CHUNK];
+    uint8_t erased = dev->geom->erasedValue;
+    uint32_t cur = addr;
+    size_t remaining = len;
+
+    while (remaining > 0u)
+    {
+        size_t take = (remaining < sizeof(buf)) ? remaining : sizeof(buf);
+        OmRet ret = dev->ops->read(dev, cur, buf, take);
+        if (ret != OM_OK)
         {
-            return &dev->slots[i];
+            return ret;
         }
+        for (size_t i = 0u; i < take; i++)
+        {
+            if (buf[i] != erased)
+            {
+                return OM_ERR_FLASH_UNUSABLE;
+            }
+        }
+        cur += (uint32_t)take;
+        remaining -= take;
     }
-    return NULL;
-}
-
-/*===========================================================================
- * 请求执行（域 worker 线程上下文）
- *===========================================================================*/
-
-static void flash_request_worker(Work *work)
-{
-    FlashRequest *req = (FlashRequest *)work; /* work 为请求首成员 */
-    FlashDev *dev = req->dev;
-
-    /* 设备 busy（read 直跑中）→ 让出等待，直至 read 完成 */
-    while (dev->busy)
-    {
-        osal_sleep_ms(1);
-    }
-
-    dev->busy = true;
-    if (req->type == FLASH_REQ_WRITE)
-    {
-        req->result = dev->ops->write(dev, req->addr, req->data, req->len);
-    }
-    else
-    {
-        req->result = dev->ops->erase(dev, req->addr, req->len);
-    }
-    dev->busy = false;
-
-    /* 完成回调（func 内；槽在本 work 返回后由 workqueue 置 IDLE 才可复用——
-     * 回调内再提交会落在其它 IDLE 槽或 BUSY，不会撞本槽） */
-    if (req->done)
-    {
-        req->done(dev, req->result, req->param);
-    }
-}
-
-/*===========================================================================
- * 提交（线程上下文；find+fill+enqueue 全程持锁，杜绝同槽双选）
- *===========================================================================*/
-
-static OmRet flash_submit(FlashDev *dev, uint32_t type, uint32_t addr, const void *data,
-                          size_t len, FlashDoneCb done, void *param, FlashRequest **out_req)
-{
-#if (OM_OSAL_PORT == OSAL_PORT_NONE)
-    /* 坍缩形态：单执行流无并发提交者——临界区非必需；且坍缩下
-     * workqueue_enqueue = 当场执行（长活/回调/内部等待），不得置于
-     * 关中断临界区内（workqueue 坍缩契约：执行点语义）。 */
-    FlashRequest *req = flash_find_free_slot(dev);
-    if (!req)
-    {
-        return OM_ERR_FLASH_BUSY;
-    }
-    req->type = type;
-    req->addr = addr;
-    req->len = len;
-    req->data = data;
-    req->done = done;
-    req->param = param;
-    req->result = OM_ERR_IO; /* 防未执行读脏值 */
-
-    OmRet ret = workqueue_enqueue(&dev->domain->wq, &req->work);
-    if (ret == OM_OK && out_req)
-    {
-        *out_req = req;
-    }
-    return ret;
-#else
-    osal_irq_lock_task();
-    FlashRequest *req = flash_find_free_slot(dev);
-    if (!req)
-    {
-        osal_irq_unlock_task();
-        return OM_ERR_FLASH_BUSY;
-    }
-    req->type = type;
-    req->addr = addr;
-    req->len = len;
-    req->data = data;
-    req->done = done;
-    req->param = param;
-    req->result = OM_ERR_IO; /* 防未执行读脏值 */
-
-    OmRet ret = workqueue_enqueue(&dev->domain->wq, &req->work);
-    osal_irq_unlock_task();
-    if (ret == OM_OK && out_req)
-    {
-        *out_req = req;
-    }
-    return ret;
-#endif
+    return OM_OK;
 }
 
 /*===========================================================================
@@ -299,7 +258,7 @@ static DevInterface flash_dev_interface = {
  *===========================================================================*/
 
 OmRet flash_register(FlashDev *dev, const char *name, const FlashGeometry *geom,
-                     const FlashOps *ops, void *hw, FlashDomain *domain)
+                     const FlashOps *ops, void *hw)
 {
     if (!dev || !name || !geom || !ops)
     {
@@ -351,42 +310,27 @@ OmRet flash_register(FlashDev *dev, const char *name, const FlashGeometry *geom,
         }
     }
 
-    dev->geom = geom;
-    dev->ops = ops;
-    dev->hw = hw;
-    dev->busy = false;
-    dev->parent.type = DEVICE_TYPE_FLASH;
-    dev->parent.handle = hw;
-    dev->parent.interface = &flash_dev_interface;
-
-    /* 请求槽初始化：work 绑定请求执行函数 */
-    for (uint32_t i = 0; i < OM_FLASH_QUEUE_DEPTH; i++)
+    /* 设备锁：读/写/擦共用。设备永驻，故不提供注销路径 */
+    OsalMutex *lock = NULL;
+    if (osal_mutex_create(&lock) != OSAL_OK)
     {
-        FlashRequest *req = &dev->slots[i];
-        memset(req, 0, sizeof(*req));
-        req->dev = dev; /* worker 经请求取设备 */
-        work_init(&req->work, flash_request_worker, req);
-    }
-
-    /* 执行域：显式域或设备内嵌独立域 */
-    if (domain)
-    {
-        dev->domain = domain;
-    }
-    else
-    {
-        dev->domain = &dev->autoDomain;
-        if (flash_domain_init(dev->domain, name, OSAL_PRIO_NORMAL_BASE, 3072u) != OM_OK)
-        {
-            return OM_ERR_FLASH_NOT_SUPPORTED;
-        }
+        return OM_ERR_NO_MEM;
     }
 
     OmRet ret = device_register(&dev->parent, (char *)name, 0);
     if (ret != OM_OK)
     {
+        osal_mutex_delete(lock);
         return ret;
     }
+
+    dev->geom = geom;
+    dev->ops = ops;
+    dev->hw = hw;
+    dev->lock = lock;
+    dev->parent.type = DEVICE_TYPE_FLASH;
+    dev->parent.handle = hw;
+    dev->parent.interface = &flash_dev_interface;
     return OM_OK;
 }
 
@@ -410,8 +354,20 @@ const FlashGeometry *flash_geometry(FlashDev *dev)
 }
 
 /*===========================================================================
- * 核心 API
+ * 核心 API（调用者上下文同步执行，读/写/擦共用设备锁）
  *===========================================================================*/
+
+/** @brief 取设备锁；失败仅在锁句柄无效时发生（注册后不可能）——属框架内部故障，
+ *  与介质操作失败的 OM_ERR_FLASH_IO 归因不同，故取通用 IO */
+static OmRet flash_lock(FlashDev *dev)
+{
+    return (osal_mutex_lock(dev->lock, OSAL_WAIT_FOREVER) == OSAL_OK) ? OM_OK : OM_ERR_IO;
+}
+
+static void flash_unlock(FlashDev *dev)
+{
+    osal_mutex_unlock(dev->lock);
+}
 
 OmRet flash_read(FlashDev *dev, uint32_t addr, void *buf, size_t len)
 {
@@ -419,7 +375,7 @@ OmRet flash_read(FlashDev *dev, uint32_t addr, void *buf, size_t len)
     {
         return OM_ERR_INVALID_ARG;
     }
-    if (len == 0)
+    if (len == 0u)
     {
         return OM_OK;
     }
@@ -429,161 +385,83 @@ OmRet flash_read(FlashDev *dev, uint32_t addr, void *buf, size_t len)
     }
     if (!flash_range_valid(dev->geom, addr, len))
     {
-        return OM_ERR_INVALID_ARG;
+        return OM_ERR_RANGE; /* 越界不等同参数非法（同写/擦路径） */
     }
 
-    /* busy 协议：设备有写/擦执行中或另一读在跑 → 拒绝（杜绝混合读） */
-    osal_irq_lock_task();
-    if (dev->busy)
+    OmRet ret = flash_lock(dev);
+    if (ret != OM_OK)
     {
-        osal_irq_unlock_task();
-        return OM_ERR_FLASH_BUSY;
+        return ret;
     }
-    dev->busy = true;
-    osal_irq_unlock_task();
-
-    OmRet ret = dev->ops->read(dev, addr, buf, len);
-
-    dev->busy = false;
+    ret = dev->ops->read(dev, addr, buf, len);
+    flash_unlock(dev);
     return ret;
 }
 
-void flash_set_done_cb(FlashDev *dev, FlashDoneCb done, void *param)
-{
-    if (!dev)
-    {
-        return;
-    }
-    osal_irq_lock_task();
-    dev->doneCb = done;
-    dev->doneParam = param;
-    osal_irq_unlock_task();
-}
-
-/** @brief 提交时快照设备级完成通知（锁内，防与 setter 竞争） */
-static void flash_snapshot_done(FlashDev *dev, FlashDoneCb *done, void **param)
-{
-    osal_irq_lock_task();
-    *done = dev->doneCb;
-    *param = dev->doneParam;
-    osal_irq_unlock_task();
-}
-
-OmRet flash_write_async(FlashDev *dev, uint32_t addr, const void *data, size_t len)
+OmRet flash_write(FlashDev *dev, uint32_t addr, const void *data, size_t len)
 {
     if (!dev)
     {
         return OM_ERR_INVALID_ARG;
     }
-    if (len == 0)
+    if (len == 0u)
     {
         return OM_OK;
     }
-    if (!data)
+    OmRet ret = flash_write_validate(dev->geom, addr, data, len);
+    if (ret != OM_OK)
     {
-        return OM_ERR_INVALID_ARG;
+        return ret;
     }
-    if (!flash_range_valid(dev->geom, addr, len))
+
+    ret = flash_lock(dev);
+    if (ret != OM_OK)
     {
-        return OM_ERR_INVALID_ARG;
+        return ret;
     }
-    if (addr % dev->geom->writeUnit != 0 || len % dev->geom->writeUnit != 0)
-    {
-        return OM_ERR_INVALID_ARG;
-    }
-    FlashDoneCb done;
-    void *param;
-    flash_snapshot_done(dev, &done, &param);
-    return flash_submit(dev, FLASH_REQ_WRITE, addr, data, len, done, param, NULL);
+    ret = dev->ops->write(dev, addr, data, len);
+    flash_unlock(dev);
+    return ret;
 }
 
-OmRet flash_erase_async(FlashDev *dev, uint32_t addr, size_t len)
+OmRet flash_erase(FlashDev *dev, uint32_t addr, size_t len)
 {
     if (!dev)
     {
         return OM_ERR_INVALID_ARG;
     }
-    if (len == 0)
+    if (len == 0u)
     {
-        return OM_OK; /* 空擦 = 无操作，不占槽不回调 */
+        return OM_OK; /* 空擦 = 无操作 */
     }
     OmRet ret = flash_erase_validate(dev->geom, addr, len);
     if (ret != OM_OK)
     {
         return ret;
     }
-    FlashDoneCb done;
-    void *param;
-    flash_snapshot_done(dev, &done, &param);
-    return flash_submit(dev, FLASH_REQ_ERASE, addr, NULL, len, done, param, NULL);
-}
 
-/** @brief 同步等待原语公共路径：同域 worker 上下文 → BUSY（自锁拒绝）；
- *         否则提交 + work_wait_idle 阻塞等待（func 返回后唤醒） */
-static OmRet flash_sync_wait(FlashDev *dev, uint32_t type, uint32_t addr, const void *data,
-                             size_t len)
-{
-    if (!dev)
+    ret = flash_lock(dev);
+    if (ret != OM_OK)
     {
-        return OM_ERR_INVALID_ARG;
+        return ret;
     }
-    /* 校验（与 async 同一语义） */
-    if (len == 0)
+    /* 擦加擦后校验，按 OM_FLASH_ERASE_VERIFY_ATTEMPTS 轮次重试。
+     * 持锁期间做完，读回不会与其它操作交错 */
+    uint32_t attempts = 0u;
+    for (;;)
     {
-        return OM_OK;
-    }
-    if (!flash_range_valid(dev->geom, addr, len))
-    {
-        return OM_ERR_INVALID_ARG;
-    }
-    if (type == FLASH_REQ_WRITE)
-    {
-        if (!data)
-        {
-            return OM_ERR_INVALID_ARG;
-        }
-        if (addr % dev->geom->writeUnit != 0 || len % dev->geom->writeUnit != 0)
-        {
-            return OM_ERR_INVALID_ARG;
-        }
-    }
-    else
-    {
-        OmRet ret = flash_erase_validate(dev->geom, addr, len);
+        ret = dev->ops->erase(dev, addr, len);
         if (ret != OM_OK)
         {
-            return ret;
+            break; /* 后端失败 = 这一次 IO 失败；不在此重试（归消费者策略） */
+        }
+        ret = flash_verify_erased(dev, addr, len);
+        attempts++;
+        if (ret != OM_ERR_FLASH_UNUSABLE || attempts >= OM_FLASH_ERASE_VERIFY_ATTEMPTS)
+        {
+            break;
         }
     }
-
-    /* 同域自锁拒绝：调用者即本设备域 worker（回调/请求执行中）→ 同步等待会等自己 */
-    if (dev->domain && osal_thread_self() == dev->domain->wq.thread)
-    {
-        return OM_ERR_FLASH_BUSY;
-    }
-
-    /* 提交 + 阻塞等待：work_wait_idle 在本请求 work 的 func 返回（IDLE）后返回，
-     * 此时 result 已稳定、槽已可复用（无 RUNNING 窗口提前唤醒问题） */
-    FlashRequest *req = NULL;
-    OmRet ret = flash_submit(dev, type, addr, data, len, NULL, NULL, &req);
-    if (ret != OM_OK)
-    {
-        return ret;
-    }
-    ret = work_wait_idle(&req->work, OSAL_WAIT_FOREVER);
-    if (ret != OM_OK)
-    {
-        return ret;
-    }
-    return req->result;
-}
-
-OmRet flash_write(FlashDev *dev, uint32_t addr, const void *data, size_t len)
-{
-    return flash_sync_wait(dev, FLASH_REQ_WRITE, addr, data, len);
-}
-
-OmRet flash_erase(FlashDev *dev, uint32_t addr, size_t len)
-{
-    return flash_sync_wait(dev, FLASH_REQ_ERASE, addr, NULL, len);
+    flash_unlock(dev);
+    return ret;
 }

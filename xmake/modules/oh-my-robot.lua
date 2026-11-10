@@ -358,24 +358,7 @@ local function resolve_build_mode(target)
     return "unknown"
 end
 
---- 归一化内存分布行
----@param name string 区域名
----@param used integer|nil 已用字节
----@param total integer|nil 总字节
----@return string line 输出行
-local function format_memory_distribution_line(name, used, total)
-    if type(used) ~= "number" then
-        return string.format("[oh-my-robot]   %-5s: unknown", name)
-    end
-    if type(total) == "number" and total > 0 then
-        local percent = (used * 100.0) / total
-        local percent_text = string.format("%.2f", percent) .. "%%"
-        return string.format("[oh-my-robot]   %-5s: %d / %d (%s)", name, used, total, percent_text)
-    end
-    return string.format("[oh-my-robot]   %-5s: %d / unknown", name, used)
-end
-
---- 输出构建摘要（构建模式与内存分布）
+--- 输出构建摘要（构建模式与 LTO 状态）
 ---@param target target|nil 目标对象
 ---@return nil
 function om_print_build_profile(target)
@@ -397,27 +380,6 @@ function om_print_build_profile(target)
         lto_plan.enabled and "on" or "off",
         lto_plan.mode,
         lto_plan.reason))
-    local report = toolchain_lib.build_memory_distribution_report(target, context)
-    print("[oh-my-robot] memory distribution:")
-    if not report or report.available == false then
-        local reason = report and report.reason or "unknown"
-        print("[oh-my-robot]   unavailable: " .. tostring(reason))
-        return
-    end
-    print(format_memory_distribution_line("FLASH", report.flash_used, report.flash_total))
-    print(format_memory_distribution_line("RAM", report.ram_used, report.ram_total))
-    if report.reason and report.reason ~= "" then
-        print("[oh-my-robot]   note: " .. report.reason)
-    end
-end
-
---- 校验链接契约（关键符号必须由指定模块提供）
----@param target target|nil 目标对象
----@return table report 校验结果
-function om_verify_link_contract(target)
-    local modules_root = os.scriptdir()
-    local toolchain_lib = import("toolchain_lib", {rootdir = modules_root})
-    return toolchain_lib.verify_om_link_contract(target, get_context())
 end
 
 return {
@@ -430,6 +392,5 @@ return {
     get_context = get_context,
     om_print_info = om_print_info,
     om_print_build_profile = om_print_build_profile,
-    om_verify_link_contract = om_verify_link_contract,
     sync_context_from_config = sync_context_from_config,
 }

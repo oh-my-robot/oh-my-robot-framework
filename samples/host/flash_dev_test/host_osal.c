@@ -41,8 +41,26 @@ static void ensure_cs(void)
     }
 }
 #else
-/* 递归互斥：提交路径在 irq_lock 临界区内嵌 workqueue_enqueue（其内部再 lock） */
-static pthread_mutex_t g_cs = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+/* 递归互斥：提交路径在 irq_lock 临界区内嵌 workqueue_enqueue（其内部再 lock）。
+ * 运行期以 PTHREAD_MUTEX_RECURSIVE 属性初始化——不取 NP 宏
+ * PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP（glibc 专属、需 _GNU_SOURCE，macOS
+ * 等平台根本不存在）；与 Windows 分支的 ensure_cs() 惰性初始化对称 */
+static pthread_mutex_t g_cs;
+static pthread_once_t g_cs_once = PTHREAD_ONCE_INIT;
+
+static void cs_init(void)
+{
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&g_cs, &attr);
+    pthread_mutexattr_destroy(&attr);
+}
+
+static void ensure_cs(void)
+{
+    pthread_once(&g_cs_once, cs_init);
+}
 #endif
 
 int osal_is_in_isr(void)
@@ -56,6 +74,7 @@ void osal_irq_lock_task(void)
     ensure_cs();
     EnterCriticalSection(&g_cs);
 #else
+    ensure_cs();
     pthread_mutex_lock(&g_cs);
 #endif
 }

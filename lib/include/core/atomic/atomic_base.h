@@ -22,8 +22,10 @@
  * MSVC则引入特殊依赖
  */
 #if defined(AW_COMPILER_MSVC)
+/* MSVC 原子面仅用编译器内建（_Interlocked* 族，见 atomic_msvc.h），<intrin.h> 即足。
+ * 刻意不引入 <windows.h>：其 MIDL 兼容宏（objbase.h 的 interface→struct）会随本
+ * 核心头污染整个框架命名空间，与 Device/OmSerial 的 interface 成员冲突。 */
 #include <intrin.h>
-#include <windows.h>
 #elif defined(AW_COMPILER_GCC_LIKE) || defined(AW_COMPILER_AC6) || defined(AW_COMPILER_AC5)
 // AW_NOTE("It's a test")
 #else
