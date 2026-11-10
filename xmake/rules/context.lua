@@ -71,10 +71,13 @@ rule("oh_my_robot.context")
             return
         end
         local oh_my_robot = import("oh-my-robot", {rootdir = modules_root})
+        local om_external = import("om_external", {rootdir = modules_root})
         oh_my_robot.om_print_build_profile(target)
-        local report = oh_my_robot.om_verify_link_contract(target)
-        if not report or report.ok ~= true then
-            raise((report and report.reason) or "[oh-my-robot] link contract check failed")
+        local context = oh_my_robot.get_context()
+        om_external.run_mem_report(target, context)
+        local ok, reason = om_external.run_link_guard(target, context)
+        if not ok then
+            raise(reason or "[oh-my-robot] link contract check failed")
         end
     end)
 rule_end()
