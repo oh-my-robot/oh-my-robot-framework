@@ -13,8 +13,6 @@ local image_module = import("toolchains.toolchain_image", {rootdir = build_root}
 local validate_module = import("toolchains.toolchain_validate", {rootdir = build_root})
 local runtime_module = import("toolchains.toolchain_runtime", {rootdir = build_root})
 local lto_module = import("toolchains.toolchain_lto", {rootdir = build_root})
-local memreport_module = import("toolchains.toolchain_memreport", {rootdir = build_root})
-local linkguard_module = import("toolchains.toolchain_linkguard", {rootdir = build_root})
 
 --- 获取工具链配置数据
 ---@return ToolchainsConfig
@@ -179,22 +177,6 @@ function resolve_lto_plan(toolchain_name, lto_mode)
     return lto_module.resolve_lto_plan(toolchain_name, lto_mode)
 end
 
---- 生成构建后内存分布报告
----@param target target 目标对象
----@param context table 上下文
----@return table report 报告数据
-function build_memory_distribution_report(target, context)
-    return memreport_module.build_memory_distribution_report(target, context)
-end
-
---- 校验 OM 链接契约
----@param target target 目标对象
----@param context table 上下文
----@return table report 校验结果
-function verify_om_link_contract(target, context)
-    return linkguard_module.verify_om_link_contract(target, context)
-end
-
 --- 返回工具链工具库
 ---@return ToolchainLib
 return {
@@ -219,6 +201,4 @@ return {
     resolve_runtime_payload = resolve_runtime_payload,
     resolve_lto_mode = resolve_lto_mode,
     resolve_lto_plan = resolve_lto_plan,
-    build_memory_distribution_report = build_memory_distribution_report,
-    verify_om_link_contract = verify_om_link_contract,
 }

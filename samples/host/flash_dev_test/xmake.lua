@@ -29,16 +29,12 @@ target("host_flash_test")
     add_includedirs(path.join(fw, "lib/include"))
     -- 数据结构（device.h 依赖 corelist.h）
     add_includedirs(path.join(fw, "lib/data_struct/include"))
-    -- async（pal_flash_dev.h 依赖 workqueue.h）
-    add_includedirs(path.join(fw, "lib/async/include"))
     -- drivers 公共头：model/device.h、peripheral/flash/pal_flash_dev.h
     add_includedirs(path.join(fw, "lib/drivers/include"))
 
     add_files("flash_dev_test.c", "host_osal.c", "flash_sim.c")
     -- 框架实现直编（仿 om_core_test/workqueue 模式）
     add_files(path.join(fw, "lib/drivers/src/peripheral/flash/hal_flash.c"))
-    add_files(path.join(fw, "lib/drivers/src/peripheral/flash/flash_domain.c"))
-    add_files(path.join(fw, "lib/async/src/workqueue.c"))
     add_files(path.join(fw, "lib/drivers/src/model/device.c"))
 
     if is_plat("linux") then

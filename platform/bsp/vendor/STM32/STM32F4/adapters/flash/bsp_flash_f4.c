@@ -2,24 +2,27 @@
  * @file    bsp_flash_f4.c
  * @brief   STM32F4 家族片内 Flash BSP 适配层（FlashOps 后端 + 注册入口）
  * @details 实现 FlashDev 的后端 ops（read/write/erase）与静态几何，并以
- *          OM_INIT_BOARD 自注册 "flash0" 设备（flash_register，独立执行域）。
+ *          OM_INIT_BOARD 自注册 "flash0" 设备（flash_register）。
  *
  *          芯片覆盖：STM32F407xx（1MB，双物理 bank，扇区连续编号 0..11）与
  *          STM32F427xx（2MB dual-bank，24 扇区连续编号 0..23，真机实测固化）。
  *          地址语义为设备内偏移（0 起），XIP 基址换算在适配器内部（FLASH_BASE + off）。
  *
  *          完成源策略（D-07/K-16：事件主路径、轮询退化）：
- *          erase = EOP/ERR 中断主路径（FLASH_IRQn → ISR post sem → worker 阻塞等，
+ *          erase = EOP/ERR 中断主路径（FLASH_IRQn → ISR post sem → 本线程阻塞等，
  *          零轮询零唤醒）；无中断芯片用 BSP_FLASH4_IRQ_DISABLED 宏切退化
  *          睡眠轮询。write 逐字 BSY = ~30us 级微等待（低于调度粒度，非轮询主路径），
  *          每 64 字让出一次（长写批量防饿死）。
- *          ops 在线程上下文、持设备互斥（域 worker）下被调用。
+ *          ops 在调用者上下文、持设备互斥下被调用；等待硬件完成期间让出 CPU
+ *          由本适配器承担（见 pal_flash_dev.h 的后端契约）。
  */
 
 #include <string.h>
 
 #include "core/om_init.h"
 #include "drivers/peripheral/flash/pal_flash_dev.h"
+#include "osal/osal_sem.h"  /* 擦除完成事件（EOP/ERR 中断 → 阻塞等） */
+#include "osal/osal_time.h" /* write 批量让出 / 轮询退化路径 */
 #include "stm32f4xx_hal.h"
 
 /*===========================================================================
@@ -225,9 +228,9 @@ static OmRet bsp_flash4_write(FlashDev *dev, uint32_t addr, const void *data, si
  *        寄存器级：解锁 → 置 SER+SNB → STRT → BSY 让出轮询 → 清位 → 上锁
  */
 #ifndef BSP_FLASH4_IRQ_DISABLED
-/* 擦除完成事件（EOP/ERR ISR post_from_isr；worker sem_wait——事件主路径，D-07/K-16） */
+/* 擦除完成事件（EOP/ERR ISR post_from_isr；调用者 sem_wait——事件主路径，D-07/K-16） */
 static OsalSem *gFlash4EopSem;
-static volatile uint32_t gFlash4IrqEvt; /* ISR 记录的事件 SR（错误位现场），worker 消费后清 0 */
+static volatile uint32_t gFlash4IrqEvt; /* ISR 记录的事件 SR（错误位现场），调用者消费后清 0 */
 
 /** @brief 等待擦除完成事件（EOP/ERR ISR 唤醒）；错误判定经 ISR 记录的共享变量 */
 static OmRet bsp_flash4_wait_eop(void)
@@ -248,8 +251,8 @@ static OmRet bsp_flash4_wait_eop(void)
 
 /** @brief FLASH 全局中断：擦除完成/错误事件。
  *  记录事件 SR → 清 SR（写 1 清，阻止残留位重触发风暴）→ 唤醒等待者。
- *  错误判定经 gFlash4IrqEvt（worker 读共享变量，不用已清的 SR）；
- *  CR 使能位由 worker 统一关闭（ISR 不碰 CR，防读改写竞态）。 */
+ *  错误判定经 gFlash4IrqEvt（调用者读共享变量，不用已清的 SR）；
+ *  CR 使能位由调用者统一关闭（ISR 不碰 CR，防读改写竞态）。 */
 void FLASH_IRQHandler(void)
 {
     uint32_t sr = FLASH->SR;
@@ -313,7 +316,7 @@ static const FlashOps gFlash4Ops = {
 };
 
 /*===========================================================================
- * 分散加载自注册（BOARD 级，经 om_do_initcalls 自动调用；独立执行域）
+ * 分散加载自注册（BOARD 级，经 om_do_initcalls 自动调用）
  *===========================================================================*/
 
 static OmRet bsp_flash4_self_init(void)
@@ -330,7 +333,7 @@ static OmRet bsp_flash4_self_init(void)
     NVIC->ISER[FLASH_IRQn / 32u] = (1u << (FLASH_IRQn % 32u));
     gBspFlash4DbgSr = NVIC->IP[FLASH_IRQn]; /* 读回验证（调试符号） */
 #endif
-    return flash_register(&gFlash4Dev, "flash0", &gFlash4Geom, &gFlash4Ops, NULL, NULL);
+    return flash_register(&gFlash4Dev, "flash0", &gFlash4Geom, &gFlash4Ops, NULL);
 }
 
 OM_INIT_BOARD(bsp_flash4_self_init);

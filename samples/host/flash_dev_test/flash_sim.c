@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "osal/osal_time.h" /* osal_sleep_ms：模拟器件耗时 */
+
 #include "flash_sim.h"
 
 void flash_sim_init(FlashSim *sim, uint32_t capacity, uint8_t erased_value, uint32_t write_unit)
@@ -46,6 +48,14 @@ void flash_sim_set_fail(FlashSim *sim, bool fail)
     if (sim)
     {
         sim->failWriteErase = fail;
+    }
+}
+
+void flash_sim_set_silent_erase_fail(FlashSim *sim, bool fail)
+{
+    if (sim)
+    {
+        sim->silentEraseFail = fail;
     }
 }
 
@@ -129,6 +139,10 @@ OmRet flash_sim_erase(FlashDev *dev, uint32_t addr, size_t len)
     if (sim->failWriteErase)
     {
         return OM_ERR_FLASH_IO; /* 注入拒绝：未落位 */
+    }
+    if (sim->silentEraseFail)
+    {
+        return OM_OK; /* 报告成功但数据保持原样——擦除单元失效的真实形态 */
     }
     memset(sim->mem + addr, sim->erasedValue, len);
     return OM_OK;

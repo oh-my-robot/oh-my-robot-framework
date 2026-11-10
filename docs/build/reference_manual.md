@@ -27,7 +27,7 @@ xmake --version
 - [`oh-my-robot/xmake/config/`](../../xmake/config/)：构建选项定义与默认值。
 - [`oh-my-robot/xmake/rules/`](../../xmake/rules/)：构建规则（上下文注入/板级资源/镜像转换）。
 - [`oh-my-robot/xmake/toolchains/`](../../xmake/toolchains/)：工具链数据与脚本逻辑。
-- [`oh-my-robot/xmake/tasks/`](../../xmake/tasks/)：自定义任务（如 flash 烧录）。
+- [`oh-my-robot/xmake/tasks/`](../../xmake/tasks/)：自定义任务（如工作区生成）。
 - [`oh-my-robot/platform/bsp/`](../../platform/bsp/)：BSP 数据与板级构建脚本。
 - [`oh-my-robot/platform/osal/`](../../platform/osal/)：OS 抽象层与 OS 端口。
 - [`oh-my-robot/platform/sync/`](../../platform/sync/)：同步原语与加速后端。
@@ -132,26 +132,6 @@ local preset = {
   },
   board = {name = "rm-c-board"},
   os = {name = "freertos"},
-  flash = {
-    flasher = "jlink",
-    target = "robot_project",
-    firmware = nil,
-    prefer_hex = true,
-    reset = true,
-    run = true,
-    native_output = false,
-    jlink = {
-      device = "STM32F407IG",
-      interface = "swd",
-      speed = 4000,
-      program = "D:/Program Files/ProgramTools/SEGGER/Jlink/JLink.exe",
-    },
-    daplink = {
-      program = "D:/openocd-win/bin/openocd.exe",
-      config = ".vscode/daplink.cfg",
-      frequency = 4000,
-    },
-  },
 }
 
 function get_preset()
@@ -161,9 +141,7 @@ end
 约束：
 - 仅用于选择与路径配置，不用于新增 board/os/toolchain 数据。
 - `toolchain_default.name` 和 `toolchain_presets` 的键必须在内置数据中存在。
-- `flash` 配置在 `xmake flash` 任务中读取，不影响常规构建流程。
-- `om_preset.flash` 同时支持 `jlink` 与 `daplink` 两种调试器；通过 `flash.flasher` 指定默认类型，命令行 `--flasher=...` 可覆盖。
-- 通用字段（`target`/`firmware`/`prefer_hex`/`reset`/`run`/`native_output`）对两种烧录器均生效。
+- 烧录/调试配置不属于 `om_preset.lua`：由外部工具自行维护。
 
 ### 8.1 项目根与框架根
 - 项目根：当前顶层 `xmake.lua` 所在目录，也是 `compile_commands.json` 与构建产物的默认落点。
@@ -172,19 +150,14 @@ end
 - `xmake init_workspace` 生成的项目壳不会复制框架源码，而是会创建本地 `oh-my-robot` 目录链接/junction 指向当前 checkout，并在项目根生成 `om_preset.lua` 模板；框架版本信息仍以框架根的 Git 状态为准。
 - 若传入 `--preset=<path>`，项目壳中的 `om_preset.lua` 将从该路径复制；若目标文件已存在，则需要 `--force=true` 才会覆盖。
 
-### 8.2 名称映射（preset/xmake/launch）
-`xmake flash` 内部会解析一个 `target_name`（命令行 `--target` 优先，否则回退到 `flash.jlink.target`），再按该名称查找 XMake 目标。  
-因此以下关系必须明确：
-
+### 8.2 名称映射（xmake/launch）
 | 概念 | 来源 | 示例 | 规则 |
 | --- | --- | --- | --- |
 | 目标名（Target ID） | `xmake.lua` 的 `target("...")` | `target("robot_project")` | 这是目标唯一标识 |
-| 烧录目标名 | `om_preset.lua` 的 `flash.target` | `target = "robot_project"` | 必须与 `target("...")` 完全一致 |
 | 输出文件名 | `xmake.lua` 的 `set_filename("...")` | `set_filename("robot_project.elf")` | 仅决定产物文件名 |
 | 调试符号文件 | `.vscode/launch.json` 的 `executable` | `build/cross/arm/debug/robot_project.elf` | 必须指向实际生成的 ELF |
 
 常见错配后果：
-- `flash.target` 与 `target("...")` 不一致：`xmake flash` 无法定位目标。
 - `launch.json.executable` 与真实产物不一致：Cortex-Debug 启动失败或符号加载失败。
 
 ## 9. 构建产物与清理
@@ -211,13 +184,13 @@ xmake clean
   - 正确修复方向：修复底层模块构建脚本与依赖传播，不要在应用目标直接 `add_deps("tar_os")` 或 `add_deps("tar_sync")`。
 
 ## 11. 新手常用调整
-### 11.1 构建与烧录
+### 11.1 构建、烧录与调试
 - 单独 worktree 开发：
   - 生成项目壳：`xmake init_workspace --output=<dir>`。
-  - 编辑项目根 `om_preset.lua`，填写当前项目使用的 `sdk/bin` 与烧录参数。
+  - 编辑项目根 `om_preset.lua`，填写当前项目使用的 `sdk/bin`。
   - 进入项目壳后再执行 `xmake f -c -m debug` 与 `xmake`。
-- 烧录：`xmake flash` 通过策略模式支持 J-Link 与 DAPLink (OpenOCD) 两种烧录器，通过 `--flasher` 切换。默认优先使用 HEX，可通过 `--firmware` 指定 ELF/HEX，并可用 `--native_output=true` 透传原生输出。
-- 调试器支持范围：同时支持 J-Link 与 DAPLink (OpenOCD + CMSIS-DAP)。VSCode 调试通过 Cortex-Debug 插件，J-Link 使用 `servertype: "jlink"`，DAPLink 使用 `servertype: "openocd"`。
+- 烧录/下载：使用外部工具（J-Link Commander、OpenOCD、pyOCD 等）；XMake 只产出 `.elf` / `.hex` / `.bin`。
+- 调试：使用外部工具（VSCode Cortex-Debug 等）；XMake 只产出调试符号与 `compile_commands.json`。armclang 推荐 `.elf` 作符号、`.hex` 作下载。
 - 更换板级/OS/工具链：重新执行 `xmake f -c --board=... --os=... --toolchain=...`。
 - 关闭镜像生成：从目标规则中移除 `oh_my_robot.image_convert`。
 - 禁用同步加速：`xmake f -c --sync_accel=none ...`。
@@ -229,13 +202,13 @@ xmake clean
 - 构建后摘要输出：
   - `build mode`：本次构建模式（`debug`/`release`，优先基于目标模式接口判定）。
   - `lto`：本次构建的 LTO 生效结果（on/off），并附带 `mode` 与收敛原因。
-  - `memory distribution`：本次构建代码的内存分布（`FLASH/RAM` 的 `used/total/percent`）。
+  - `memory (used)`：`tools/omcheck/mem_report.py` 调用工具链 `size` / `fromelf` 输出的 `FLASH/RAM` 已用量。
 
 ### 11.2 armclang semihosting 说明（开发者）
 - 配置入口：`xmake f -c --toolchain=armclang --semihosting=off|on ...`。
 - 默认值：`off`（定义于 [`oh-my-robot/xmake/config/defaults.lua`](../../xmake/config/defaults.lua)）。
 - `semihosting=off`：
-  - 构建系统会为 `binary` 目标自动注入 [`oh-my-robot/xmake/runtime/armclang/semihost_stub.c`](../../xmake/runtime/armclang/semihost_stub.c)。
+  - 构建系统会为 `binary` 目标自动注入 [`oh-my-robot/platform/runtime/armclang/semihost_stub.c`](../../platform/runtime/armclang/semihost_stub.c)。
   - 目的：避免运行期触发 semihost BKPT，减少调试器 semihost 通道依赖。
   - 代价：`printf/fopen` 等主机 I/O 不会输出到主机，`_sys_exit` 会停在死循环（符合裸机场景预期）。
 - `semihosting=on`：
@@ -424,13 +397,15 @@ xmake clean
 - 降低链接顺序偶然性对结果的影响。
 
 构建护栏（已内置）：
-- 二进制构建后会做链接契约校验：
+- 二进制构建后由 `tools/omcheck/link_guard.py` 做链接契约校验：
   - `tar_os` 必须提供 `osal_malloc`、`osal_free` 强符号；
-  - `tar_sync` 必须提供 `completion_init`、`completion_wait` 强符号。
+  - `tar_sync` 必须提供 `completion_init`、`completion_wait` 强符号；
+  - 每级 `.om_init_<N>` 段边界符号必须存在；
+  - `HardFault_Handler` 必须为强符号。
 - 若校验失败，构建会直接报错并提示修复方向。
 
 ## 12. 任务文档
-- [`oh-my-robot/docs/build/build_tasks_manual.md`](build_tasks_manual.md)：内置任务与参数说明（含 `xmake flash`）。
+- [`oh-my-robot/docs/build/build_tasks_manual.md`](build_tasks_manual.md)：内置任务与参数说明（工作区生成等）。
 
 ## 13. 工程实践
 - [`oh-my-robot/docs/build/build_system_best_practices.md`](build_system_best_practices.md)：构建系统最佳工程实践。

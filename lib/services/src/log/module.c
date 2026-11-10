@@ -88,6 +88,15 @@ static const OmLogModule *module_find(const char *name)
     return NULL;
 }
 
+/** @brief 按名解析模块 id（只读——后端按模块覆盖 API 用：覆盖表以 id 索引）
+ *  @param name 模块名
+ *  @return >=0 = moduleId；-1 = 未登记/不存在（首次打日志后登记——惰性语义） */
+int log_module_resolve_id(const char *name)
+{
+    const OmLogModule *m = module_find(name);
+    return (m != NULL) ? m->moduleId : -1;
+}
+
 /** @brief 运行时调节模块级别（契约见 services/log/log.h）
  *  @param module_name 模块名
  *  @param level 目标级别（>= OM_LOG_LEVEL_MAX = INVALID_ARG）

@@ -28,7 +28,6 @@ target("host_partition_test")
     add_includedirs(fdt)
     add_includedirs(path.join(fw, "lib/include"))
     add_includedirs(path.join(fw, "lib/data_struct/include"))
-    add_includedirs(path.join(fw, "lib/async/include"))
     add_includedirs(path.join(fw, "lib/drivers/include"))
 
     add_files("partition_test.c")
@@ -37,8 +36,6 @@ target("host_partition_test")
     -- 框架实现直编
     add_files(path.join(fw, "lib/drivers/src/storage/partition.c"))
     add_files(path.join(fw, "lib/drivers/src/peripheral/flash/hal_flash.c"))
-    add_files(path.join(fw, "lib/drivers/src/peripheral/flash/flash_domain.c"))
-    add_files(path.join(fw, "lib/async/src/workqueue.c"))
     add_files(path.join(fw, "lib/drivers/src/model/device.c"))
 
     if is_plat("linux") then

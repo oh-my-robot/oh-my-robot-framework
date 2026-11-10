@@ -3,7 +3,7 @@
 --- @details 统一解析 semihosting 策略，并返回需要注入的源文件与参数。
 
 local om_root = path.join(os.scriptdir(), "..", "..")
-local runtime_root = path.join(om_root, "xmake", "runtime")
+local runtime_root = path.join(om_root, "platform", "runtime")
 
 --- 构造空 flags 集合
 ---@return table flags

@@ -7,20 +7,24 @@
 
 // ----------------------------------------------------------------------------
 // MSVC 显式屏障辅助
+// SEQ_CST 用 _mm_mfence（x86/x64 硬件全屏障内建，<intrin.h>）——不必为了取
+// Windows SDK 的 MemoryBarrier() 而引入 <windows.h>：后者随本核心头把 MIDL 宏
+// （objbase.h 的 interface→struct）泄漏进框架命名空间，与 Device/OmSerial 的
+// interface 成员冲突。_mm_mfence 强度不低于 MemoryBarrier，语义等价。
 // ----------------------------------------------------------------------------
 AW_INLINE void _om_msvc_barrier_pre(OmMemoryOrder order)
 {
     if (order != MO_RELAXED)
         _ReadWriteBarrier(); // Compiler barrier
     if (order == MO_SEQ_CST)
-        MemoryBarrier(); // Full hardware barrier
+        _mm_mfence(); // Full hardware barrier
 }
 AW_INLINE void _om_msvc_barrier_post(OmMemoryOrder order)
 {
     if (order != MO_RELAXED)
         _ReadWriteBarrier();
     if (order == MO_SEQ_CST)
-        MemoryBarrier();
+        _mm_mfence();
 }
 
 // ----------------------------------------------------------------------------
@@ -37,7 +41,7 @@ AW_INLINE void _om_msvc_store_8(volatile char *ptr, char val, OmMemoryOrder orde
     _om_msvc_barrier_pre(order);
     *ptr = val;
     if (order == MO_SEQ_CST)
-        MemoryBarrier();
+        _mm_mfence();
 }
 AW_INLINE char _om_msvc_exchange_8(volatile char *ptr, char val, OmMemoryOrder order)
 {
@@ -83,7 +87,7 @@ AW_INLINE void _om_msvc_store_16(volatile short *ptr, short val, OmMemoryOrder o
     _om_msvc_barrier_pre(order);
     *ptr = val;
     if (order == MO_SEQ_CST)
-        MemoryBarrier();
+        _mm_mfence();
 }
 AW_INLINE short _om_msvc_exchange_16(volatile short *ptr, short val, OmMemoryOrder order)
 {
@@ -129,7 +133,7 @@ AW_INLINE void _om_msvc_store_32(volatile long *ptr, long val, OmMemoryOrder ord
     _om_msvc_barrier_pre(order);
     *ptr = val;
     if (order == MO_SEQ_CST)
-        MemoryBarrier();
+        _mm_mfence();
 }
 AW_INLINE long _om_msvc_exchange_32(volatile long *ptr, long val, OmMemoryOrder order)
 {
@@ -175,7 +179,7 @@ AW_INLINE void _om_msvc_store_64(volatile long long *ptr, long long val, OmMemor
     _om_msvc_barrier_pre(order);
     *ptr = val;
     if (order == MO_SEQ_CST)
-        MemoryBarrier();
+        _mm_mfence();
 }
 AW_INLINE long long _om_msvc_exchange_64(volatile long long *ptr, long long val, OmMemoryOrder order)
 {

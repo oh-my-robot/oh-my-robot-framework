@@ -41,7 +41,6 @@ target("host_osal_none_test")
     add_files(path.join(fw, "lib/async/src/workqueue.c"))
     -- FlashDev 坍缩路径编译验证（os 轴分支；运行需器件后端，归实机）
     add_files(path.join(fw, "lib/drivers/src/peripheral/flash/hal_flash.c"))
-    add_files(path.join(fw, "lib/drivers/src/peripheral/flash/flash_domain.c"))
     add_files(path.join(fw, "lib/drivers/src/model/device.c"))
     -- 端口实现直编（host 与 target 同一代码，差异收敛 arch 文件）
     add_files(path.join(fw, "platform/osal/none/osal_core_none.c"))

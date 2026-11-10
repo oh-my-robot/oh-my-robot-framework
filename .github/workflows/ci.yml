@@ -95,7 +95,7 @@ jobs:
       - name: Build libraries
         run: xmake build
 
-  # ③ 测试 gate：kernel-core host 侧 45 断言（om_core_test，linux 用 gcc 免 mingw 问题）
+  # ③ 测试 gate：host 侧全量（kernel-core / log / 存储），linux 用 gcc 免 mingw 问题
   host-test:
     runs-on: ubuntu-latest
     steps:
@@ -137,3 +137,27 @@ jobs:
 
       - name: Run ring tests
         run: xmake run -P samples/host/om_log_test om_log_ring_test
+
+      - name: Run module filter tests
+        run: xmake run -P samples/host/om_log_test om_log_module_filter_test
+
+      # 存储子系统（分区表 + FlashDev 器件层）——此前不在门禁内，上游坍缩守卫缺陷
+      # 曾使其静默损坏（partition_test 29/3、flash_dev_test 58/31，见 upstream Issue #74）
+      # 而无人察觉。接入门禁防再次无感回归。
+      - name: Configure partition host tests
+        run: xmake f -P samples/host/partition_test -p linux -m debug
+
+      - name: Build partition host tests
+        run: xmake build -P samples/host/partition_test
+
+      - name: Run partition tests
+        run: xmake run -P samples/host/partition_test host_partition_test
+
+      # flash_dev_test：仅编译门禁，运行门禁暂缓——该测试此前从未在 CI 跑过，接入后
+      # 暴露 linux/gcc 下的运行期崩溃（build ok 但 execv 失败且无任何输出；MinGW 路径
+      # 正常 89/0）。属既有缺陷、与分区表 v2 无关，见 upstream Issue #77；修复后接入 Run。
+      - name: Configure flash device host tests
+        run: xmake f -P samples/host/flash_dev_test -p linux -m debug
+
+      - name: Build flash device host tests
+        run: xmake build -P samples/host/flash_dev_test

@@ -27,11 +27,12 @@ typedef struct FlashSim {
     uint8_t *mem; /* 宿主堆内存，容量 = capacity */
     uint32_t capacity;
     uint8_t erasedValue;
-    uint32_t writeUnit;  /* 与 geometry.writeUnit 一致（校验步长） */
-    bool strictProgram;  /* true：0→1 翻转写拒绝（OM_ERR_FLASH_IO） */
-    bool failWriteErase; /* true：write/erase 直接返回 OM_ERR_FLASH_IO 且不落位 */
-    uint32_t opCount;    /* 后端调用计数（读/写/擦各 +1，含失败尝试） */
-    uint32_t opDelayMs;  /* 每操作模拟耗时（测队列/BUSY/并发时序；0 = 瞬时） */
+    uint32_t writeUnit;   /* 与 geometry.writeUnit 一致（校验步长） */
+    bool strictProgram;   /* true：0→1 翻转写拒绝（OM_ERR_FLASH_IO） */
+    bool failWriteErase;  /* true：write/erase 直接返回 OM_ERR_FLASH_IO 且不落位 */
+    bool silentEraseFail; /* true：erase 报告成功但不落位（擦除单元失效） */
+    uint32_t opCount;     /* 后端调用计数（读/写/擦各 +1，含失败尝试） */
+    uint32_t opDelayMs;   /* 每操作模拟耗时（测队列/BUSY/并发时序；0 = 瞬时） */
 } FlashSim;
 
 /** @brief 初始化模拟器（mem 由 sim 内部分配并置为 erasedValue） */
@@ -45,6 +46,10 @@ void flash_sim_set_delay(FlashSim *sim, uint32_t delay_ms);
 
 /** @brief 后端错误注入：置 true 后 write/erase 直接返回 OM_ERR_FLASH_IO（不落位） */
 void flash_sim_set_fail(FlashSim *sim, bool fail);
+
+/** @brief 错误注入：置 true 后 erase 报告成功但数据保持原样（擦除单元失效）。
+ *  框架的擦后校验应据此报 OM_ERR_FLASH_UNUSABLE 而非 OM_OK */
+void flash_sim_set_silent_erase_fail(FlashSim *sim, bool fail);
 
 /** @brief 后端 ops（注册时 hw 传 FlashSim*） */
 OmRet flash_sim_read(FlashDev *dev, uint32_t addr, void *buf, size_t len);

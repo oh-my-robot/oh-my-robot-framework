@@ -56,7 +56,7 @@ rule("oh_my_robot.selfreg")
                 end
             end
         end
-        -- 框架默认 main 注入（开关见 build/config/options.lua）
+        -- 框架默认 main 注入（开关见 xmake/config/options.lua）
         if config.get("om_framework_main") ~= "off" then
             for _, file in ipairs(SELFREG_FILES) do
                 target:add("files", path.join(om_root, file), { includedirs = includedirs })

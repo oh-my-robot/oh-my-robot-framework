@@ -34,7 +34,7 @@ target_end()
 
 --- @target tar_os
 --- @brief osal-none 端口静态库
---- @details 提供 osal_malloc/free 等 OSAL 面实现（linkguard 校验对象）。
+--- @details 提供 osal_malloc/free 等 OSAL 面实现（链接契约校验对象）。
 target("tar_os")
     add_rules("oh_my_robot.project_cfg")
     set_kind("static")

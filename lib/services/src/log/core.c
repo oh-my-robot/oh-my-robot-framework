@@ -2,7 +2,8 @@
  * @file core.c
  * @brief log 核心：om_log_log 入口（模块级过滤 → 打包 → 生产入环）+ om_log_panic 直出 + emit
  * @details 过滤：① 模块级别（初始=宏参数；运行时可调节——入口处，生产前）→
- *          （后端级过滤在消费时刻 per-backend 判定——log_emit_args/emit 链）→
+ *          （后端级在消费时刻按 (module, level) 一次求值——accept_mask（per-backend
+ *          默认级 + 按模块覆盖，见 backend.c）；位图 = 0 → 零格式化快路径）→
  *          打包（生产时刻时间戳）→ log_ring_produce（见 ring.c：临界区入环——满丢+计数；
  *          消费触发 OM_LOG_ASYNC 决定：日志线程抽环 / 现场判定+drain）。
  *          打日志无失败路径；形态唯一（消息环）——"deferred"即消费未就绪时的环滞留态。
@@ -50,14 +51,13 @@ static const char *const log_level_name[OM_LOG_LEVEL_OFF] = {
 _Static_assert(OM_LOG_LEVEL_FATAL + 1 == OM_LOG_LEVEL_OFF,
                "log 级别枚举扩展需同步 log_level_name 级别名表");
 
-/** @brief 扇出回调：把格式化段推给所有接受该级别的后端（临界区内调用）
- *  @param ctx 编码的日志级别（(uintptr_t)OmLogLevel，由 log_emit 传入）
+/** @brief 扇出回调：把格式化段推给位图接受的后端（逐段仅按位位移——零查表）
+ *  @param ctx 编码的接受位图（log_emit_args 求值一次后传入）
  *  @param seg 段数据
  *  @param len 段字节数 */
 static void emit_fanout(void *ctx, const char *seg, size_t len)
 {
-    OmLogLevel level = (OmLogLevel)(uintptr_t)ctx;
-    log_backend_push_all(level, seg, len);
+    log_backend_push_mask((uint8_t)(uintptr_t)ctx, seg, len);
 }
 
 /** @brief panic 扇出回调：无过滤提满投递（故障上下文——证据保全）
@@ -115,7 +115,7 @@ void log_emit_build(const OmLogModule *module, OmLogLevel level, uint32_t ts, co
     log_buf_flush(&w);
 }
 
-/** @brief panic emit：无 any_accepts 过滤 + panic 投递（提满全出；时间戳 = 当场——panic 无打包）
+/** @brief panic emit：无过滤 + panic 投递（提满全出；时间戳 = 当场——panic 无打包）
  *  @param module 模块实例
  *  @param level 消息级别
  *  @param fmt 格式串
@@ -126,19 +126,21 @@ static void log_emit_panic(const OmLogModule *module, OmLogLevel level, const ch
     log_emit_build(module, level, osal_time_now_monotonic(), fmt, ap, emit_fanout_panic, NULL);
 }
 
-/** @brief emit（消费时刻）：后端接受判定 → 头部（ts=参数包生产时刻） + 流式格式化 + 尾部 \n + 扇出
+/** @brief emit（消费时刻）：一次求值 accept_mask（per-backend 生效级）→ 头部（ts=参数包
+ *        生产时刻）+ 流式格式化 + 尾部 \n + 按位图逐段扇出
  *  @param msg 消息包（module/level/ts/fmt/args/n 全内含）
  *  @note 消息环消费侧唯一执行者（日志线程 / 现场触发 / 服务就绪回放——执行位置不同，
- *        内容与 ts 一致） */
+ *        内容与 ts 一致）；管线不变式 = 过滤一次 + 格式化一次 + 逐段扇出 */
 void log_emit_args(const OmLogMsg *msg)
 {
-    if (!log_backend_any_accepts(msg->level))
+    uint8_t mask = log_backend_accept_mask(msg->module, msg->level);
+    if (mask == 0)
     {
-        return; /* ② 无后端接受 → 零格式化开销 */
+        return; /* ② 被全部后端拒绝（含按模块覆盖）→ 零格式化快路径 */
     }
     LogBufWriter w;
     char seg[OM_LOG_SEGMENT_SIZE];
-    log_buf_writer_init(&w, emit_fanout, (void *)(uintptr_t)msg->level, seg, sizeof(seg));
+    log_buf_writer_init(&w, emit_fanout, (void *)(uintptr_t)mask, seg, sizeof(seg));
     emit_header(&w, msg->module, msg->level, msg->ts);
     log_format_args(&w, msg->fmt, msg->argBuf, msg->argCount);
     log_buf_write(&w, "\n", 1); /* 统一结束符：框架侧一处，广播一致（后端可映射，见 README） */
