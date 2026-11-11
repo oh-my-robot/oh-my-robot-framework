@@ -53,7 +53,7 @@ oh-my-robot/
 
 ## 贡献
 
-提交 PR 前请阅读 [Git 协作规范](docs/process/git_collaboration_spec.md)（分支职责、提交纪律、PR 流程）和 [发布与版本规范](docs/process/git_version_release_spec.md)。
+提交 PR 前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。工程流程见 [Git 协作规范](docs/process/git_collaboration_spec.md)（分支职责、提交纪律、PR 流程）和 [发布与版本规范](docs/process/git_version_release_spec.md)；项目管理规则见 Confluence [OM 项目管理原则](https://bamboolab.atlassian.net/wiki/spaces/OMR/pages/589827)。
 
 ## 反馈与讨论
 
