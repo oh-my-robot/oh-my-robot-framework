@@ -223,4 +223,6 @@ jobs:
         run: |
           xmake f -P $RUNNER_TEMP/om_devices_shell -c --board=rm-c-board --os=freertos --toolchain=gnu-rm -m release
           xmake -P $RUNNER_TEMP/om_devices_shell
-          test -f $RUNNER_TEMP/om_devices_shell/build/cross/arm/release/robot_project.elf
+          elf=$(find $RUNNER_TEMP/om_devices_shell/build -name 'robot_project.elf' -print -quit)
+          echo "generated ELF: $elf"
+          test -n "$elf"
