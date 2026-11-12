@@ -13,7 +13,7 @@
 #include "core/om_cpu.h"
 #include "core/om_def.h"
 #include "core/om_init.h"
-#include "drivers/motor/vendors/direct_drive/P1010B.h"
+#include "devices/motor/vendors/direct_drive/P1010B.h"
 #include "drivers/peripheral/can/pal_can_dev.h"
 #include "osal/osal_thread.h"
 #include "osal/osal_time.h"

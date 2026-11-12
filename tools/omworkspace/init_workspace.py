@@ -58,8 +58,10 @@ def build_xmake_lua(
     framework_alias: str,
     entry: str,
     rules: list[str],
+    has_devices: bool,
 ) -> str:
     rule_call = ", ".join(f'"oh_my_robot.{name}"' for name in rules)
+    deps = '"tar_oh_my_robot"' + (', "tar_awdevices"' if has_devices else "")
     return "\n".join(
         [
             f'set_project("{project_name}")',
@@ -74,7 +76,7 @@ def build_xmake_lua(
             f'target("{target_name}")',
             '    set_kind("binary")',
             f'    set_filename("{target_name}.elf")',
-            '    add_deps("tar_oh_my_robot")',
+            f"    add_deps({deps})",
             f"    add_rules({rule_call})",
             f'    add_files(path.join([[{framework_alias}]], [[{entry}]]))',
             "target_end()",
@@ -203,10 +205,12 @@ def main() -> int:
         if not rules:
             raise RuntimeError("at least one binary rule is required")
 
+        has_devices = os.path.isdir(os.path.join(framework_root, "devices"))
         with open(os.path.join(output_dir, "xmake.lua"), "w", encoding="utf-8") as handle:
             handle.write(
                 build_xmake_lua(
-                    project_name, args.target, FRAMEWORK_ALIAS, args.entry, rules
+                    project_name, args.target, FRAMEWORK_ALIAS, args.entry, rules,
+                    has_devices,
                 )
             )
         with open(os.path.join(output_dir, "README.md"), "w", encoding="utf-8") as handle:

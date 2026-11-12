@@ -3,7 +3,7 @@
  * @brief DJI 电机通用集成测试用例
  * @note  功能：驱动总线上所有已配置电机，每 1 秒执行一次 90 度阶跃
  */
-#include "drivers/motor/vendors/dji/dji_motor_drv.h"
+#include "devices/motor/vendors/dji/dji_motor_drv.h"
 #include "drivers/peripheral/can/pal_can_dev.h"
 
 /* Framework Includes */

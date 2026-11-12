@@ -15,6 +15,8 @@ includes("../platform/osal")
 includes("../platform/sync")
 includes("../platform/ipc")
 includes("../platform/bsp")
+-- OMR-15 staging：器件库在树内 devices/；OMR-16 抽取后移除本行
+includes("../devices")
 
 --- @target tar_oh_my_robot
 --- @brief OM 聚合目标
