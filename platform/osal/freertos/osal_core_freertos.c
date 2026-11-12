@@ -40,17 +40,17 @@ void osal_irq_unlock_task(void)
     taskEXIT_CRITICAL();
 }
 
-OsalIrqIsrState_t osal_irq_lock_from_isr(void)
+OsalIrqIsrState osal_irq_lock_from_isr(void)
 {
     int in_isr = osal_is_in_isr();
     OSAL_ASSERT(in_isr != 0);
     if (!in_isr)
-        return (OsalIrqIsrState_t)0u;
+        return (OsalIrqIsrState)0u;
 
-    return (OsalIrqIsrState_t)taskENTER_CRITICAL_FROM_ISR();
+    return (OsalIrqIsrState)taskENTER_CRITICAL_FROM_ISR();
 }
 
-void osal_irq_unlock_from_isr(OsalIrqIsrState_t state)
+void osal_irq_unlock_from_isr(OsalIrqIsrState state)
 {
     int in_isr = osal_is_in_isr();
     OSAL_ASSERT(in_isr != 0);

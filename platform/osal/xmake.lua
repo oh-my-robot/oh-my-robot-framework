@@ -38,6 +38,7 @@ end
 --- @brief OSAL 聚合目标
 --- @details 仅做依赖聚合与传播，不直接产出静态库。
 target("tar_osal")
+    add_rules("oh_my_robot.project_cfg")
     set_kind("phony")
     add_deps("tar_awapi_osal", {public = true})
     add_deps("tar_os", {public = true})

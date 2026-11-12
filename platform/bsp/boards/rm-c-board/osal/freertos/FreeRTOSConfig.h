@@ -106,8 +106,9 @@ extern uint32_t FreeRTOSRunTimeTicks;
 #define xPortPendSVHandler                              PendSV_Handler
 #define vPortSVCHandler                                 SVC_Handler
 #define xPortSysTickHandler                             SysTick_Handler
-/* 断言 */
-#define vAssertCalled(char, int) printf("Error: %s, %d\r\n", char, int)
+/* 断言：configASSERT 失败 → vAssertCalled（端口层 osal_fatal_freertos.c 强符号实现
+ * → om_fatal_error(OM_FATAL_ASSERT)，板级不再自写 printf 宏，见 ADR-0014） */
+extern void vAssertCalled(const char *file, int line);
 #define configASSERT( x ) if( ( x ) == 0 ) vAssertCalled( __FILE__, __LINE__ )
 
 /* FreeRTOS MPU 特殊定义 */

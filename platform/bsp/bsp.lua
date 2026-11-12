@@ -42,6 +42,13 @@ function get_board_override_sources(board_name)
     return inputs.get_board_override_sources(board_name)
 end
 
+--- 获取板级自注册源文件（直接并入 binary，保证 OM_INIT 回调存活）
+---@param board_name string 板级名称
+---@return string[] sources 自注册源文件
+function get_board_selfreg_sources(board_name)
+    return inputs.get_board_selfreg_sources(board_name)
+end
+
 --- 更新板级 OS 配置上下文
 ---@param oh_my_robot table oh_my_robot 模块
 ---@param board_name string 板级名称
@@ -65,6 +72,7 @@ return {
     get_arch_traits = get_arch_traits,
     get_board_build_inputs = get_board_build_inputs,
     get_board_override_sources = get_board_override_sources,
+    get_board_selfreg_sources = get_board_selfreg_sources,
     update_board_os_context = update_board_os_context,
     get_board_build_assets = get_board_build_assets,
 }

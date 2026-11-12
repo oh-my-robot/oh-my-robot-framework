@@ -4,7 +4,7 @@
  * @note  用户可以在此文件中根据项目需求裁剪资源
  */
 #ifndef __DJI_MOTOR_CONFIG_H__
-#define DJI_MOTOR_CONFIG_H
+#define __DJI_MOTOR_CONFIG_H__
 
 #ifdef __cplusplus
 extern "C" {

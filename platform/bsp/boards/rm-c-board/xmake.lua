@@ -6,6 +6,7 @@
 --- @brief rm-c-board 板级静态库
 --- @details 注入板级构建输入并依赖基础驱动与 API。
 target("tar_board")
+    add_rules("oh_my_robot.project_cfg")
     set_kind("static")
     add_rules("oh_my_robot.context")
     add_deps("tar_awapi_driver", {public = true})
@@ -17,7 +18,7 @@ target("tar_board")
         local board_root = os.scriptdir()
         local bsp_root = path.join(board_root, "..", "..")
         local om_root = path.join(bsp_root, "..", "..")
-        local modules_root = path.join(om_root, "build", "modules")
+        local modules_root = path.join(om_root, "xmake", "modules")
 
         local bsp = import("bsp", {rootdir = bsp_root})
         local om_robot = import("oh-my-robot", {rootdir = modules_root})
@@ -26,10 +27,10 @@ target("tar_board")
         local board_name = context.board_name
         local inputs = bsp.get_board_build_inputs(board_name)
         if inputs.includedirs and #inputs.includedirs > 0 then
-            target:add("includedirs", inputs.includedirs, {public = false})
+            target:add("includedirs", inputs.includedirs, {public = true})
         end
         if inputs.defines and #inputs.defines > 0 then
-            target:add("defines", inputs.defines)
+            target:add("defines", inputs.defines, {public = true})
         end
         if inputs.sources and #inputs.sources > 0 then
             target:add("files", inputs.sources)

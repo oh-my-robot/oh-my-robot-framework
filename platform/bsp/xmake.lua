@@ -36,6 +36,7 @@ end
 --- @brief BSP 聚合静态库
 --- @details 依赖选中板级目标 tar_board。
 target("tar_bsp")
+    add_rules("oh_my_robot.project_cfg")
     set_kind("static")
     add_deps("tar_board", {public = true})
 target_end()

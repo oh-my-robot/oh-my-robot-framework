@@ -1,0 +1,65 @@
+/**
+ * @file   om_bootcfg.h.example —— boot 系统用户配置模板（按板复制到工程
+ *        cfg/boards/<board>/om_bootcfg.h 后编辑）
+ *
+ * boot 配置归属（bootcfg 体系）：布局数值与 boot 行为参数 = 工程侧用户自定义
+ * （板片段目录机制，见 ADR-0017 (project_config_layering)）；bootloader 与 app
+ * 两个工程对同一板构建时引用同一份 om_bootcfg.h——布局天然同源。
+ *
+ * 分工：
+ * - 本文件 = 用户可配面：分区布局表 + boot 行为参数（回退计数等）；
+ * - 不可配契约常量（镜像头/meta entry 结构布局/版本）走契约头（Q-05），
+ *   与配置体系分离。
+ *
+ * 表符号契约：分区抽象（lib/drivers storage）声明 extern
+ *   om_partition_table[] / om_partition_count；本模板用 X-macro 列表定义之，
+ *   由随附数据文件（见文件尾注释）实例化。条目须满足器件几何（扇区对齐、
+ *   不越器件容量）——配置错误在操作期显式报错，不静默扩擦。
+ */
+
+#ifndef OM_BOOTCFG_H
+#define OM_BOOTCFG_H
+
+/* ===================================================================
+ * 分区布局（rm-a/F427 B+ 布局参考值——决策见 docs/boot_ota 多策略设计 Q-02；
+ * meta 双份轮转 2×16K + 预留 1×16K（swap 进度/策略扩展），B 槽 64K 对齐）
+ * =================================================================== */
+
+/* X-macro 列表：X(name, devName, offset, size) */
+#define OM_BOOT_PARTITIONS           \
+    X("bootloader", "flash0", 0x000000u, 0x10000u) /* bank1 头 4×16K */ \
+    X("app_a", "flash0", 0x010000u, 0xF0000u)      /* bank1 余量 ~960K */ \
+    X("meta", "flash0", 0x100000u, 0x08000u)       /* bank2 头 2×16K 双份轮转 */ \
+    X("meta_resv", "flash0", 0x108000u, 0x04000u)  /* 预留：swap 进度/策略扩展 */ \
+    X("app_b", "flash0", 0x110000u, 0xF0000u)      /* bank2 余量 ~960K（64K 对齐） */
+
+/* ===================================================================
+ * boot 行为参数（可配策略；数值为参考，工程按需覆写）
+ * =================================================================== */
+
+#ifndef OM_BOOT_ROLLBACK_LIMIT
+#define OM_BOOT_ROLLBACK_LIMIT 3u /* 回退启动计数 N（app confirm 停表） */
+#endif
+
+#endif /* OM_BOOTCFG_H */
+
+/*
+ * 表实例化与注册（数据 .c，随两工程各编译一份——如 boot_partition_data.c）：
+ *
+ *   #include "core/om_init.h"
+ *   #include "drivers/storage/partition.h"
+ *   #include "om_bootcfg.h"
+ *   #define X(n, d, o, s) {n, d, o, s},
+ *   static const OmPartitionEntry s_boot_partitions[] = {OM_BOOT_PARTITIONS};
+ *   #undef X
+ *   static OmRet boot_partitions_self_init(void)
+ *   {
+ *       return om_partition_register(s_boot_partitions,
+ *           sizeof(s_boot_partitions) / sizeof(s_boot_partitions[0]));
+ *   }
+ *   OM_INIT_DRIVER(boot_partitions_self_init);   /* OS 形态：DRIVER 级自注册 */
+ *
+ *   bootloader 裁剪形态（无 initcall）：启动流开头显式调用同一 register。
+ *   契约：表须 const 静态存储期（模块不拷贝——保持只读存储驻留）；
+ *   register 先于一切分区操作。
+ */

@@ -1,11 +1,11 @@
 /**
  * @file dji_motor_drv.h
- * @brief RoboMaster DJI µç»úÇı¶¯¶ÔÍâ½Ó¿Ú
+ * @brief RoboMaster DJI ç”µæœºé©±åŠ¨æ¥å£
  * @author Yuhao
  * @date 2025/12/22
  * @details
- * ±¾Ä£¿éÃæÏò C610/C620/GM6020 µÈ DJI Ğ­Òéµç»ú£¬Ìá¹© O(1) ·´À¡·Ö·¢¡¢
- * ¾²Ì¬·¢ËÍµ¥Ôª¹ÜÀí£¬ÒÔ¼° set_output Óë bus_sync ·ÖÀëµÄ¿ØÖÆÊ±Ğò¡£
+ * è¯¥æ¨¡å—é¢å‘ C610/C620/GM6020 ç³»åˆ— DJI ç”µæœºï¼Œæä¾› O(1) ç”µæœº ID è·¯ç”±ã€‚
+ * é‡‡ç”¨â€œå…ˆå†™ç›®æ ‡ï¼Œå†ç»Ÿä¸€æ€»çº¿åŒæ­¥â€çš„æ–¹å¼ï¼Œå…¼é¡¾å®æ—¶æ€§ä¸æ€»çº¿è´Ÿè½½å¯æ§æ€§ã€‚
  */
 
 #ifndef __DJI_MOTOR_DRIVER_H__
@@ -21,193 +21,194 @@
 extern "C" {
 #endif
 
-/* --- ×Ô¶¯ÍÆµ¼ÅäÖÃ²ÎÊı --- */
-/** @brief ·´À¡ ID Ó³Éä±íÆğÊ¼Öµ£¨º¬£© */
+/* --- ç”µæœº ID æ˜ å°„é…ç½® --- */
+/** @brief æ¥æ”¶ ID æ˜ å°„èµ·å§‹å€¼ */
 #define DJI_RX_ID_START DJI_MOTOR_RX_ID_MIN
-/** @brief ·´À¡ ID Ó³Éä±í½áÊøÖµ£¨º¬£© */
+/** @brief æ¥æ”¶ ID æ˜ å°„ç»“æŸå€¼ */
 #define DJI_RX_ID_END DJI_MOTOR_RX_ID_MAX
-/** @brief ·´À¡Ö±½ÓÓ³Éä±í³¤¶È */
+/** @brief ç›´æ¥æ˜ å°„è¡¨é•¿åº¦ */
 #define DJI_MOTOR_RX_MAP_SIZE (DJI_RX_ID_END - DJI_RX_ID_START + 1)
 
-/* --- Ğ­Òé³£Á¿Óë´íÎóÂë --- */
-/** @brief C6x0 µç»ú£¨ID 1~4£©¿ØÖÆÖ¡ ID */
+/* --- åè®®å¸¸é‡å®šä¹‰ --- */
+/** @brief C6x0ï¼ˆID 1~4ï¼‰æ§åˆ¶å¸§ ID */
 #define DJI_TX_ID_C6X0_1_4 0x200
-/** @brief »ìºÏ¿ØÖÆÖ¡ ID£¨C6x0 ID 5~8 / GM6020 µçÑ¹Ä£Ê½ ID 1~4£© */
+/** @brief æ··åˆæ§åˆ¶å¸§ IDï¼ˆC6x0 ID 5~8 / GM6020 ç”µå‹æ¨¡å¼ ID 1~4ï¼‰ */
 #define DJI_TX_ID_MIX_1_FF 0x1FF
-/** @brief GM6020 µçÑ¹Ä£Ê½£¨ID 5~7£©¿ØÖÆÖ¡ ID */
+/** @brief GM6020 ç”µå‹æ¨¡å¼ï¼ˆID 5~7ï¼‰æ§åˆ¶å¸§ ID */
 #define DJI_TX_ID_GM6020_V_5_7 0x2FF
-/** @brief GM6020 µçÁ÷Ä£Ê½£¨ID 1~4£©¿ØÖÆÖ¡ ID */
+/** @brief GM6020 ç”µæµæ¨¡å¼ï¼ˆID 1~4ï¼‰æ§åˆ¶å¸§ ID */
 #define DJI_TX_ID_GM6020_C_1_4 0x1FE
-/** @brief GM6020 µçÁ÷Ä£Ê½£¨ID 5~7£©¿ØÖÆÖ¡ ID */
+/** @brief GM6020 ç”µæµæ¨¡å¼ï¼ˆID 5~7ï¼‰æ§åˆ¶å¸§ ID */
 #define DJI_TX_ID_GM6020_C_5_7 0x2FE
 
-/** @brief ÎŞ´íÎó */
+/** @brief æ— æ•…éšœ */
 #define DJI_ERR_NONE 0x00
-/** @brief ÄÚ´æÏà¹Ø´íÎó */
+/** @brief å†…å­˜å¼‚å¸¸ */
 #define DJI_ERR_MEM 0x01
-/** @brief µçÑ¹Òì³£ */
+/** @brief ç”µå‹å¼‚å¸¸ */
 #define DJI_ERR_VOLT 0x02
-/** @brief ÏàÎ»Òì³£ */
+/** @brief ç›¸ä½å¼‚å¸¸ */
 #define DJI_ERR_PHASE 0x03
-/** @brief ´«¸ĞÆ÷Òì³£ */
+/** @brief ä¼ æ„Ÿå™¨å¼‚å¸¸ */
 #define DJI_ERR_SENSOR 0x04
-/** @brief ¹ıÎÂÔ¤¾¯ */
+/** @brief è¿‡æ¸©é¢„è­¦ */
 #define DJI_ERR_TEMP_HIGH 0x05
-/** @brief ¶Â×ª */
+/** @brief å µè½¬ */
 #define DJI_ERR_STALL 0x06
-/** @brief ±ê¶¨Òì³£ */
+/** @brief æ ‡å®šå¼‚å¸¸ */
 #define DJI_ERR_CALIB 0x07
-/** @brief ¹ıÈÈ */
+/** @brief è¿‡çƒ­ä¿æŠ¤ */
 #define DJI_ERR_OVERHEAT 0x08
 
 /**
- * @brief DJI µç»úÀàĞÍ
+ * @brief DJI ç”µæœºå‹å·
  */
 typedef enum {
-    DJI_MOTOR_TYPE_C610 = 0, /**< C610£¨µäĞÍ¶ÔÓ¦ M2006£© */
-    DJI_MOTOR_TYPE_C620,     /**< C620£¨µäĞÍ¶ÔÓ¦ M3508£© */
-    DJI_MOTOR_TYPE_GM6020,   /**< GM6020£¨ÔÆÌ¨µç»ú£© */
-    DJI_MOTOR_TYPE_UNKNOWN   /**< Î´ÖªÀàĞÍ/·Ç·¨Õ¼Î» */
-} DJIMotorType_e;
+    DJI_MOTOR_TYPE_C610 = 0, /**< C610ï¼Œå¯¹åº” M2006 */
+    DJI_MOTOR_TYPE_C620,     /**< C620ï¼Œå¯¹åº” M3508 */
+    DJI_MOTOR_TYPE_GM6020,   /**< GM6020 äº‘å°ç”µæœº */
+    DJI_MOTOR_TYPE_UNKNOWN   /**< æœªçŸ¥ç±»å‹/å ä½ */
+} DJIMotorType;
 
 /**
- * @brief DJI µç»ú¿ØÖÆÄ£Ê½
+ * @brief DJI æ§åˆ¶æ¨¡å¼
  */
 typedef enum {
-    DJI_CTRL_MODE_CURRENT = 0, /**< µçÁ÷¿ØÖÆÄ£Ê½ */
-    DJI_CTRL_MODE_VOLTAGE      /**< µçÑ¹¿ØÖÆÄ£Ê½£¨Ö÷ÒªÓÃÓÚ GM6020£© */
-} DJIMotorCtrlMode_e;
+    DJI_CTRL_MODE_CURRENT = 0, /**< ç”µæµæ§åˆ¶æ¨¡å¼ */
+    DJI_CTRL_MODE_VOLTAGE      /**< ç”µå‹æ§åˆ¶æ¨¡å¼ï¼Œä»… GM6020 æ”¯æŒ */
+} DJIMotorCtrlMode;
 
-/* Ç°ÖÃÉùÃ÷ */
-typedef struct DJIMotorTxUnit DJIMotorTxUnit_s;
-typedef struct DJIMotorDrv DJIMotorDrv_s;
+/* å‰ç½®å£°æ˜ */
+typedef struct DJIMotorTxUnit DJIMotorTxUnit;
+typedef struct DJIMotorDrv DJIMotorDrv;
 
 /**
- * @brief µç»ú´íÎó×´Ì¬»Øµ÷
- * @param motor ³ö´íµç»ú¶ÔÏó
- * @param error_code µ±Ç°´íÎóÂë£¨0 ±íÊ¾»Ö¸´Õı³££©
+ * @brief é”™è¯¯çŠ¶æ€å›è°ƒ
+ * @param motor ç”µæœºå¥æŸ„
+ * @param error_code å½“å‰é”™è¯¯ç ï¼Œ0 è¡¨ç¤ºæ¢å¤æ­£å¸¸
  */
-typedef void (*DJIMotorErrorCb_t)(DJIMotorDrv_s *motor, uint8_t error_code);
+typedef void (*DJIMotorErrorCallback)(DJIMotorDrv *motor, uint8_t error_code);
 
 /**
- * @brief DJI ·¢ËÍµ¥Ôª£¨1 ¸ö TxUnit ¶ÔÓ¦ 1 Ö¡ CAN ¿ØÖÆ±¨ÎÄ£©
+ * @brief DJI å‘é€å•å…ƒï¼ˆ1 ä¸ª TxUnit å¯¹åº” 1 å¸§ CAN æ§åˆ¶å¸§ï¼‰
  */
 struct DJIMotorTxUnit {
-    ListHead_s list; /**< ËùÊô×ÜÏß·¢ËÍÁ´±í½Úµã */
-    uint32_t canId;        /**< ¸Ã·¢ËÍµ¥Ôª°ó¶¨µÄ±ê×¼Ö¡ ID */
-    uint8_t txBuffer[8];   /**< 8 ×Ö½Ú¿ØÖÆ¸ºÔØ£¬°´ 2 ×Ö½ÚÒ»×é¿ØÖÆµç»ú */
-    uint8_t isDirty;       /**< Ôà±ê¼Ç£º1 ±íÊ¾»º´æÓĞ¸üĞÂ´ı·¢ËÍ */
-    uint8_t usageMask;     /**< ²ÛÎ»Õ¼ÓÃÎ»Í¼£¬bit0~bit3 ¶ÔÓ¦ 4 ¸ö¿ØÖÆ²Û */
+    ListHead list;       /**< å‘é€é“¾è¡¨èŠ‚ç‚¹ */
+    uint32_t canId;      /**< è¯¥å‘é€å•å…ƒç»‘å®šçš„æ ‡å‡†å¸§ ID */
+    uint8_t txBuffer[8]; /**< 8 å­—èŠ‚æ§åˆ¶ç¼“å­˜ï¼Œæ¯ 2 å­—èŠ‚å¯¹åº”ä¸€å°ç”µæœº */
+    uint8_t isDirty;     /**< è„æ ‡è®°ï¼Œ1 è¡¨ç¤ºç¼“å­˜å·²æ›´æ–° */
+    uint8_t usageMask;   /**< æ§½ä½å ç”¨ä½å›¾ï¼Œbit0~bit3 å¯¹åº” 4 å°ç”µæœº */
 };
 
 /**
- * @brief DJI µç»ú¶ÔÏó¾ä±ú
+ * @brief DJI ç”µæœºé©±åŠ¨å¥æŸ„
  */
 struct DJIMotorDrv {
     /**
-     * @brief ¾²Ì¬Â·ÓÉĞÅÏ¢£¨×¢²áºóÓÉÇı¶¯Î¬»¤£©
+     * @brief é™æ€è·¯ç”±ä¿¡æ¯ï¼ˆæ³¨å†Œæ—¶ç»´æŠ¤ï¼‰
      */
     struct
     {
-        uint16_t rxId;            /**< ±¾µç»ú·´À¡Ö¡ ID */
-        uint8_t txBufIdx;         /**< ÔÚ txBuffer ÖĞµÄÆğÊ¼×Ö½ÚÏÂ±ê£¨0/2/4/6£© */
-        DJIMotorTxUnit_s *txUnit; /**< ¶ÔÓ¦·¢ËÍµ¥Ôª */
-        DJIMotorType_e type;      /**< µç»úÀàĞÍ */
+        uint16_t rxId;          /**< åé¦ˆå¸§ ID */
+        uint8_t txBufIdx;       /**< åœ¨ txBuffer ä¸­çš„èµ·å§‹å­—èŠ‚ä¸‹æ ‡ï¼ˆ0/2/4/6ï¼‰ */
+        DJIMotorTxUnit *txUnit; /**< å¯¹åº”å‘é€å•å…ƒ */
+        DJIMotorType type;      /**< ç”µæœºå‹å· */
     } link;
 
     /**
-     * @brief ÔËĞĞÊ±·´À¡Á¿²â£¨½¨ÒéÍ¨¹ı·ÃÎÊ API »ñÈ¡£©
+     * @brief è¿è¡Œæ—¶æµ‹é‡å€¼ï¼ˆé€šè¿‡ API è¯»å–ï¼‰
      */
     struct
     {
-        int16_t angle;    /**< µ¥È¦±àÂëÖµ£¨0~8191£© */
-        int16_t velocity; /**< ·´À¡×ªËÙ£¨RPM£© */
-        int16_t current;  /**< Ô­Ê¼µçÁ÷/µçÑ¹±àÂëÖµ */
-        uint8_t temp;     /**< µç»úÎÂ¶È£¨ÉãÊÏ¶È£© */
+        int16_t angle;    /**< å•åœˆè§’åº¦å€¼ï¼ŒèŒƒå›´ 0~8191 */
+        int16_t velocity; /**< è½¬é€Ÿï¼Œå•ä½ RPM */
+        int16_t current;  /**< åŸå§‹ç”µæµ/ç”µå‹åé¦ˆå€¼ */
+        uint8_t temp;     /**< æ¸©åº¦ï¼Œå•ä½æ‘„æ°åº¦ */
 
-        uint8_t errorCode;     /**< µ±Ç°´íÎóÂë */
-        uint8_t lastErrorCode; /**< ÉÏÒ»Ö¡´íÎóÂë£¨ÓÃÓÚ±ßÑØ´¥·¢£© */
+        uint8_t errorCode;     /**< å½“å‰é”™è¯¯ç  */
+        uint8_t lastErrorCode; /**< ä¸Šä¸€å¸§é”™è¯¯ç ï¼ˆç”¨äºè¾¹æ²¿æ£€æµ‹ï¼‰ */
 
-        int32_t totalAngle; /**< ¶àÈ¦ÀÛ¼Æ½Ç¶È±àÂëÖµ */
-        uint16_t lastAngle; /**< ÉÏÒ»Ö¡µ¥È¦½Ç¶È */
-        int32_t roundCount; /**< ¹ıÁãÀÛ¼ÆÈ¦Êı */
+        int32_t totalAngle;               /**< å¤šåœˆç´¯è®¡è§’åº¦åŸå§‹å€¼ */
+        uint16_t lastAngle;               /**< ä¸Šä¸€å¸§å•åœˆè§’åº¦ */
+        int32_t roundCount;               /**< ç´¯è®¡åœˆæ•° */
+        uint32_t lastFeedbackTimestampMs; /**< æœ€è¿‘ä¸€æ¬¡æœ‰æ•ˆåé¦ˆæ—¶é—´æˆ³ */
     } measure;
 
-    int16_t targetOutput;            /**< µ±Ç°Ä¿±êÊä³ö±àÂëÖµ */
-    DJIMotorCtrlMode_e mode;         /**< ¿ØÖÆÄ£Ê½ */
-    float scale;                     /**< ±àÂëÖµµ½ÎïÀíÁ¿µÄ»»Ëã±ÈÀı */
-    DJIMotorErrorCb_t errorCallback; /**< ´íÎó×´Ì¬»Øµ÷ */
+    int16_t targetOutput;                /**< å½“å‰ç›®æ ‡è¾“å‡ºå€¼ */
+    DJIMotorCtrlMode mode;               /**< æ§åˆ¶æ¨¡å¼ */
+    float scale;                         /**< åé¦ˆå€¼ç¼©æ”¾ç³»æ•° */
+    DJIMotorErrorCallback errorCallback; /**< é”™è¯¯çŠ¶æ€å›è°ƒ */
 };
 
 /**
- * @brief DJI µç»ú×ÜÏß¹ÜÀíÆ÷£¨Ò»Ìõ CAN ×ÜÏß¶ÔÓ¦Ò»¸öÊµÀı£©
+ * @brief DJI æ€»çº¿å¯¹è±¡ï¼ˆä¸€ä¸ª CAN è®¾å¤‡å¯¹åº”ä¸€ä¸ªæ€»çº¿å®ä¾‹ï¼‰
  */
 typedef struct
 {
-    Device_t canDev;                                /**< µ×²ã CAN Éè±¸¾ä±ú */
-    CanFilterHandle_t filterHandle;                 /**< ¹ıÂËÆ÷¾ä±ú£¨³õÊ¼»¯Ê±·ÖÅä£© */
-    DJIMotorDrv_s *rxMap[DJI_MOTOR_RX_MAP_SIZE];   /**< O(1) ·´À¡ ID Ó³Éä±í */
-    ListHead_s txList;                        /**< ´ı·¢ËÍÖ¡Á´±í */
-} DJIMotorBus_s;
+    Device *canDev;                            /**< ç»‘å®šçš„ CAN è®¾å¤‡ */
+    CanFilterHandle filterHandle;              /**< æ¥æ”¶è¿‡æ»¤å™¨å¥æŸ„ */
+    DJIMotorDrv *rxMap[DJI_MOTOR_RX_MAP_SIZE]; /**< O(1) çš„æ¥æ”¶ ID æ˜ å°„è¡¨ */
+    ListHead txList;                           /**< å¾…å‘é€æ§åˆ¶å¸§é“¾è¡¨ */
+} DJIMotorBus;
 
 /* --- Core API --- */
 
 /**
- * @brief ³õÊ¼»¯ DJI µç»ú×ÜÏß¹ÜÀíÆ÷
- * @param bus ×ÜÏß¹ÜÀíÆ÷ÊµÀı
- * @param can_dev ÒÑ´ò¿ªµÄ CAN Éè±¸¾ä±ú
- * @return `OM_OK` ±íÊ¾³É¹¦£¬ÆäËü·µ»ØÖµ±íÊ¾³õÊ¼»¯Ê§°ÜÔ­Òò
+ * @brief åˆå§‹åŒ– DJI ç”µæœºæ€»çº¿
+ * @param bus æ€»çº¿å®ä¾‹
+ * @param can_dev å·²æ‰“å¼€çš„ CAN è®¾å¤‡
+ * @return `OM_OK` è¡¨ç¤ºæˆåŠŸï¼Œå…¶ä»–å€¼è¡¨ç¤ºåˆå§‹åŒ–å¤±è´¥åŸå› 
  */
-OmRet_e dji_motor_bus_init(DJIMotorBus_s *bus, Device_t can_dev);
+OmRet dji_motor_bus_init(DJIMotorBus *bus, Device *can_dev);
 
 /**
- * @brief ×¢²áµç»úµ½Ö¸¶¨×ÜÏß²¢½¨Á¢ÊÕ·¢Â·ÓÉ
- * @param bus ×ÜÏß¹ÜÀíÆ÷ÊµÀı
- * @param motor µç»ú¶ÔÏóÊµÀı
- * @param type µç»úÀàĞÍ
- * @param id µç»úÎïÀí ID£¨½¨Òé 1~8£¬×îÖÕÊÜÅäÖÃ·¶Î§Ô¼Êø£©
- * @param mode ¿ØÖÆÄ£Ê½£¨µçÁ÷»òµçÑ¹£©
- * @return `OM_OK` ±íÊ¾³É¹¦£¬`OM_ERR_CONFLICT` ±íÊ¾ ID/²ÛÎ»³åÍ»£¬
- *         `OM_ERROR_MEMORY` ±íÊ¾·¢ËÍµ¥Ôª³ØºÄ¾¡£¬ÆäËü·µ»ØÖµ±íÊ¾²ÎÊı·Ç·¨
+ * @brief æ³¨å†Œå•ä¸ªç”µæœºåˆ°æŒ‡å®šæ€»çº¿
+ * @param bus æ€»çº¿å®ä¾‹
+ * @param motor ç”µæœºå®ä¾‹
+ * @param type ç”µæœºå‹å·
+ * @param id ç”µæœº IDï¼ŒèŒƒå›´çº¦æŸä¸º 1~8
+ * @param mode æ§åˆ¶æ¨¡å¼ï¼ˆç”µæµ/ç”µå‹ï¼‰
+ * @return `OM_OK` è¡¨ç¤ºæˆåŠŸï¼Œ`OM_ERR_CONFLICT` è¡¨ç¤º ID æˆ–æ§½ä½å†²çªï¼Œ
+ *         `OM_ERROR_MEMORY` è¡¨ç¤ºå‘é€å•å…ƒèµ„æºä¸è¶³ï¼Œå…¶ä»–å€¼è¡¨ç¤ºå‚æ•°éæ³•
  */
-OmRet_e dji_motor_register(DJIMotorBus_s *bus, DJIMotorDrv_s *motor, DJIMotorType_e type, uint8_t id, DJIMotorCtrlMode_e mode);
+OmRet dji_motor_register(DJIMotorBus *bus, DJIMotorDrv *motor, DJIMotorType type, uint8_t id, DJIMotorCtrlMode mode);
 
 /**
- * @brief ÉèÖÃµç»úÊä³ö±àÂëÖµ£¨½öĞ´»º´æ£¬²»Á¢¼´·¢ CAN£©
- * @param motor µç»ú¶ÔÏó
- * @param output Ä¿±êÊä³ö±àÂëÖµ
+ * @brief è®¾ç½®ç›®æ ‡è¾“å‡ºå€¼ï¼ˆä»…å†™ç¼“å­˜ï¼Œä¸ç«‹å³å‘ CANï¼‰
+ * @param motor ç”µæœºå®ä¾‹
+ * @param output ç›®æ ‡è¾“å‡ºåŸå§‹å€¼
  */
-void dji_motor_set_output(DJIMotorDrv_s *motor, int16_t output);
+void dji_motor_set_output(DJIMotorDrv *motor, int16_t output);
 
 /**
- * @brief Í¬²½·¢ËÍ×ÜÏßÉÏµÄËùÓĞÔàÖ¡
- * @param bus ×ÜÏß¹ÜÀíÆ÷ÊµÀı
+ * @brief åŒæ­¥å‘é€å½“å‰å‘¨æœŸçš„æ‰€æœ‰æ§åˆ¶å¸§
+ * @param bus æ€»çº¿å®ä¾‹
  */
-void dji_motor_bus_sync(DJIMotorBus_s *bus);
+void dji_motor_bus_sync(DJIMotorBus *bus);
 
 /* --- Error Handling API --- */
 
 /**
- * @brief ÅäÖÃ´íÎó×´Ì¬»Øµ÷
- * @param motor µç»ú¶ÔÏó
- * @param callback »Øµ÷º¯ÊıÖ¸Õë
- * @note »Øµ÷Îª±ßÑØ´¥·¢£¬½öµ±´íÎóÂë±ä»¯Ê±´¥·¢
+ * @brief é…ç½®é”™è¯¯çŠ¶æ€å›è°ƒ
+ * @param motor ç”µæœºå®ä¾‹
+ * @param callback å›è°ƒå‡½æ•°æŒ‡é’ˆ
+ * @note å›è°ƒåœ¨é”™è¯¯ç å‘ç”Ÿå˜åŒ–æ—¶è§¦å‘
  */
-static inline void dji_motor_config_error_callback(DJIMotorDrv_s *motor, DJIMotorErrorCb_t callback)
+static inline void dji_motor_config_error_callback(DJIMotorDrv *motor, DJIMotorErrorCallback callback)
 {
     if (motor)
         motor->errorCallback = callback;
 }
 
 /**
- * @brief Çå³ıÈí¼ş²à´íÎó×´Ì¬¼ÇÂ¼
- * @param motor µç»ú¶ÔÏó
- * @note ÈôÓ²¼ş´íÎóÎ´»Ö¸´£¬ÏÂÒ»Ö¡·´À¡»áÖØĞÂÖÃÎ»
+ * @brief æ¸…ç©ºè½¯ä»¶ä¾§é”™è¯¯è®°å½•
+ * @param motor ç”µæœºå®ä¾‹
+ * @note è¯¥æ¥å£åªæ¸…ç†è½¯ä»¶ç¼“å­˜ï¼Œä¸ä¼šæ”¹å˜ç”µæœºç¡¬ä»¶çŠ¶æ€
  */
-static inline void dji_motor_clear_error(DJIMotorDrv_s *motor)
+static inline void dji_motor_clear_error(DJIMotorDrv *motor)
 {
     if (motor) {
-        motor->measure.errorCode = 0;
+        motor->measure.errorCode     = 0;
         motor->measure.lastErrorCode = 0;
     }
 }
@@ -215,11 +216,11 @@ static inline void dji_motor_clear_error(DJIMotorDrv_s *motor)
 /* --- Data Access API --- */
 
 /**
- * @brief »ñÈ¡¶àÈ¦ÀÛ¼Æ½Ç¶È
- * @param motor µç»ú¶ÔÏó
- * @return ½Ç¶ÈÖµ£¨µ¥Î»£º¶È£©
+ * @brief è·å–å¤šåœˆç´¯è®¡è§’åº¦
+ * @param motor ç”µæœºå®ä¾‹
+ * @return è§’åº¦å€¼ï¼Œå•ä½ï¼šåº¦
  */
-static inline float dji_motor_get_total_angle(DJIMotorDrv_s *motor)
+static inline float dji_motor_get_total_angle(DJIMotorDrv *motor)
 {
     if (!motor)
         return 0.0f;
@@ -227,11 +228,11 @@ static inline float dji_motor_get_total_angle(DJIMotorDrv_s *motor)
 }
 
 /**
- * @brief »ñÈ¡µ¥È¦½Ç¶È
- * @param motor µç»ú¶ÔÏó
- * @return ½Ç¶ÈÖµ£¨µ¥Î»£º¶È£©
+ * @brief è·å–å•åœˆè§’åº¦
+ * @param motor ç”µæœºå®ä¾‹
+ * @return è§’åº¦å€¼ï¼Œå•ä½ï¼šåº¦
  */
-static inline float dji_motor_get_singgle_angle(DJIMotorDrv_s *motor)
+static inline float dji_motor_get_singgle_angle(DJIMotorDrv *motor)
 {
     if (!motor)
         return 0.0f;
@@ -239,11 +240,11 @@ static inline float dji_motor_get_singgle_angle(DJIMotorDrv_s *motor)
 }
 
 /**
- * @brief »ñÈ¡µ±Ç°×ªËÙ
- * @param motor µç»ú¶ÔÏó
- * @return ×ªËÙ£¨µ¥Î»£ºRPM£©
+ * @brief è·å–å½“å‰è½¬é€Ÿ
+ * @param motor ç”µæœºå®ä¾‹
+ * @return è½¬é€Ÿï¼Œå•ä½ï¼šRPM
  */
-static inline float dji_motor_get_velocity(DJIMotorDrv_s *motor)
+static inline float dji_motor_get_velocity(DJIMotorDrv *motor)
 {
     if (!motor)
         return 0.0f;
@@ -251,11 +252,11 @@ static inline float dji_motor_get_velocity(DJIMotorDrv_s *motor)
 }
 
 /**
- * @brief »ñÈ¡µ±Ç°Êµ¼ÊÅ¤¾ØµçÁ÷
- * @param motor µç»ú¶ÔÏó
- * @return µçÁ÷Öµ£¨µ¥Î»£ºA£©
+ * @brief è·å–å½“å‰ç”µæµåé¦ˆï¼ˆæŒ‰æ¯”ä¾‹ç¼©æ”¾åï¼‰
+ * @param motor ç”µæœºå®ä¾‹
+ * @return ç”µæµå€¼ï¼Œå•ä½ï¼šA
  */
-static inline float dji_motor_get_current(DJIMotorDrv_s *motor)
+static inline float dji_motor_get_current(DJIMotorDrv *motor)
 {
     if (!motor || motor->link.type >= DJI_MOTOR_TYPE_UNKNOWN)
         return 0.0f;
@@ -263,11 +264,11 @@ static inline float dji_motor_get_current(DJIMotorDrv_s *motor)
 }
 
 /**
- * @brief »ñÈ¡µ±Ç°ÎÂ¶È
- * @param motor µç»ú¶ÔÏó
- * @return ÎÂ¶È£¨µ¥Î»£ºÉãÊÏ¶È£©
+ * @brief è·å–å½“å‰æ¸©åº¦
+ * @param motor ç”µæœºå®ä¾‹
+ * @return æ¸©åº¦å€¼ï¼Œå•ä½ï¼šæ‘„æ°åº¦
  */
-static inline float dji_motor_get_temp(DJIMotorDrv_s *motor)
+static inline float dji_motor_get_temp(DJIMotorDrv *motor)
 {
     if (!motor)
         return 0.0f;
@@ -275,11 +276,11 @@ static inline float dji_motor_get_temp(DJIMotorDrv_s *motor)
 }
 
 /**
- * @brief »ñÈ¡µ±Ç°´íÎóÂë
- * @param motor µç»ú¶ÔÏó
- * @return ´íÎóÂëÔ­Ê¼Öµ
+ * @brief è·å–å½“å‰é”™è¯¯ç 
+ * @param motor ç”µæœºå®ä¾‹
+ * @return åŸå§‹é”™è¯¯ç 
  */
-static inline uint8_t dji_motor_get_error_code(DJIMotorDrv_s *motor)
+static inline uint8_t dji_motor_get_error_code(DJIMotorDrv *motor)
 {
     if (!motor)
         return 0;
@@ -287,17 +288,30 @@ static inline uint8_t dji_motor_get_error_code(DJIMotorDrv_s *motor)
 }
 
 /**
- * @brief ÖØÖÃ·´À¡»ı·Ö×´Ì¬£¨Èç¶àÈ¦½Ç¶È£©
- * @param motor µç»ú¶ÔÏó
- * @note ²»ÖØÖÃ lastAngle£¬±ÜÃâÏÂÒ»Ö¡¼ÆËã³öÏÖ´ó·ùÌø±ä
+ * @brief é‡ç½®åé¦ˆç´¯è®¡çŠ¶æ€ï¼ˆè§’åº¦/åœˆæ•°ï¼‰
+ * @param motor ç”µæœºå®ä¾‹
+ * @note `lastAngle` ä¼šåœ¨ä¸‹ä¸€å¸§åé¦ˆå¤„ç†ä¸­é‡æ–°å»ºç«‹
  */
-static inline void dji_motor_reset_feedback(DJIMotorDrv_s *motor)
+static inline void dji_motor_reset_feedback(DJIMotorDrv *motor)
 {
     if (motor) {
-        motor->measure.totalAngle = 0;
-        motor->measure.roundCount = 0;
-        motor->measure.angle = 0;
+        motor->measure.totalAngle              = 0;
+        motor->measure.roundCount              = 0;
+        motor->measure.angle                   = 0;
+        motor->measure.lastFeedbackTimestampMs = 0u;
     }
+}
+
+/**
+ * @brief è·å–æœ€è¿‘ä¸€æ¬¡æœ‰æ•ˆåé¦ˆæ—¶é—´æˆ³
+ * @param motor ç”µæœºå®ä¾‹
+ * @return æ—¶é—´æˆ³ï¼Œå•ä½ ms
+ */
+static inline uint32_t dji_motor_get_feedback_timestamp_ms(DJIMotorDrv *motor)
+{
+    if (!motor)
+        return 0u;
+    return motor->measure.lastFeedbackTimestampMs;
 }
 
 #ifdef __cplusplus
@@ -305,4 +319,3 @@ static inline void dji_motor_reset_feedback(DJIMotorDrv_s *motor)
 #endif
 
 #endif /* __DJI_MOTOR_DRIVER_H__ */
-

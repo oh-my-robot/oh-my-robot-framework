@@ -1,31 +1,32 @@
 /**
  * @file dji_motor_drv.c
- * @brief DJI µç»úÇı¶¯ÊµÏÖ
+ * @brief DJI ç”µæœºé©±åŠ¨å®ç°
  */
 
 #include "drivers/motor/vendors/dji/dji_motor_drv.h"
 #include "drivers/peripheral/can/pal_can_dev.h"
+#include "osal/osal_time.h"
 #include <math.h>
 #include <string.h>
 
-/* --- ¾²Ì¬ÄÚ´æ³Ø¹ÜÀí --- */
-/** @brief TxUnit ¾²Ì¬ÄÚ´æ³Ø£¨±ÜÃâÔËĞĞÊ±¶¯Ì¬·ÖÅä£© */
-static DJIMotorTxUnit_s s_tx_pool[DJI_MOTOR_MAX_TX_UNITS];
-/** @brief TxUnit Ê¹ÓÃ±ê¼Ç£¬1 ±íÊ¾¸Ã²ÛÎ»ÒÑ·ÖÅä */
+/* --- é™æ€å†…å­˜æ± ç®¡ç† --- */
+/** @brief TxUnit é™æ€å†…å­˜æ± ï¼ˆé¿å…è¿è¡Œæ—¶åŠ¨æ€åˆ†é…ï¼‰ */
+static DJIMotorTxUnit s_tx_pool[DJI_MOTOR_MAX_TX_UNITS];
+/** @brief TxUnit ä½¿ç”¨æ ‡è®°ï¼Œ1 è¡¨ç¤ºè¯¥æ§½ä½å·²åˆ†é… */
 static uint8_t s_pool_usage_map[DJI_MOTOR_MAX_TX_UNITS] = {0};
 
 /**
- * @brief ´Ó¾²Ì¬³Ø·ÖÅäÒ»¸ö·¢ËÍµ¥Ôª
- * @return ·ÖÅä³É¹¦·µ»Ø·¢ËÍµ¥ÔªÖ¸Õë£¬³ØºÄ¾¡·µ»Ø `NULL`
+ * @brief ä»é™æ€æ± åˆ†é…ä¸€ä¸ªå‘é€å•å…ƒ
+ * @return åˆ†é…æˆåŠŸè¿”å›å‘é€å•å…ƒæŒ‡é’ˆï¼Œæ± è€—å°½è¿”å› `NULL`
  */
-static DJIMotorTxUnit_s *dji_alloc_tx_unit_static(void)
+static DJIMotorTxUnit *dji_alloc_tx_unit_static(void)
 {
     for (int i = 0; i < DJI_MOTOR_MAX_TX_UNITS; i++)
     {
         if (s_pool_usage_map[i] == 0)
         {
             s_pool_usage_map[i] = 1;
-            memset(&s_tx_pool[i], 0, sizeof(DJIMotorTxUnit_s));
+            memset(&s_tx_pool[i], 0, sizeof(DJIMotorTxUnit));
             INIT_LIST_HEAD(&s_tx_pool[i].list);
             return &s_tx_pool[i];
         }
@@ -34,19 +35,19 @@ static DJIMotorTxUnit_s *dji_alloc_tx_unit_static(void)
 }
 
 /**
- * @brief °´ CAN ID ²éÕÒ»ò´´½¨·¢ËÍµ¥Ôª
- * @param bus ×ÜÏß¹ÜÀíÆ÷
- * @param canId Ä¿±ê¿ØÖÆÖ¡ ID
- * @return ¶ÔÓ¦·¢ËÍµ¥ÔªÖ¸Õë£¬Ê§°Ü·µ»Ø `NULL`
- * @note Í¬Ò» CAN ID µÄ¶à¸öµç»ú»á¹²ÏíÍ¬Ò»¸ö TxUnit£¨×é°ü·¢ËÍ£©
+ * @brief æŒ‰ CAN ID æŸ¥æ‰¾æˆ–åˆ›å»ºå‘é€å•å…ƒ
+ * @param bus æ€»çº¿ç®¡ç†å™¨
+ * @param canId ç›®æ ‡æ§åˆ¶å¸§ ID
+ * @return å¯¹åº”å‘é€å•å…ƒæŒ‡é’ˆï¼Œå¤±è´¥è¿”å› `NULL`
+ * @note åŒä¸€ CAN ID çš„å¤šä¸ªç”µæœºä¼šå…±äº«åŒä¸€ä¸ª TxUnitï¼ˆç»„åŒ…å‘é€ï¼‰
  */
-static DJIMotorTxUnit_s *dji_get_or_create_tx_unit(DJIMotorBus_s *bus, uint32_t can_id)
+static DJIMotorTxUnit *dji_get_or_create_tx_unit(DJIMotorBus *bus, uint32_t can_id)
 {
-    DJIMotorTxUnit_s *unit;
-    ListHead_s *pos;
+    DJIMotorTxUnit *unit;
+    ListHead *pos;
     list_for_each(pos, &bus->txList)
     {
-        unit = list_entry(pos, DJIMotorTxUnit_s, list);
+        unit = list_entry(pos, DJIMotorTxUnit, list);
         if (unit->canId == can_id)
             return unit;
     }
@@ -54,7 +55,7 @@ static DJIMotorTxUnit_s *dji_get_or_create_tx_unit(DJIMotorBus_s *bus, uint32_t 
     unit = dji_alloc_tx_unit_static();
     if (unit == NULL)
     {
-        /* TxUnit ³ØºÄ¾¡£¬½»ÓÉÉÏ²ã·µ»Ø OM_ERROR_MEMORY¡£ */
+        /* TxUnit æ± è€—å°½ï¼Œäº¤ç”±ä¸Šå±‚è¿”å› OM_ERROR_MEMORYã€‚ */
         return NULL;
     }
 
@@ -63,19 +64,19 @@ static DJIMotorTxUnit_s *dji_get_or_create_tx_unit(DJIMotorBus_s *bus, uint32_t 
     return unit;
 }
 
-/* --- ÄÚ²¿ºËĞÄ»Øµ÷ --- */
+/* --- å†…éƒ¨æ ¸å¿ƒå›è°ƒ --- */
 
 /**
- * @brief CAN ½ÓÊÕ»Øµ÷£¬¸ºÔğ½«·´À¡Ö¡·Ö·¢µ½Ä¿±êµç»ú¶ÔÏó
- * @param dev CAN Éè±¸¾ä±ú
- * @param param ÓÃ»§²ÎÊı£¨DJIMotorBus_s*£©
- * @param filterHandle µ±Ç°ÃüÖĞµÄ¹ıÂËÆ÷¾ä±ú
- * @param count ±¾´Î¿É¶ÁÈ¡µÄ±¨ÎÄÊıÁ¿
+ * @brief CAN æ¥æ”¶å›è°ƒï¼Œè´Ÿè´£å°†åé¦ˆå¸§åˆ†å‘åˆ°ç›®æ ‡ç”µæœºå¯¹è±¡
+ * @param dev CAN è®¾å¤‡å¥æŸ„
+ * @param param ç”¨æˆ·å‚æ•°ï¼ˆDJIMotorBus*ï¼‰
+ * @param filterHandle å½“å‰å‘½ä¸­çš„è¿‡æ»¤å™¨å¥æŸ„
+ * @param count æœ¬æ¬¡å¯è¯»å–çš„æŠ¥æ–‡æ•°é‡
  */
-static void dji_rx_callback(Device_t dev, void *param, CanFilterHandle_t filter_handle, size_t count)
+static void dji_rx_callback(Device *dev, void *param, CanFilterHandle filter_handle, size_t count)
 {
-    DJIMotorBus_s *bus = (DJIMotorBus_s *)param;
-    CanUserMsg_s msg;
+    DJIMotorBus *bus = (DJIMotorBus *)param;
+    CanUserMsg msg;
     uint8_t buf[8];
     msg.userBuf = buf;
     msg.filterHandle = filter_handle;
@@ -86,31 +87,32 @@ static void dji_rx_callback(Device_t dev, void *param, CanFilterHandle_t filter_
         {
             const uint32_t id = msg.dsc.id;
 
-            /* ÊäÈë·¶Î§±£»¤£¬±ÜÃâ·ÃÎÊ rxMap Ô½½ç¡£ */
+            /* è¾“å…¥èŒƒå›´ä¿æŠ¤ï¼Œé¿å…è®¿é—® rxMap è¶Šç•Œã€‚ */
             if (id < DJI_RX_ID_START || id > DJI_RX_ID_END)
             {
-                /* ·Ç·¨ ID Ö±½Ó¶ªÆú£¬¼ÌĞø´¦ÀíºóĞø±¨ÎÄ¡£ */
+                /* éæ³• ID ç›´æ¥ä¸¢å¼ƒï¼Œç»§ç»­å¤„ç†åç»­æŠ¥æ–‡ã€‚ */
                 continue;
             }
 
-            DJIMotorDrv_s *motor = bus->rxMap[id - DJI_RX_ID_START];
+            DJIMotorDrv *motor = bus->rxMap[id - DJI_RX_ID_START];
             if (motor)
             {
                 uint8_t *d = msg.userBuf;
 
-                /* ²½Öè 1£º±£´æÉÏÒ»Ö¡¹Ø¼ü×´Ì¬£¬¹©²î·ÖÓë±ßÑØ¼ì²âÊ¹ÓÃ¡£ */
+                /* æ­¥éª¤ 1ï¼šä¿å­˜ä¸Šä¸€å¸§å…³é”®çŠ¶æ€ï¼Œä¾›å·®åˆ†ä¸è¾¹æ²¿æ£€æµ‹ä½¿ç”¨ã€‚ */
                 motor->measure.lastAngle = motor->measure.angle;
                 motor->measure.lastErrorCode = motor->measure.errorCode;
 
-                /* ²½Öè 2£º½âÎö DJI ·´À¡Ğ­Òé¡£ */
+                /* æ­¥éª¤ 2ï¼šè§£æ DJI åé¦ˆåè®®ã€‚ */
                 motor->measure.angle = (int16_t)(d[0] << 8 | d[1]);
                 motor->measure.velocity = (int16_t)(d[2] << 8 | d[3]);
                 motor->measure.current = (int16_t)(d[4] << 8 | d[5]);
                 motor->measure.temp = d[6];
                 motor->measure.errorCode = d[7];
+                motor->measure.lastFeedbackTimestampMs = osal_time_now_monotonic();
 
-                /* ²½Öè 3£º¹ÀËã¶àÈ¦½Ç¶È¡£
-                 * 8192 ±àÂëÎªÒ»È¦£¬4096 ×÷Îª°ëÈ¦ãĞÖµÅĞ¶Ï¹ıÁã·½Ïò¡£
+                /* æ­¥éª¤ 3ï¼šä¼°ç®—å¤šåœˆè§’åº¦ã€‚
+                 * 8192 ç¼–ç ä¸ºä¸€åœˆï¼Œ4096 ä½œä¸ºåŠåœˆé˜ˆå€¼åˆ¤æ–­è¿‡é›¶æ–¹å‘ã€‚
                  */
                 int16_t diff = motor->measure.angle - motor->measure.lastAngle;
                 if (diff < -4096)
@@ -119,7 +121,7 @@ static void dji_rx_callback(Device_t dev, void *param, CanFilterHandle_t filter_
                     motor->measure.roundCount--;
                 motor->measure.totalAngle = motor->measure.roundCount * 8192 + motor->measure.angle;
 
-                /* ²½Öè 4£º´íÎóÂë±ßÑØ´¥·¢»Øµ÷£¬±ÜÃâ³ÖĞø´íÎóµ¼ÖÂ»Øµ÷·ç±©¡£ */
+                /* æ­¥éª¤ 4ï¼šé”™è¯¯ç è¾¹æ²¿è§¦å‘å›è°ƒï¼Œé¿å…æŒç»­é”™è¯¯å¯¼è‡´å›è°ƒé£æš´ã€‚ */
                 if (motor->errorCallback && (motor->measure.errorCode != motor->measure.lastErrorCode))
                     motor->errorCallback(motor, motor->measure.errorCode);
             }
@@ -130,18 +132,18 @@ static void dji_rx_callback(Device_t dev, void *param, CanFilterHandle_t filter_
 /* --- Core API --- */
 
 /** @copydoc dji_motor_bus_init */
-OmRet_e dji_motor_bus_init(DJIMotorBus_s *bus, Device_t can_dev)
+OmRet dji_motor_bus_init(DJIMotorBus *bus, Device *can_dev)
 {
     if (!bus || !can_dev)
         return OM_ERROR_PARAM;
 
-    memset(bus, 0, sizeof(DJIMotorBus_s));
+    memset(bus, 0, sizeof(DJIMotorBus));
     bus->canDev = can_dev;
     bus->filterHandle = 0;
     INIT_LIST_HEAD(&bus->txList);
 
-    /* ¹ıÂËÌõ¼ş¸²¸Ç 0x200~0x20F£¨ÑÚÂë 0x7F0£©£¬Æ¥Åä DJI µç»ú·´À¡ ID ¶Î¡£ */
-    CanFilterAllocArg_s alloc_arg = {0};
+    /* è¿‡æ»¤æ¡ä»¶è¦†ç›– 0x200~0x20Fï¼ˆæ©ç  0x7F0ï¼‰ï¼ŒåŒ¹é… DJI ç”µæœºåé¦ˆ ID æ®µã€‚ */
+    CanFilterAllocArg alloc_arg = {0};
     alloc_arg.request.workMode = CAN_FILTER_MODE_MASK;
     alloc_arg.request.idType = CAN_FILTER_ID_STD;
     alloc_arg.request.id = 0x200;
@@ -149,7 +151,7 @@ OmRet_e dji_motor_bus_init(DJIMotorBus_s *bus, Device_t can_dev)
     alloc_arg.request.rxCallback = dji_rx_callback;
     alloc_arg.request.param = bus;
 
-    OmRet_e ret = device_ctrl(can_dev, CAN_CMD_FILTER_ALLOC, &alloc_arg);
+    OmRet ret = device_ctrl(can_dev, CAN_CMD_FILTER_ALLOC, &alloc_arg);
     if (ret != OM_OK)
         return ret;
     bus->filterHandle = alloc_arg.handle;
@@ -157,13 +159,13 @@ OmRet_e dji_motor_bus_init(DJIMotorBus_s *bus, Device_t can_dev)
 }
 
 /** @copydoc dji_motor_register */
-OmRet_e dji_motor_register(DJIMotorBus_s *bus, DJIMotorDrv_s *motor, DJIMotorType_e type, uint8_t id, DJIMotorCtrlMode_e mode)
+OmRet dji_motor_register(DJIMotorBus *bus, DJIMotorDrv *motor, DJIMotorType type, uint8_t id, DJIMotorCtrlMode mode)
 {
     if (!bus || !motor || id == 0 || type > DJI_MOTOR_TYPE_UNKNOWN)
         return OM_ERROR_PARAM;
 
-    memset(motor, 0, sizeof(DJIMotorDrv_s)); /* Çå¿Õ¾ä±ú£¬Ïû³ıÀúÊ·×´Ì¬Ó°Ïì¡£ */
-    /* ½ÓÊÕ ID Óëµç»úÀàĞÍÏà¹Ø£º
+    memset(motor, 0, sizeof(DJIMotorDrv)); /* æ¸…ç©ºå¥æŸ„ï¼Œæ¶ˆé™¤å†å²çŠ¶æ€å½±å“ã€‚ */
+    /* æ¥æ”¶ ID ä¸ç”µæœºç±»å‹ç›¸å…³ï¼š
      * C6x0: 0x201~0x208
      * GM6020: 0x205~0x20B
      */
@@ -182,7 +184,7 @@ OmRet_e dji_motor_register(DJIMotorBus_s *bus, DJIMotorDrv_s *motor, DJIMotorTyp
     uint32_t target_can_id = 0;
     uint8_t buf_idx = 0;
 
-    /* ¸ù¾İ¡°ÀàĞÍ + Ä£Ê½ + ÎïÀí ID¡±ÍÆµ¼Ä¿±ê¿ØÖÆÖ¡Óë²ÛÎ»Æ«ÒÆ¡£ */
+    /* æ ¹æ®â€œç±»å‹ + æ¨¡å¼ + ç‰©ç† IDâ€æ¨å¯¼ç›®æ ‡æ§åˆ¶å¸§ä¸æ§½ä½åç§»ã€‚ */
     if (type == DJI_MOTOR_TYPE_GM6020)
     {
         if (mode == DJI_CTRL_MODE_VOLTAGE)
@@ -202,19 +204,19 @@ OmRet_e dji_motor_register(DJIMotorBus_s *bus, DJIMotorDrv_s *motor, DJIMotorTyp
         buf_idx = (id - (id <= 4 ? 1 : 5)) * 2;
     }
 
-    DJIMotorTxUnit_s *unit = dji_get_or_create_tx_unit(bus, target_can_id);
+    DJIMotorTxUnit *unit = dji_get_or_create_tx_unit(bus, target_can_id);
     if (unit == NULL)
         return OM_ERROR_MEMORY;
 
-    /* usageMask Ã¿Ò»Î»´ú±íÒ»¸ö 2-byte ¿ØÖÆ²Û£¬ÖÃÎ»³åÍ»¼´±íÊ¾Ó³Éä³åÍ»¡£ */
+    /* usageMask æ¯ä¸€ä½ä»£è¡¨ä¸€ä¸ª 2-byte æ§åˆ¶æ§½ï¼Œç½®ä½å†²çªå³è¡¨ç¤ºæ˜ å°„å†²çªã€‚ */
     uint8_t slot_bit = (1U << (buf_idx / 2U));
     if (unit->usageMask & slot_bit)
     {
-        /* ²ÛÎ»³åÍ»£¬ËµÃ÷µç»ú ID/Ä£Ê½Ó³Éä·¢ÉúÖØµş¡£ */
+        /* æ§½ä½å†²çªï¼Œè¯´æ˜ç”µæœº ID/æ¨¡å¼æ˜ å°„å‘ç”Ÿé‡å ã€‚ */
         return OM_ERR_CONFLICT;
     }
 
-    /* µçÁ÷/µçÑ¹±àÂëÖµµ½ÎïÀíÁ¿µÄ»»Ëã±ÈÀı¡£ */
+    /* ç”µæµ/ç”µå‹ç¼–ç å€¼åˆ°ç‰©ç†é‡çš„æ¢ç®—æ¯”ä¾‹ã€‚ */
     switch (type)
     {
     case DJI_MOTOR_TYPE_C610:
@@ -227,7 +229,7 @@ OmRet_e dji_motor_register(DJIMotorBus_s *bus, DJIMotorDrv_s *motor, DJIMotorTyp
         motor->scale = (mode == DJI_CTRL_MODE_CURRENT) ? 3.0f / 16384.0f : 24.0f / 25000.0f;
         break;
     default:
-        /* ·Ç·¨ÀàĞÍ£¬¾Ü¾ø×¢²á¡£ */
+        /* éæ³•ç±»å‹ï¼Œæ‹’ç»æ³¨å†Œã€‚ */
         return OM_ERROR_PARAM;
     }
 
@@ -238,7 +240,7 @@ OmRet_e dji_motor_register(DJIMotorBus_s *bus, DJIMotorDrv_s *motor, DJIMotorTyp
     motor->link.type = type;
     motor->mode = mode;
 
-    /* Ê×Ö¡Í¨³£¿ÉÄÜ´æÔÚÌø±ä£¬ÉÏ²ã¿É°´Ğè¶ªÆúÊ×Ö¡»òÑÓ³Ù±Õ»·¡£ */
+    /* é¦–å¸§é€šå¸¸å¯èƒ½å­˜åœ¨è·³å˜ï¼Œä¸Šå±‚å¯æŒ‰éœ€ä¸¢å¼ƒé¦–å¸§æˆ–å»¶è¿Ÿé—­ç¯ã€‚ */
     motor->measure.lastAngle = 0;
     bus->rxMap[map_idx] = motor;
 
@@ -246,12 +248,12 @@ OmRet_e dji_motor_register(DJIMotorBus_s *bus, DJIMotorDrv_s *motor, DJIMotorTyp
 }
 
 /** @copydoc dji_motor_set_output */
-void dji_motor_set_output(DJIMotorDrv_s *motor, int16_t output)
+void dji_motor_set_output(DJIMotorDrv *motor, int16_t output)
 {
     if (!motor || !motor->link.txUnit)
         return;
 
-    /* ½ö¸üĞÂ»º´æÓëÔà±ê¼Ç£¬²»Ö±½Ó´¥·¢ IO£¬±ãÓÚ¿ØÖÆÑ­»·Í³Ò»µ÷¶È·¢ËÍ¡£ */
+    /* ä»…æ›´æ–°ç¼“å­˜ä¸è„æ ‡è®°ï¼Œä¸ç›´æ¥è§¦å‘ IOï¼Œä¾¿äºæ§åˆ¶å¾ªç¯ç»Ÿä¸€è°ƒåº¦å‘é€ã€‚ */
     motor->targetOutput = output;
     uint8_t *b = motor->link.txUnit->txBuffer;
     uint8_t i = motor->link.txBufIdx;
@@ -261,24 +263,24 @@ void dji_motor_set_output(DJIMotorDrv_s *motor, int16_t output)
 }
 
 /** @copydoc dji_motor_bus_sync */
-void dji_motor_bus_sync(DJIMotorBus_s *bus)
+void dji_motor_bus_sync(DJIMotorBus *bus)
 {
     if (!bus)
         return;
 
-    DJIMotorTxUnit_s *unit;
-    ListHead_s *pos;
+    DJIMotorTxUnit *unit;
+    ListHead *pos;
     list_for_each(pos, &bus->txList)
     {
-        unit = list_entry(pos, DJIMotorTxUnit_s, list);
+        unit = list_entry(pos, DJIMotorTxUnit, list);
         if (unit->usageMask && unit->isDirty)
         {
-            CanUserMsg_s msg;
+            CanUserMsg msg;
             msg.dsc = CAN_DATA_MSG_DSC_INIT(unit->canId, CAN_IDE_STD, 8);
             msg.userBuf = unit->txBuffer;
             int write_ret = (int)device_write(bus->canDev, 0, &msg, 1);
 
-            /* ½öÔÚ·¢ËÍ³É¹¦Ê±ÇåÔà£»Ê§°ÜÊ±±£ÁôÔàÎ»£¬ÏÂÒ»ÖÜÆÚ×Ô¶¯ÖØÊÔ¡£ */
+            /* ä»…åœ¨å‘é€æˆåŠŸæ—¶æ¸…è„ï¼›å¤±è´¥æ—¶ä¿ç•™è„ä½ï¼Œä¸‹ä¸€å‘¨æœŸè‡ªåŠ¨é‡è¯•ã€‚ */
             if (write_ret > 0)
                 unit->isDirty = 0;
         }

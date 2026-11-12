@@ -12,7 +12,10 @@
 local vendor = {
     name = "STM32",
     defines = {},
-    includedirs = {},
+    includedirs = {
+        -- 外设共享适配层（板瘦身：板=数据、驱动=通用），各板 opt-in 引用
+        "vendor/STM32/STM32F4/adapters",
+    },
     components = {
         cmsis = {
             includedirs = {

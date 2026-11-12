@@ -1,10 +1,6 @@
 # sync
 
-Requirement phase only.
+同步语义层，提供基于 OSAL 原语组合出的纯同步信号抽象（无数据载荷）。
 
-This directory keeps stable sync headers already used by existing code, but
-current work stage does not introduce or freeze new sync APIs.
+当前阶段仅保留已完成实现且已有代码引用的稳定头文件，不引入或冻结新的同步 API。
 
-Active requirement document:
-
-- `oh-my-robot/lib/sync/doc/需求分册_sync.md`

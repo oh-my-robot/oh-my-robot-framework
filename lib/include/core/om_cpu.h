@@ -6,84 +6,82 @@
  */
 
 #ifndef __OM_BOARD_H__
-#define OM_BOARD_H
+#define __OM_BOARD_H__
 
 #include "core/om_config.h"
 #include "core/om_def.h"
 #include <stdint.h>
 
 /* CPU 配置 */
-#define OM_CPU_NAME "DJI_C" // CPU名称，如"DJI_C"
-typedef uint32_t cputime_cnt;   // CPU时间计数器类型，由此计数类型，通过换算关系计算得到以下时间类型
-typedef float cputime_s;        // CPU时间类型，单位：s
-typedef float cputime_ms;       // CPU时间类型，单位：ms
-typedef uint64_t cputime_us;    // CPU时间类型，单位：us
+#define OM_CPU_NAME "DJI_C"  // CPU名称，如"DJI_C"
+typedef uint32_t CputimeCnt; // CPU时间计数器类型，由此计数类型，通过换算关系计算得到以下时间类型
+typedef float Cputime;       // CPU时间类型，单位：s
+typedef float CputimeMs;     // CPU时间类型，单位：ms
+typedef uint64_t CputimeUs;  // CPU时间类型，单位：us
 
-typedef struct OmCpu* OmCpu_t;
+typedef struct OmCpu OmCpu;
 
-typedef struct OmBoardInterface* OmBoardInterface_t;
-typedef struct OmBoardInterface
-{
+typedef struct OmBoardInterface OmBoardInterface;
+typedef struct OmBoardInterface {
     void (*errhandler)(void);
     void (*reset)(void);
-    cputime_s (*getCpuTimeS)(void);                           // 获取CPU时间，单位：s
-    cputime_ms (*getCpuTimeMs)(void);                         // 获取CPU时间，单位：ms
-    cputime_us (*getCpuTimeUs)(void);                         // 获取CPU时间，单位：us
-    cputime_s (*getDeltaCpuTimeS)(cputime_cnt* last_time_cnt); // 获取CPU时间差，单位：s
-    void (*delayMs)(float ms);                                  // 延时ms
-} OmBoardInterface_s;
+    Cputime (*getCpuTimeS)(void);                           // 获取CPU时间，单位：s
+    CputimeMs (*getCpuTimeMs)(void);                        // 获取CPU时间，单位：ms
+    CputimeUs (*getCpuTimeUs)(void);                        // 获取CPU时间，单位：us
+    Cputime (*getDeltaCpuTimeS)(CputimeCnt *last_time_cnt); // 获取CPU时间差，单位：s
+    void (*delayMs)(float ms);                              // 延时ms
+} OmBoardInterface;
 
-typedef struct OmCpu
-{
-    char* cpuName;           // CPU名称，如"DJI_C"
-    char* omVersion;       // OM版本，目前采用时间制，如"2025-12-1"
-    cputime_cnt lastTimeCnt; // 上一次获取的CPU时间计数器值
-    uint32_t cpuFreqMHz;     // CPU频率，单位：MHz
-    uint32_t cpuFreqHz;      // CPU频率，单位：Hz
-    OmBoardInterface_t interface;
-} OmCpu_s;
+typedef struct OmCpu {
+    char *cpuName;          // CPU名称，如"DJI_C"
+    char *omVersion;        // OM版本，目前采用时间制，如"2025-12-1"
+    CputimeCnt lastTimeCnt; // 上一次获取的CPU时间计数器值
+    uint32_t cpuFreqMHz;    // CPU频率，单位：MHz
+    uint32_t cpuFreqHz;     // CPU频率，单位：Hz
+    OmBoardInterface *interface;
+} OmCpu;
 
 /**
  * @brief 获取CPU名称
  *
  * @return char* CPU名称
  */
-char* om_get_cpu_name(void);
+char *om_get_cpu_name(void);
 
 /**
  * @brief 获取固件版本
  *
  * @return char* 固件版本
  */
-char* om_get_firmware_version(void);
+char *om_get_firmware_version(void);
 
 /**
  * @brief 获取CPU时间
  *
  * @return cputime_t CPU时间，单位：s
  */
-cputime_s om_cpu_get_time_s(void);
+Cputime om_cpu_get_time_s(void);
 
 /**
  * @brief 获取CPU时间
  *
- * @return cputime_ms CPU时间，单位：ms
+ * @return CputimeMs CPU时间，单位：ms
  */
-cputime_ms om_cpu_get_time_ms(void);
+CputimeMs om_cpu_get_time_ms(void);
 
 /**
  * @brief 获取CPU时间
  *
- * @return cputime_us CPU时间，单位：us
+ * @return CputimeUs CPU时间，单位：us
  */
-cputime_us om_cpu_get_time_us(void);
+CputimeUs om_cpu_get_time_us(void);
 
 /**
  * @brief 获取CPU时间差
  *
- * @return cputime_s CPU时间差，单位：s
+ * @return Cputime CPU时间差，单位：s
  */
-cputime_s om_cpu_get_delta_time_s(cputime_cnt* last_time_cnt);
+Cputime om_cpu_get_delta_time_s(CputimeCnt *last_time_cnt);
 
 /**
  * @brief 处理CPU错误
@@ -92,7 +90,16 @@ cputime_s om_cpu_get_delta_time_s(cputime_cnt* last_time_cnt);
  * @param line 错误发生的行号
  * @param msg 错误信息
  */
-void om_cpu_errhandler(char* file, uint32_t line, uint8_t level, char* msg);
+void om_cpu_errhandler(char *file, uint32_t line, uint8_t level, char *msg);
+
+/* CPU errhandler 级别常量（vestigial errhandler 路径专用，数值与日志级别一致；
+ * 日志级别常量 OM_LOG_LEVEL_* 归 log 服务（services/log/log.h），见 ADR-0015） */
+#define OM_CPU_LOG_LEVEL_DEBUG        0U
+#define OM_CPU_LOG_LEVEL_INFO         1U
+#define OM_CPU_LOG_LEVEL_WARN         2U
+#define OM_CPU_LOG_LEVEL_ERROR        3U
+#define OM_CPU_LOG_LEVEL_FATAL        4U
+#define OM_CPU_LOG_LEVEL_MAX          5U
 
 #define OM_CPU_ERRHANDLER(msg, level) om_cpu_errhandler(__FILE__, __LINE__, level, msg)
 
@@ -115,7 +122,7 @@ void om_cpu_delay_ms(float ms);
  * @param cpuFreqMHz CPU频率，单位：MHz
  * @param interface 板级接口
  */
-void om_cpu_register(uint32_t cpu_freq_m_hz, OmBoardInterface_t interface);
+void om_cpu_register(uint32_t cpu_freq_m_hz, OmBoardInterface *interface);
 
 /**
  * @brief 初始化CPU

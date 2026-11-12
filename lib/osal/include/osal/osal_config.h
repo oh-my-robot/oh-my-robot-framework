@@ -4,9 +4,17 @@
 #include <stdint.h>
 
 #include "core/om_config.h"
-#include "osal_port.h" /* OSAL端口选择与校�?*/
+#include "osal_port.h" /* OSAL 端口选择与校验*/
 
-/* 等待无限时长的超时�?*/
+/*
+ * 强制引入 OS 端口定义文件。
+ * 每个 OS 端口必须在其 platform/osal/<os>/ 目录下提供 om_osal_portdef.h。
+ * 该文件包含该 OS 下 OSAL 层的硬性参数，无框架级默认值。
+ * 若缺失，编译器将报 "file not found" 错误。
+ */
+#include "om_osal_portdef.h"
+
+/* 等待无限时长的超时值*/
 #ifndef OSAL_WAIT_FOREVER
 #ifdef OM_OSAL_WAIT_FOREVER
 #define OSAL_WAIT_FOREVER OM_OSAL_WAIT_FOREVER
@@ -24,7 +32,7 @@
 #endif
 #endif
 
-/* OSAL最大优先级数量 */
+/* OSAL 最大优先级数量 */
 #ifndef OSAL_PRIORITY_MAX
 #ifdef OM_OSAL_PRIORITY_MAX
 #define OSAL_PRIORITY_MAX OM_OSAL_PRIORITY_MAX
@@ -33,7 +41,7 @@
 #endif
 #endif
 
-/* 任务名称最大长�?*/
+/* 任务名称最大长度*/
 #ifndef OSAL_TASK_NAME_MAX
 #ifdef OM_OSAL_TASK_NAME_MAX
 #define OSAL_TASK_NAME_MAX OM_OSAL_TASK_NAME_MAX
@@ -42,13 +50,7 @@
 #endif
 #endif
 
-/* 队列注册表最大数量（用于调试/统计�?*/
-#ifndef OSAL_QUEUE_REGISTRY_MAX
-#ifdef OM_OSAL_QUEUE_REGISTRY_MAX
-#define OSAL_QUEUE_REGISTRY_MAX OM_OSAL_QUEUE_REGISTRY_MAX
-#else
-#define OSAL_QUEUE_REGISTRY_MAX 16u
-#endif
-#endif
+/* 语义优先级带宽宏（依赖 OSAL_PRIORITY_MAX，须在此之后引入） */
+#include "osal_priority.h"
 
 #endif

@@ -2,15 +2,14 @@
 #define __OM_SUPERCAP_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-    typedef struct Supercap* Supercap_t;
+typedef struct Supercap Supercap;
 
-    Supercap_t supercap_init(void* cfg);
-    void supercap_update(Supercap_t cap);
-    void supercap_shutdown(Supercap_t cap);
+Supercap *supercap_init(void *cfg);
+void supercap_update(Supercap *cap);
+void supercap_shutdown(Supercap *cap);
 
 #ifdef __cplusplus
 }

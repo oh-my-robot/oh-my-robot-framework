@@ -1,8 +1,13 @@
 #ifndef __BSP_H__
 #define __BSP_H__
+#ifdef OM_USE_BOARDCFG
+#include "om_boardcfg.h" /* 工程板级覆写（boardcfg 契约见 ADR-0017）——须在默认值定义之前 */
+#endif
 
 #include "bsp_can.h"
+#include "bsp_gpio.h"
 #include "bsp_dwt.h"
+#include "bsp_pwm.h"
 #include "bsp_serial.h"
 
 #include "core/om_cpu.h"

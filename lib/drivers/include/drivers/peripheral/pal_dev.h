@@ -12,4 +12,18 @@
 #include "can/pal_can_dev.h"
 #endif
 
+#include "gpio/pal_gpio_dev.h"
+
+#ifdef OM_USE_HAL_SPI
+#include "spi/pal_spi_dev.h"
+#endif
+
+#ifdef OM_USE_HAL_PWM
+#include "pwm/pal_pwm_dev.h"
+#endif
+
+#ifdef OM_USE_HAL_FLASH
+#include "flash/pal_flash_dev.h"
+#endif
+
 #endif // __PAL_DEV_H__

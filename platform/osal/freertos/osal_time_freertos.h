@@ -71,7 +71,7 @@ static inline uint32_t osal_ticks_to_ms32(TickType_t ticks)
 /**
  * @brief 将 FreeRTOS 等待结果映射为 OSAL 统一状态码
  */
-static inline OsalStatus_t osal_wait_result_to_status(BaseType_t ok, uint32_t timeout_ms)
+static inline OsalStatus osal_wait_result_to_status(BaseType_t ok, uint32_t timeout_ms)
 {
     if (ok == pdPASS)
         return OSAL_OK;

@@ -61,6 +61,64 @@ SECTIONS
     . = ALIGN(4);
   } >ROM
 
+  /* OM init call tables — 每级一段，按级别顺序排列（级别顺序由链接器保证，见 core/om_init.h） */
+  .om_init_0 :
+  {
+    . = ALIGN(4);
+    PROVIDE(__om_init_0_start = .);
+    KEEP(*(.om_init_0))
+    PROVIDE(__om_init_0_end = .);
+    . = ALIGN(4);
+  } >ROM
+  .om_init_1 :
+  {
+    . = ALIGN(4);
+    PROVIDE(__om_init_1_start = .);
+    KEEP(*(.om_init_1))
+    PROVIDE(__om_init_1_end = .);
+    . = ALIGN(4);
+  } >ROM
+  .om_init_2 :
+  {
+    . = ALIGN(4);
+    PROVIDE(__om_init_2_start = .);
+    KEEP(*(.om_init_2))
+    PROVIDE(__om_init_2_end = .);
+    . = ALIGN(4);
+  } >ROM
+  .om_init_3 :
+  {
+    . = ALIGN(4);
+    PROVIDE(__om_init_3_start = .);
+    KEEP(*(.om_init_3))
+    PROVIDE(__om_init_3_end = .);
+    . = ALIGN(4);
+  } >ROM
+  .om_init_4 :
+  {
+    . = ALIGN(4);
+    PROVIDE(__om_init_4_start = .);
+    KEEP(*(.om_init_4))
+    PROVIDE(__om_init_4_end = .);
+    . = ALIGN(4);
+  } >ROM
+  .om_init_5 :
+  {
+    . = ALIGN(4);
+    PROVIDE(__om_init_5_start = .);
+    KEEP(*(.om_init_5))
+    PROVIDE(__om_init_5_end = .);
+    . = ALIGN(4);
+  } >ROM
+  .om_init_6 :
+  {
+    . = ALIGN(4);
+    PROVIDE(__om_init_6_start = .);
+    KEEP(*(.om_init_6))
+    PROVIDE(__om_init_6_end = .);
+    . = ALIGN(4);
+  } >ROM
+
   /* The program code and other data into "ROM" Rom type memory */
   .text :
   {

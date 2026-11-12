@@ -1,4 +1,4 @@
-# async
+﻿# async
 
 Requirement phase only.
 
@@ -7,4 +7,5 @@ implementation contracts.
 
 Active requirement document:
 
-- `oh-my-robot/lib/async/doc/需求分册_async.md`
+- `oh-my-robot/docs/internal/archive/v0.0.0_features/issue_000_process_docs_migration/async/async_requirements_volume.md`
+

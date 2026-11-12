@@ -1,4 +1,4 @@
-# CAN Comm Adapter 边界约束
+﻿# CAN Comm Adapter 边界约束
 
 本文用于固定 CAN 实现端接入 `services/comm` 的边界，不定义业务语义。
 
@@ -21,5 +21,6 @@
 
 ## 规范引用
 
-- 总规范：`oh-my-robot/document/architecture/分层与依赖规范.md`
-- 通信总纲：`oh-my-robot/lib/services/doc/公共通信重构总纲.md`
+- 总规范：`oh-my-robot/docs/architecture/layer_dependency_spec.md`
+- 通信总纲：当前仓库未维护独立总纲文档，按总规范执行。
+

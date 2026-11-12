@@ -1,0 +1,16 @@
+# OpenOCD config template for CMSIS-DAP probes (DAPLink)
+#
+# 使用说明：
+# 1. 复制此文件到项目 workspace 的 .vscode/daplink.cfg
+# 2. 运行以下命令查找你的探针序列号：
+#    openocd -c "adapter driver cmsis-dap; init; exit"
+#    或观察 OpenOCD 启动日志中 "adapter serial" 的输出
+# 3. 将下方 adapter serial 后面的序列号替换为你的探针序列号
+# 4. 确认 target/stm32f4x.cfg 适用于你的芯片（STM32F4 系列通用；
+#    其他系列请修改为对应的 target 配置，如 target/stm32f1x.cfg）
+
+adapter driver cmsis-dap
+# adapter serial 5627220232       # <-- 请改为你的探针序列号（去掉行首 #）
+transport select swd
+source [find target/stm32f4x.cfg]
+adapter speed 4000

@@ -1,0 +1,38 @@
+/**
+ * om_boardcfg.h —— 工程板级配置覆写（板层；可选）
+ *
+ * 用法：复制到 <project>/cfg/boards/<board>/om_boardcfg.h（<board> 与预设板名一致，如 rm-a-board），
+ *       构建自动发现（oh_my_robot.project_cfg 规则，注入 -DOM_USE_BOARDCFG）。
+ *
+ * 职责边界（ADR-0017 project_config_layering）：
+ *  - 本文件只写板层【策略宏】（Ⅰ类：波特率/FIFO/日志口/DMA profile 等"工程要哪个选项"）
+ *  - 板【事实】（引脚/DMA 流/中断/实例表、USE_SERIAL_3 类）不在此——修改=板定义变更（板 DIY）
+ *  - 框架层宏（OM_* 域）不在此——那是 cfg/om_appcfg.h
+ *  - 只写与板默认值不同的项；默认值归框架板头（bsp_*.h #ifndef 块）
+ *  - 每片段只面对一块板（构建按 board= 自动选择；守卫防错配）
+ */
+
+/* 声明式守卫：片段头必须自守卫——bsp 聚合头（bsp.h）与直接包含（bsp_serial.h）并存时
+ * 同一 TU 可能重复包含本文件（同值宏重复定义虽无碍，非幂等内容/分歧值会冲突） */
+#ifndef OM_BOARDCONF_H__
+#define OM_BOARDCONF_H__
+
+/* 板身份守卫：换板忘改 → 首行 #error（构建期暴露，不静默错配）。按目标板改宏名。 */
+#if !defined(OM_BOARD_RM_A)
+#error "boardcfg 面向 rm-a-board——当前构建板不匹配（换板请更新 cfg/boards/<board>/boardcfg.h）"
+#endif
+
+/* ---- 覆写示例（按需启用；值域/单位见 porting-guide 覆写宏表） ---- */
+
+/* 日志口波特率（语义键——跨板意图值；本板映射 usart6 实例参数） */
+#define BSP_LOG_BAUD 460800u
+
+/* 日志口选择（串口实例名） */
+// #define BSP_LOG_SERIAL_NAME "usart3"
+
+/* 日志口 TX FIFO 容量（≥ 最大消息长度可保完整） */
+// #define BSP_SERIAL6_TXBUFSZ 2048
+
+/* DMA profile（0=USART3 全 DMA+UART7 中断；1=USART3 TX-DMA+UART7 全 DMA——默认） */
+// #define RM_A_SERIAL37_PROFILE 0U
+#endif /* OM_BOARDCONF_H__ */

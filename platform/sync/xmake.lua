@@ -1,4 +1,4 @@
-﻿--- @file oh_my_robot/platform/sync/xmake.lua
+--- @file oh_my_robot/platform/sync/xmake.lua
 --- @brief SYNC 构建脚本
 --- @details 负责同步原语默认实现与加速后端的编译注入。
 
@@ -12,9 +12,9 @@ local sync_source_glob = path.join(lib_root, "sync", "src", "*.c")
 ---@return nil
 local function apply_sync_accel_defines(target, accel_enabled)
     if accel_enabled then
-        target:add("defines", "OM_SYNC_ACCEL=1")
+        target:add("defines", "OM_SYNC_ACCEL=1", {public = true})
     else
-        target:add("defines", "OM_SYNC_ACCEL=0")
+        target:add("defines", "OM_SYNC_ACCEL=0", {public = true})
     end
 end
 
@@ -61,7 +61,7 @@ local function apply_sync_capability_defines(target, accel_info)
         end
 
         if capability_name and capability_enabled then
-            target:add("defines", "OM_SYNC_ACCEL_CAP_" .. capability_name .. "=1")
+            target:add("defines", "OM_SYNC_ACCEL_CAP_" .. capability_name .. "=1", {public = true})
         end
     end
 end
@@ -70,6 +70,7 @@ end
 --- @brief 同步原语静态库
 --- @details 注入同步原语与可选加速后端实现。
 target("tar_sync")
+    add_rules("oh_my_robot.project_cfg")
     set_kind("static")
     add_deps("tar_awapi_sync", {public = true})
     add_deps("tar_awcore", {public = true})
@@ -112,6 +113,18 @@ target("tar_sync")
             if accel_info and accel_info.include_dirs then
                 for _, include_dir in ipairs(accel_info.include_dirs) do
                     target:add("includedirs", include_dir, {public = false})
+                end
+            end
+            -- 注入 FreeRTOS 头文件路径（accel 后端需要直接使用 FreeRTOS API）
+            local freertos_root = path.join(sync_root, "..", "osal", os_name)
+            target:add("includedirs", path.join(freertos_root, "FreeRTOS", "include"), {public = false})
+            if context.board_os_config_dir then
+                target:add("includedirs", context.board_os_config_dir, {public = false})
+            end
+            if context.toolchain_name and context.arch then
+                local portable_dir = path.join(freertos_root, "portable", context.toolchain_name, context.arch)
+                if os.isdir(portable_dir) then
+                    target:add("includedirs", portable_dir, {public = false})
                 end
             end
             apply_sync_accel_defines(target, true)

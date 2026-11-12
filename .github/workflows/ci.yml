@@ -1,0 +1,163 @@
+# CI：format + build + host-test 三件套（Linux/Rust/Zephyr 同款"全量 gate"哲学）
+# - 零第三方 action 依赖（除 xmake setup）；固定 clang 版本防格式判定漂移
+# - 取代过时的 style-gate.yml（xmake format/check 命令已不存在，100% 失败）
+name: ci
+
+on:
+  pull_request:
+    branches:
+      - integration
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  # ① 格式 gate：全量 clang-format-17（固定版本；仓库规模小，全量秒级）
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install clang-format 21 (pip wheel)
+        # 与本机 LLVM 21 **精确同版本 21.1.8**（17↔21、21.1.0↔21.1.8 判定均有
+        # patch 级差异，曾致 gate 误报——版本必须逐位对齐）；
+        # LLVM 21 的 GitHub release 不含 x86_64 Linux 包（wget 404）——
+        # pip clang-format wheel（ssciwr 提供独立二进制）
+        run: pip install clang-format==21.1.8
+
+      - name: Check format
+        run: |
+          find lib platform samples -name '*.[ch]' -print0 | xargs -0 clang-format --dry-run --Werror
+
+  # ② 编译 gate：交叉构建全库（验证 PR 可编译；binary 构建依赖板级 preset 留本地）
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+          actions-cache-folder: '.xmake-cache'
+
+      - name: init_workspace generator regression gate
+        # 生成器模板曾与规则演进脱节（漏 project_cfg/selfreg，生成壳链接报 undefined main）；
+        # 门禁：以 xmake/modules/binary_rules.lua（binary 规则集唯一事实源）为准，
+        # 逐条断言 init_workspace 生成的壳包含对应 add_rules，防模板再次漂移
+        run: |
+          xmake init_workspace --output=$RUNNER_TEMP/om_shell_smoke > /dev/null
+          fail=0
+          while read -r rule_name; do
+            if ! grep -q "oh_my_robot.$rule_name" "$RUNNER_TEMP/om_shell_smoke/xmake.lua"; then
+              echo "::error::init_workspace shell missing rule oh_my_robot.$rule_name"
+              fail=1
+            fi
+          done < <(sed -n 's/^    "\([a-z_]*\)",$/\1/p' xmake/modules/binary_rules.lua)
+          exit $fail
+
+      - name: Setup GNU ARM Toolchain (official, pinned 14.2.rel1)
+        # 弃用 carlosperate action（latest 版本波动 + 系统依赖不确定导致硬浮点试编译失败）；
+        # 官方发布包直装到固定路径（与本地 14.2 同版本），版本固定防漂移。
+        # 不装 libncurses5：仅 gdb 依赖 ncurses，编译（gcc/as/ld）不依赖，
+        # CI 只编译库不跑 gdb；且 ubuntu 24.04 已移除 libncurses5。
+        # 不跑 apt：wget/xz-utils 在 ubuntu-latest 预装
+        run: |
+          wget -q https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi.tar.xz -O /tmp/arm-tc.tar.xz
+          sudo mkdir -p /opt/arm-gnu
+          sudo tar -xJf /tmp/arm-tc.tar.xz -C /opt/arm-gnu --strip-components=1
+
+      - name: Create om_preset.lua (CI toolchain paths)
+        # gnu-rm 工具链要求显式 sdk/bin 路径（本地由 om_preset.lua 提供）；CI 无 preset，
+        # 此处生成指向官方直装路径的最小 preset
+        run: |
+          cat > om_preset.lua << 'EOF'
+          local preset = {
+            board = {name = "rm-c-board"},
+            os = {name = "freertos"},
+            toolchain_default = {name = "gnu-rm"},
+            toolchain_presets = {
+              ["gnu-rm"] = {
+                sdk = "/opt/arm-gnu",
+                bin = "/opt/arm-gnu/bin",
+              },
+            },
+          }
+          function get_preset() return preset end
+          EOF
+
+      - name: Configure
+        run: xmake f --board=rm-c-board --os=freertos --toolchain=gnu-rm -m debug
+
+      - name: Build libraries
+        run: xmake build
+
+  # ③ 测试 gate：host 侧全量（kernel-core / log / 存储），linux 用 gcc 免 mingw 问题
+  host-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+          actions-cache-folder: '.xmake-cache'
+
+      - name: Configure
+        run: xmake f -P samples/host/om_core_test -p linux -m debug
+
+      - name: Build
+        run: xmake build -P samples/host/om_core_test
+
+      - name: Run init tests
+        run: xmake run -P samples/host/om_core_test om_core_init_test
+
+      - name: Run abort tests
+        run: xmake run -P samples/host/om_core_test om_core_init_test_abort
+
+      - name: Run fatal tests
+        run: xmake run -P samples/host/om_core_test om_core_fatal_test
+
+      - name: Configure log host tests
+        run: xmake f -P samples/host/om_log_test -p linux -m debug
+
+      - name: Build log host tests
+        run: xmake build -P samples/host/om_log_test
+
+      - name: Run formatter tests
+        run: xmake run -P samples/host/om_log_test om_log_formatter_test
+
+      - name: Run filter tests
+        run: xmake run -P samples/host/om_log_test om_log_filter_test
+
+      - name: Run ring tests
+        run: xmake run -P samples/host/om_log_test om_log_ring_test
+
+      - name: Run module filter tests
+        run: xmake run -P samples/host/om_log_test om_log_module_filter_test
+
+      # 存储子系统（分区表 + FlashDev 器件层）——此前不在门禁内，上游坍缩守卫缺陷
+      # 曾使其静默损坏（partition_test 29/3、flash_dev_test 58/31，见 upstream Issue #74）
+      # 而无人察觉。接入门禁防再次无感回归。
+      - name: Configure partition host tests
+        run: xmake f -P samples/host/partition_test -p linux -m debug
+
+      - name: Build partition host tests
+        run: xmake build -P samples/host/partition_test
+
+      - name: Run partition tests
+        run: xmake run -P samples/host/partition_test host_partition_test
+
+      # flash_dev_test：仅编译门禁，运行门禁暂缓——该测试此前从未在 CI 跑过，接入后
+      # 暴露 linux/gcc 下的运行期崩溃（build ok 但 execv 失败且无任何输出；MinGW 路径
+      # 正常 89/0）。属既有缺陷、与分区表 v2 无关，见 upstream Issue #77；修复后接入 Run。
+      - name: Configure flash device host tests
+        run: xmake f -P samples/host/flash_dev_test -p linux -m debug
+
+      - name: Build flash device host tests
+        run: xmake build -P samples/host/flash_dev_test

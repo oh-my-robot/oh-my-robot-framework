@@ -4,5 +4,6 @@
 
 om_os_index = {
     "freertos",
+    "none", -- 裸机单执行流（bootloader/裁剪形态；ADR-0022）
     -- "linux", -- 暂时不考虑
 }

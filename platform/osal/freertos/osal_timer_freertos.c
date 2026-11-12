@@ -4,14 +4,14 @@
 #include "osal_time_freertos.h"
 #include "timers.h"
 
-static inline TimerHandle_t osal_timer_to_native(OsalTimer_t timer)
+static inline TimerHandle_t osal_timer_to_native(OsalTimer* timer)
 {
     return (TimerHandle_t)timer;
 }
 
-static inline OsalTimer_t osal_timer_from_native(TimerHandle_t timer)
+static inline OsalTimer* osal_timer_from_native(TimerHandle_t timer)
 {
-    return (OsalTimer_t)timer;
+    return (OsalTimer*)timer;
 }
 
 static int osal_timer_check_task_context(void)
@@ -21,7 +21,7 @@ static int osal_timer_check_task_context(void)
     return (in_isr == 0);
 }
 
-static OsalStatus_t osal_timer_queue_cmd_result_to_status(BaseType_t ok, uint32_t timeout_ms)
+static OsalStatus osal_timer_queue_cmd_result_to_status(BaseType_t ok, uint32_t timeout_ms)
 {
     if (ok == pdPASS)
         return OSAL_OK;
@@ -30,8 +30,8 @@ static OsalStatus_t osal_timer_queue_cmd_result_to_status(BaseType_t ok, uint32_
     return OSAL_TIMEOUT;
 }
 
-OsalStatus_t osal_timer_create(OsalTimer_t* out_timer, const char* name, uint32_t period_ms, OsalTimerMode_e mode,
-                                void* user_id, OsalTimerCallback_t cb)
+OsalStatus osal_timer_create(OsalTimer** out_timer, const char* name, uint32_t period_ms, OsalTimerMode mode,
+                                void* user_id, OsalTimerCallback cb)
 {
     TimerHandle_t handle;
     BaseType_t auto_reload;
@@ -53,7 +53,7 @@ OsalStatus_t osal_timer_create(OsalTimer_t* out_timer, const char* name, uint32_
     return OSAL_OK;
 }
 
-OsalStatus_t osal_timer_start(OsalTimer_t timer, uint32_t timeout_ms)
+OsalStatus osal_timer_start(OsalTimer* timer, uint32_t timeout_ms)
 {
     if (!timer)
         return OSAL_INVALID;
@@ -64,7 +64,7 @@ OsalStatus_t osal_timer_start(OsalTimer_t timer, uint32_t timeout_ms)
     return osal_timer_queue_cmd_result_to_status(ok, timeout_ms);
 }
 
-OsalStatus_t osal_timer_stop(OsalTimer_t timer, uint32_t timeout_ms)
+OsalStatus osal_timer_stop(OsalTimer* timer, uint32_t timeout_ms)
 {
     if (!timer)
         return OSAL_INVALID;
@@ -75,7 +75,7 @@ OsalStatus_t osal_timer_stop(OsalTimer_t timer, uint32_t timeout_ms)
     return osal_timer_queue_cmd_result_to_status(ok, timeout_ms);
 }
 
-OsalStatus_t osal_timer_reset(OsalTimer_t timer, uint32_t timeout_ms)
+OsalStatus osal_timer_reset(OsalTimer* timer, uint32_t timeout_ms)
 {
     if (!timer)
         return OSAL_INVALID;
@@ -86,7 +86,7 @@ OsalStatus_t osal_timer_reset(OsalTimer_t timer, uint32_t timeout_ms)
     return osal_timer_queue_cmd_result_to_status(ok, timeout_ms);
 }
 
-OsalStatus_t osal_timer_delete(OsalTimer_t timer, uint32_t timeout_ms)
+OsalStatus osal_timer_delete(OsalTimer* timer, uint32_t timeout_ms)
 {
     if (!timer)
         return OSAL_INVALID;
@@ -97,7 +97,7 @@ OsalStatus_t osal_timer_delete(OsalTimer_t timer, uint32_t timeout_ms)
     return osal_timer_queue_cmd_result_to_status(ok, timeout_ms);
 }
 
-void* osal_timer_get_id(OsalTimer_t timer)
+void* osal_timer_get_id(OsalTimer* timer)
 {
     if (!timer)
         return NULL;
@@ -107,7 +107,7 @@ void* osal_timer_get_id(OsalTimer_t timer)
     return pvTimerGetTimerID(osal_timer_to_native(timer));
 }
 
-void osal_timer_set_id(OsalTimer_t timer, void* id)
+void osal_timer_set_id(OsalTimer* timer, void* id)
 {
     if (!timer)
         return;

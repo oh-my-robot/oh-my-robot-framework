@@ -4,7 +4,6 @@
 local freertos_root = os.scriptdir()
 
 local include_dir = path.join(freertos_root, "FreeRTOS", "include")
-local freertos_event_flags_usable_mask = "0x00FFFFFFu"
 
 --- 解析 FreeRTOS 配置与端口路径
 ---@param board_config_dir string 板级 OS 配置目录
@@ -12,12 +11,18 @@ local freertos_event_flags_usable_mask = "0x00FFFFFFu"
 ---@param arch string 架构名称
 ---@return table|nil freertos_paths 路径信息
 ---@return string|nil err_msg 错误信息
+local freertos_port_toolchain_aliases = {
+    ["tiarmclang"] = "gnu-rm",  -- TI Clang 兼容 GCC 内联汇编，复用 gnu-rm 端口
+}
+
 local function resolve_freertos_paths(board_config_dir, toolchain_name, arch)
+    -- 将工具链名映射到实际端口目录（Clang 系复用 GCC 端口）
+    local port_toolchain = freertos_port_toolchain_aliases[toolchain_name] or toolchain_name
     local config_path = path.join(board_config_dir, "FreeRTOSConfig.h")
     if not os.isfile(config_path) then
         return nil, "FreeRTOSConfig.h not found: " .. config_path
     end
-    local portable_dir = path.join(freertos_root, "portable", toolchain_name, arch)
+    local portable_dir = path.join(freertos_root, "portable", port_toolchain, arch)
     local port_file = path.join(portable_dir, "port.c")
     local portmacro_file = path.join(portable_dir, "portmacro.h")
     if not os.isfile(port_file) then
@@ -34,20 +39,22 @@ local function resolve_freertos_paths(board_config_dir, toolchain_name, arch)
 end
 
 --- @target tar_awapi_osal
---- @brief FreeRTOS 端口注入 OSAL event_flags 能力掩码
---- @details 公共头仅消费该宏，不在头文件中做端口分支与默认兜底。
+--- @brief FreeRTOS 端口公共头路径注入
 target("tar_awapi_osal")
-    add_cxflags("-DOM_OSAL_EVENT_FLAGS_USABLE_MASK=" .. freertos_event_flags_usable_mask, {public = true})
+    add_rules("oh_my_robot.project_cfg")
+    add_includedirs(freertos_root, {public = true})  -- om_osal_portdef.h
 target_end()
 
 --- @target tar_os
 --- @brief FreeRTOS 静态库
 --- @details 注入 FreeRTOS 内核与端口实现。
 target("tar_os")
+    add_rules("oh_my_robot.project_cfg")
     set_kind("static")
     add_rules("oh_my_robot.context")
     add_deps("tar_awapi_osal", {public = false})
     add_includedirs(include_dir, {public = false})
+    add_includedirs(freertos_root, {public = true})  -- om_osal_portdef.h
     add_files("osal_*_freertos.c")
     add_files("FreeRTOS/*.c")
     add_files("FreeRTOS/portable/*.c")
@@ -64,5 +71,10 @@ target("tar_os")
         target:add("includedirs", freertos_paths.config_dir, {public = false})
         target:add("includedirs", freertos_paths.portable_dir, {public = false})
         target:add("files", freertos_paths.port_file)
+        -- Cortex-M0+ GCC port has a separate portasm.c
+        local portasm_file = path.join(freertos_paths.portable_dir, "portasm.c")
+        if os.isfile(portasm_file) then
+            target:add("files", portasm_file)
+        end
     end)
 target_end()

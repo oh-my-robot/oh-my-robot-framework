@@ -1,9 +1,10 @@
-﻿#ifndef __OM_SYNC_COMPLETION_H__
+#ifndef __OM_SYNC_COMPLETION_H__
 #define __OM_SYNC_COMPLETION_H__
 
 #include <stddef.h>
 #include <stdint.h>
 
+#include "core/atomic/atomic_base.h"
 #include "core/om_def.h"
 #include "osal/osal_sem.h"
 #include "osal/osal_thread.h"
@@ -16,23 +17,24 @@ typedef enum {
     COMP_INIT = 0,
     COMP_WAIT,
     COMP_DONE,
-} CompStatus_e;
+    COMP_WAITING, /* CAS accel: waiter registered, about to block */
+} CompStatus;
 
-typedef struct Completion *Completion_t;
+typedef struct Completion Completion;
 typedef struct Completion {
-    OsalSem_t sem;
-    OsalThread_t waitThread;
-    volatile CompStatus_e status;
-} Completion_s;
+    OsalSem *sem;
+    OsalThread *waitThread;
+    OM_ATOMIC_T(CompStatus)
+    status;
+} Completion;
 
-OmRet_e completion_init(Completion_t completion);
-void completion_deinit(Completion_t completion);
-OmRet_e completion_wait(Completion_t completion, size_t timeout_ms);
-OmRet_e completion_done(Completion_t completion);
+OmRet completion_init(Completion *completion);
+void completion_deinit(Completion *completion);
+OmRet completion_wait(Completion *completion, size_t timeout_ms);
+OmRet completion_done(Completion *completion);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif
-

@@ -24,15 +24,15 @@ static TickType_t osal_tick_count(void)
  * @brief 获取单调毫秒时钟（32 位）
  * @note 返回值允许自然回绕。
  */
-OsalTimeMs_t osal_time_now_monotonic(void)
+OsalTimeMs osal_time_now_monotonic(void)
 {
-    return (OsalTimeMs_t)osal_ticks_to_ms32(osal_tick_count());
+    return (OsalTimeMs)osal_ticks_to_ms32(osal_tick_count());
 }
 
 /**
  * @brief 线程休眠指定毫秒
  */
-OsalStatus_t osal_sleep_ms(OsalTimeMs_t sleep_ms)
+OsalStatus osal_sleep_ms(OsalTimeMs sleep_ms)
 {
     if (osal_is_in_isr())
         return OSAL_INVALID;
@@ -48,7 +48,7 @@ OsalStatus_t osal_sleep_ms(OsalTimeMs_t sleep_ms)
  * @brief 计算已错过周期数（用于过期追赶观测）
  * @note 仅在回绕安全窗口（< 2^31 ms）内有定义。
  */
-static uint32_t osal_compute_missed_periods(OsalTimeMs_t now_ms, OsalTimeMs_t deadline_ms, OsalTimeMs_t period_ms)
+static uint32_t osal_compute_missed_periods(OsalTimeMs now_ms, OsalTimeMs deadline_ms, OsalTimeMs period_ms)
 {
     if (!osal_time_after(now_ms, deadline_ms))
         return 0u;
@@ -66,7 +66,7 @@ static uint32_t osal_compute_missed_periods(OsalTimeMs_t now_ms, OsalTimeMs_t de
  * - 首次传 0，由接口初始化；
  * - 后续调用原样回传，不需要调用方手动计算下一次 deadline。
  */
-OsalStatus_t osal_delay_until(OsalTimeMs_t* deadline_cursor_ms, OsalTimeMs_t period_ms, uint32_t* missed_periods)
+OsalStatus osal_delay_until(OsalTimeMs* deadline_cursor_ms, OsalTimeMs period_ms, uint32_t* missed_periods)
 {
     if (!deadline_cursor_ms || period_ms == 0u)
         return OSAL_INVALID;
@@ -75,11 +75,11 @@ OsalStatus_t osal_delay_until(OsalTimeMs_t* deadline_cursor_ms, OsalTimeMs_t per
     if (missed_periods)
         *missed_periods = 0u;
 
-    OsalTimeMs_t now_ms = osal_time_now_monotonic();
+    OsalTimeMs now_ms = osal_time_now_monotonic();
 
     if (*deadline_cursor_ms == 0u)
     {
-        *deadline_cursor_ms = (OsalTimeMs_t)(now_ms + period_ms);
+        *deadline_cursor_ms = (OsalTimeMs)(now_ms + period_ms);
         return OSAL_OK;
     }
 
@@ -108,8 +108,8 @@ OsalStatus_t osal_delay_until(OsalTimeMs_t* deadline_cursor_ms, OsalTimeMs_t per
      */
     if (osal_time_after(*deadline_cursor_ms, now_ms))
     {
-        OsalTimeMs_t sleep_delta_ms = (OsalTimeMs_t)(*deadline_cursor_ms - now_ms);
-        OsalStatus_t status = osal_sleep_ms(sleep_delta_ms);
+        OsalTimeMs sleep_delta_ms = (OsalTimeMs)(*deadline_cursor_ms - now_ms);
+        OsalStatus status = osal_sleep_ms(sleep_delta_ms);
         if (status != OSAL_OK)
             return status;
     }
@@ -121,7 +121,7 @@ OsalStatus_t osal_delay_until(OsalTimeMs_t* deadline_cursor_ms, OsalTimeMs_t per
 #endif
 
     /* 无论是否过期，始终只推进一个周期。 */
-    *deadline_cursor_ms = (OsalTimeMs_t)(*deadline_cursor_ms + period_ms);
+    *deadline_cursor_ms = (OsalTimeMs)(*deadline_cursor_ms + period_ms);
     return OSAL_OK;
 }
 

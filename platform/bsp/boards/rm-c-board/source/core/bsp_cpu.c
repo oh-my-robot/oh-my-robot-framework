@@ -1,6 +1,7 @@
 
 #include "bsp.h"
 #include "core/om_interrupt.h"
+#include "core/om_init.h"
 
 /**
  * @brief  This function is executed in case of error occurrence.
@@ -13,6 +14,11 @@ static void Error_Handler(void)
     while (1)
     {
     }
+}
+
+static void Board_DelayMs(float ms)
+{
+    DWT_Delay(ms / 1000.0f);
 }
 
 /**
@@ -59,42 +65,41 @@ static void SystemClock_Config(void)
     }
 }
 
-static OmBoardInterface_s OmBoardInterface = {
+static OmBoardInterface g_om_board_interface = {
     .errhandler = Error_Handler,
     .reset = HAL_NVIC_SystemReset,
     .getCpuTimeS = DWT_GetTimeline_s,
     .getCpuTimeMs = DWT_GetTimeline_ms,
     .getCpuTimeUs = DWT_GetTimeline_us,
     .getDeltaCpuTimeS = DWT_GetDeltaT,
-    .delayMs = DWT_Delay,
+    .delayMs = Board_DelayMs,
 };
 
 void om_board_init(void)
 {
     // 开发板初始化，对于STM32来说，在CubeMX上配置时钟树，然后直接复制过来用就好
+    // 仅保留 HAL 自举核（时钟/CPU 注册/DWT）；外设注册由 OM_INIT_BOARD 自注册
+    // （见 bsp_selfreg.c），在 BOARD 级 om_board_init 之后执行。
     HAL_Init();
     SystemClock_Config();
     NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4); // 任务调度前，需要设置中断优先级分组
     // cpu注册
-    om_cpu_register(__OM_CPU_FREQ_MHZ, &OmBoardInterface);
-    // 外设注册、初始化
+    om_cpu_register(__OM_CPU_FREQ_MHZ, &g_om_board_interface);
+    // DWT
     DWT_Init(__OM_CPU_FREQ_MHZ);
-    bsp_serial_register();
-    bsp_can_register();
 }
 
-/**
-  * @brief  This function handles Hard Fault exception.
-  * @param  None
-  * @retval None
-  */
-  void HardFault_Handler(void)
-  {
-    /* Go to infinite loop when Hard Fault exception occurs */
-    while (1)
-    {
-    }
-  }
+/* 板级 HAL 自举作为 BOARD 级 prio 0 自注册：在所有 BOARD 级外设注册回调之前执行。 */
+static OmRet om_board_self_init(void)
+{
+    om_board_init();
+    return OM_OK;
+}
+
+OM_INIT(om_board_self_init, OM_INIT_LEVEL_BOARD, 0);
+
+/* HardFault_Handler 已上移为架构共享实现（arch/cortex-m/om_hardfault.c → om_fatal_error，
+ * 见 ADR-0014），板级不再自写。 */
 
 /**
   * @brief  This function handles NMI exception.

@@ -1,29 +1,26 @@
 #ifndef __OM_API_H__
 #define __OM_API_H__
 
-#include "port/om_port_compiler.h" /* 编译器相关API */
-#include "port/om_port_hw.h"       /* 硬件相关API */
+#include "core/port/om_port_compiler.h"
+#include "core/port/om_port_hw.h"
 #include <stdint.h>
 
-/* 硬件中断 */
-#define om_hw_enable_interrupt_force() port_enable_int()
-#define om_hw_disable_interrupt_force() port_disable_int()
+/** @brief 无条件关全局中断（错误处理用） */
+#define om_hw_disable_interrupt_force() port_int_disable()
 
-#define om_hw_get_primask() port_get_primask()
-#define om_hw_set_primask(x) port_set_primask(x)
+/** @brief 无条件开全局中断 */
+#define om_hw_enable_interrupt_force() port_int_enable()
 
-/* 硬件中断控制 */
-static inline uint32_t om_hw_disable_interrupt(void)
+/** @brief 进入临界区：保存中断状态并关闭，返回恢复密钥 */
+static inline port_critical_key_t om_hw_disable_interrupt(void)
 {
-    uint32_t primask = om_hw_get_primask();
-    om_hw_set_primask(PORT_PRIMASK_DISABLED);
-    return primask;
+    return port_critical_enter();
 }
 
-static inline void om_hw_restore_interrupt(uint32_t primask)
+/** @brief 退出临界区：恢复到 key 对应的中断状态 */
+static inline void om_hw_restore_interrupt(port_critical_key_t key)
 {
-    if (primask == PORT_PRIMASK_ENABLED)
-        om_hw_set_primask(PORT_PRIMASK_ENABLED);
+    port_critical_exit(key);
 }
 
 #endif /* __OM_API_H__ */
