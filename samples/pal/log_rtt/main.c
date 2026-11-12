@@ -72,6 +72,8 @@ static OmRet log_demo(void)
 {
     OsalThread *thread = NULL;
     OsalThreadAttr attr = {"log_hb", 1024U, OSAL_PRIO_LOW_BASE};
+    /* 启动版本横幅：release 追溯第一依据 */
+    OM_LOG_INFO("OM framework %s", FRAMEWORK_VERSION);
     OM_LOG_INFO("log rtt backend demo: %d", 42);
     OM_LOG_ERROR("error path demo");
     (void)osal_thread_create(&thread, &attr, log_heartbeat, NULL);
