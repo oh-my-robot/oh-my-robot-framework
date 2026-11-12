@@ -1,6 +1,8 @@
 ## Jira
 
-Closes OMR-XXX
+Refs OMR-XXX
+
+<!-- 到 integration 用 Refs；到 main / 发布 PR 用 Closes。Jira key 仅用于变更追溯，构建、测试和运行不依赖 Jira。项目管理规则见 Confluence OM 项目管理原则。 -->
 
 ## 改动
 
@@ -15,7 +17,7 @@ Closes OMR-XXX
 
 ## DoD
 
-- [ ] Jira issue 已填 `工作主线` / `模块` / `修复版本`
+- [ ] Jira issue 已满足 Confluence `OM 项目管理原则` 的 DoR / DoD
 - [ ] 合入 `integration`
 - [ ] 文档 / ADR 已更新
 - [ ] 不兼容变更已加 `breaking-change` 标签

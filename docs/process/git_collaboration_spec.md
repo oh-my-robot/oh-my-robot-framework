@@ -212,19 +212,21 @@ git rebase --continue
 git push origin <当前特性分支名> --force-with-lease
 ```
 
-## 5. 标准任务流转 SOP（从 Issue 到 PR）
+## 5. 标准任务流转 SOP（从 Jira Issue 到 PR）
 
-### 阶段一：云端任务发布与认领（Web 端）
+> Jira key 仅用于变更追溯；构建、测试和运行不依赖 Jira。项目管理规则以 Confluence `OM 项目管理原则` 为准。
 
-1. 所有开发任务必须始于官方仓库 `upstream` 的 Issue，严禁"无 Issue 开发"。
-2. Issue 标题规范以 `.github/ISSUE_TEMPLATE/feature_request.yml` 的 `title` 字段为唯一事实来源，本文不再重复定义格式。
-3. 重大架构改动可先进行讨论，但进入开发前必须补开 Issue。
-4. 任务开始前必须设置 `Assignees` 为自己，并补齐对应 `Label`。
+### 阶段一：任务发布与认领（Jira）
+
+1. 所有开发任务必须始于 Jira `OMR` 项目的 Issue，严禁"无 Issue 开发"。GitHub Issue 仅作为外部反馈入口，由 Developer 转为 Jira Issue。
+2. Jira Issue 标题规范以 Confluence `OM 项目管理原则` §10 为唯一事实来源；GitHub Issue 模板仅用于外部反馈，本文不再重复定义格式。
+3. 重大架构改动可先进行讨论，但进入开发前必须补开 Jira Issue。
+4. 任务开始前必须在 Jira 中设置经办人为自己，并补齐工作主线 / 模块 / 修复版本。
 
 ### 阶段二：分支命名与 worktree 创建工作区
 
 1. 严禁直接在本地已有分支上开工，必须基于 `upstream/integration` 创建专属分支。
-2. 分支命名格式：`feature/<issue编号>-<简短英文描述>`，必须包含 Issue 编号。
+2. 分支命名格式：`feature/OMR-<id>-<slug>`，必须包含 Jira key。
 3. 缺陷修复任务的 `fix/*` 与 `hotfix/*` 命名和流转规则，见第 6.1 节。
 
 ```bash
@@ -237,7 +239,7 @@ git fetch upstream
 # 创建任务 worktree 与专属分支
 # 注意：若分支名曾创建过（例如中断重试），需先 git branch -D <分支名> 再执行
 git worktree add $WS_ROOT/worktrees/oh-my-robot/<task> \
-    -b feature/<issue编号>-<简短描述> upstream/integration
+    -b feature/OMR-<id>-<slug> upstream/integration
 
 # 进入任务 worktree 开始开发
 cd $WS_ROOT/worktrees/oh-my-robot/<task>
@@ -287,11 +289,11 @@ $WS_ROOT/
 1. 在任务 worktree 中开发，遵循 `.clang-format` 与 `.clang-tidy` 规范。
 2. 过程推演文档按文档治理规范放入：
    `docs/internal/active/issue_015_osal_mutex/`
-3. 每条 Commit 必须包含 Issue 编号锚点 `(#15)`，以保证 Git 历史可追溯。
+3. 每条 Commit 必须包含 Jira key 锚点 `(OMR-15)`，以保证 Git 历史可追溯。
 
 ```bash
-git commit -m "feat(osal): 新增互斥锁抽象接口与基础数据结构 (#15)"
-git commit -m "docs(osal): 补充互斥锁使用场景推演草稿 (#15)"
+git commit -m "feat(osal): 新增互斥锁抽象接口与基础数据结构 (OMR-15)"
+git commit -m "docs(osal): 补充互斥锁使用场景推演草稿 (OMR-15)"
 ```
 
 ### 阶段四：变基与推送到个人派生库（CLI）
@@ -309,28 +311,28 @@ git rev-list --left-right --count upstream/integration...HEAD
 git rebase upstream/integration
 
 # 2) 推送到个人派生库（origin）
-git push origin feature/15-osal-mutex --force-with-lease
+git push origin feature/OMR-15-osal-mutex --force-with-lease
 ```
 
 `hotfix/*` 分支将基线替换为 `upstream/main`，其余规则不变。
 
 ### 阶段五：跨库 PR 与自动闭环（Web 端）
 
-1. PR 来源：`origin/feature/15-osal-mutex`。
+1. PR 来源：`origin/feature/OMR-15-osal-mutex`。
 2. PR 目标：`upstream/integration`。
-3. 若目标为 `integration`，PR 描述必须使用关联指令：`Refs #15`（不关闭 Issue）。
-4. 仅在合并到 `main` 的 PR 中使用关闭指令：`Fixes #15`，由平台自动关闭对应 Issue。
+3. 若目标为 `integration`，PR 描述必须包含 `Refs OMR-15`（仅关联，不关闭 Jira Issue）。
+4. 仅在合并到 `main` 的 PR 中使用关闭语义：`Closes OMR-15`。Jira 状态由自动化规则控制，不依赖 GitHub 关闭关键字。
 
 ### SOP 执行检查清单
 
-1. 是否先在 `upstream` 创建并认领了 Issue。
+1. 是否先在 Jira `OMR` 创建并认领了 Issue。
 2. 是否已执行第 `4.1` 节预检并确认 `origin` 是 `upstream` 的 Fork。
 3. 是否已执行 `git rev-list --left-right --count <base>...HEAD` 并按规则完成落后处理。
-4. 分支名是否为 `feature/<id>-<slug>` 且包含 Issue 编号。
+4. 分支名是否为 `feature/OMR-<id>-<slug>` 且包含 Jira key。
 5. 创建 worktree 后是否已执行 `git submodule update --init --recursive`。
-6. 是否所有提交都带 `(#<id>)` 锚点。
+6. 是否所有提交都带 `(OMR-<id>)` 锚点。
 7. 提交 PR 前是否已 `rebase upstream/integration`。
-8. PR 描述是否按目标分支使用正确关键字：`Refs #<id>`（到 `integration`）/`Fixes #<id>`（到 `main`）。
+8. PR 描述是否按目标分支使用正确关键字：`Refs OMR-<id>`（到 `integration`）/`Closes OMR-<id>`（到 `main`）。
 
 ## 6. 合并策略
 
@@ -345,8 +347,8 @@ git push origin feature/15-osal-mutex --force-with-lease
    - `Fix`：日常开发/测试阶段发现的问题，不影响已发布稳定版本可用性。
    - `Hotfix`：已发布到 `main`（或已交付标签版本）中的阻断性缺陷。
 2. 分支切出与命名：
-   - `Fix`：从 `integration` 切出，命名 `fix/<issue编号>-<简短描述>`。
-   - `Hotfix`：从 `main`（或对应发布 Tag）切出，命名 `hotfix/<issue编号>-<简短描述>`。
+   - `Fix`：从 `integration` 切出，命名 `fix/OMR-<id>-<slug>`。
+   - `Hotfix`：从 `main`（或对应发布 Tag）切出，命名 `hotfix/OMR-<id>-<slug>`。
 3. 合并终点：
    - `Fix`：仅合入 `integration`。
    - `Hotfix`：必须先合入 `main`，随后回灌 `integration`。
@@ -367,10 +369,10 @@ git push origin feature/15-osal-mutex --force-with-lease
 
 ## 8. 任务驱动原则
 
-1. 分支必须绑定具体 Issue，严禁"无 Issue 开发"。
+1. 分支必须绑定具体 Jira Issue，严禁"无 Issue 开发"。
 2. 禁止按系统层级拆分"半成品分支"互相阻塞。
 3. 单个 `feature/*` 应形成可编译、可验证的纵向切片。
-4. 分支类型前缀与职责以第 2 章为唯一事实来源；Issue 编号与 slug 的拼接规则按第 5 章与第 6.1 节执行。
+4. 分支类型前缀与职责以第 2 章为唯一事实来源；Jira key 与 slug 的拼接规则按第 5 章与第 6.1 节执行。
 
 ## 9. 原子提交规范（Atomic Commit）
 
@@ -414,14 +416,14 @@ git push origin feature/15-osal-mutex --force-with-lease
 4. `style`：仅格式调整，不改变运行逻辑。
 5. `refactor`：重构实现，不改变外部行为。
 6. `chore`：构建系统、CI、脚本与基建配置。
-7. 任务提交必须追加 Issue 锚点：`(#<issue编号>)`。
+7. 任务提交必须追加 Jira key 锚点：`(OMR-<id>)`。
 
 ## 11. PR 纪律
 
 1. PR 描述必须包含范围、风险、验证结果。
 2. 日常开发 PR 目标分支为 `upstream/integration`；发布与热修复 PR 目标分支为 `upstream/main`。
-3. 关键字策略统一为：到 `integration` 使用 `Refs #<id>`；到 `main` 使用 `Fixes #<id>`。
-4. 全仓库不再使用 `Resolves` 关键字。
+3. 关键字策略统一为：到 `integration` 使用 `Refs OMR-<id>`；到 `main` 使用 `Closes OMR-<id>`。
+4. 全仓库不再使用 `Resolves`；Jira 状态由自动化规则控制。
 5. 评审后若有新增提交，需重新确认通过后再合并。
 
 ## 12. 本地质量门禁（提交前）
@@ -457,9 +459,9 @@ git worktree list
 git worktree remove $WS_ROOT/worktrees/oh-my-robot/<task>
 
 # 3) 若对应分支已合并，可删除分支
-git branch -d feature/<issue编号>-<简短描述>
+git branch -d feature/OMR-<id>-<slug>
 # 若分支尚未合并（例如放弃开发），用 -D 强制删除
-git branch -D feature/<issue编号>-<简短描述>
+git branch -D feature/OMR-<id>-<slug>
 
 # 4) 清理 .git/worktrees 中的过期记录（手动删除 worktree 目录后执行）
 git worktree prune
