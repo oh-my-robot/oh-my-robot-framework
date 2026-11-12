@@ -23,23 +23,34 @@
 xmake init_workspace --output="../workspaces/oh-my-robot/16-build-env"
 ```
 
+同时接入器件库：
+```sh
+xmake init_workspace --output="../workspaces/oh-my-robot/16-build-env" \
+    --devices="../oh-my-robot-devices" \
+    --entry_repo=devices \
+    --entry="samples/motor/p1010b/main.c"
+```
+
 **参数说明**：
 | 参数 | 说明 | 默认值 | 备注 |
 | --- | --- | --- | --- |
 | `--output` | 输出目录 | 无 | 必填，表示生成项目壳的位置 |
 | `--framework` | 框架根目录 | 当前 `oh-my-robot` checkout | 通常不用改 |
+| `--devices` | `oh-my-robot-devices` checkout 路径 | 无 | 指定后生成第二个目录链接并链接 `tar_awdevices` |
+| `--entry_repo` | 入口所属仓库 | `framework` | `framework` / `devices`；`devices` 需同时给 `--devices` |
 | `--preset` | 要拷贝到项目壳的 preset 源文件 | `oh-my-robot/om_preset.example.lua` | 支持绝对路径和相对当前项目目录的路径 |
 | `--project_name` | 顶层项目名 | 输出目录名 | 仅影响 `set_project(...)` |
 | `--target` | 顶层 XMake 目标名 | `robot_project` | 供调试配置引用 |
-| `--entry` | 相对框架根的入口文件 | `samples/motor/p1010b/main.c` | 用于生成默认顶层目标 |
+| `--entry` | 相对入口仓库的入口文件 | `samples/osal/osal_thread/main.c` | 用于生成默认顶层目标 |
 | `--force` | 是否允许覆盖已存在文件 | `false` | `true`/`false` |
 
 **生成内容**：
 - `oh-my-robot/`：指向当前框架 checkout 的本地目录链接/junction。
-- `xmake.lua`：最小顶层工程壳，通过固定别名 `oh-my-robot` 加载框架。
+- `oh-my-robot-devices/`：指定 `--devices` 时生成的器件库目录链接/junction。
+- `xmake.lua`：最小顶层工程壳，通过固定别名加载框架；接入器件库时同时加载器件库并依赖 `tar_awdevices`。
 - `om_preset.lua`：项目级 preset 模板，默认从框架根的 [`oh-my-robot/om_preset.example.lua`](../../om_preset.example.lua) 复制而来。
 - `README.md`：说明项目根 preset 的推荐用法。
-- `.gitignore`：忽略本地构建产物。
+- `.gitignore`：忽略本地构建产物与目录链接。
 
 **预设建议**：
 1) 不传 `--preset` 时，任务会从 [`oh-my-robot/om_preset.example.lua`](../../om_preset.example.lua) 复制模板。

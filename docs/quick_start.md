@@ -187,7 +187,7 @@ target("robot_project")
     set_filename("robot_project.elf")
     add_deps("tar_oh_my_robot")
     add_rules("oh_my_robot.context", "oh_my_robot.board_assets", "oh_my_robot.image_convert", "oh_my_robot.project_cfg", "oh_my_robot.selfreg")
-    add_files(path.join("oh-my-robot", "samples", "motor", "p1010b", "main.c")) -- 示例文件
+    add_files(path.join("oh-my-robot", "samples", "osal", "osal_thread", "main.c")) -- 示例文件
 target_end()
 ```
 
@@ -208,7 +208,8 @@ target_end()
   - `oh_my_robot.image_convert`：生成 `.hex`/`.bin` 镜像。
   - `oh_my_robot.project_cfg`：注入工程配置（构建期配置/裁剪宏）。
   - `oh_my_robot.selfreg`：自注册源（`OM_INIT_*`）保活并注入框架弱 `main`。
-- `add_files(path.join(...))`：指定入口源文件；当前示例使用 `oh-my-robot/samples/motor/p1010b/main.c`。
+- `add_files(path.join(...))`：指定入口源文件；当前示例使用 `oh-my-robot/samples/osal/osal_thread/main.c`。
+- 需要器件库时，额外 `includes("oh-my-robot-devices")`、`add_deps("tar_oh_my_robot", "tar_awdevices")`，入口改为器件仓库示例；推荐直接用 `xmake init_workspace --devices=<path> --entry_repo=devices` 生成。
 
 ### 2.4 完成后验证
 ```powershell
