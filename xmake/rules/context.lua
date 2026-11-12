@@ -19,6 +19,11 @@ rule("oh_my_robot.context")
         config.load()
         oh_my_robot.sync_context_from_config()
         local context = oh_my_robot.get_context()
+        -- release 模式默认 strip 会移除 ELF 符号，构建后 link guard 无法校验强符号；
+        -- OM binary 保留符号（hex/bin 由 objcopy 生成，不含符号表，不受影响）。
+        if target:kind() == "binary" then
+            target:set("strip", "none")
+        end
         local arch_flags = context.arch_flags
         local toolchain_flags = context.toolchain_flags
         local framework_version = om_version.resolve_framework_version()
