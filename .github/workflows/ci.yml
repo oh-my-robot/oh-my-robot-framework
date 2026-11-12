@@ -221,8 +221,9 @@ jobs:
 
       - name: Configure and build generated shell
         run: |
-          xmake f -P $RUNNER_TEMP/om_devices_shell -c --board=rm-c-board --os=freertos --toolchain=gnu-rm -m release
-          xmake -P $RUNNER_TEMP/om_devices_shell
-          elf=$(find $RUNNER_TEMP/om_devices_shell/build -name 'robot_project.elf' -print -quit)
+          cd $RUNNER_TEMP/om_devices_shell
+          xmake f -c --board=rm-c-board --os=freertos --toolchain=gnu-rm -m release
+          xmake
+          elf=$(find build -name 'robot_project.elf' -print -quit)
           echo "generated ELF: $elf"
           test -n "$elf"
