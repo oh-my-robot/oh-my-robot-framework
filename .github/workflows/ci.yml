@@ -9,6 +9,11 @@ on:
       - integration
       - main
 
+env:
+  DEVICES_REPOSITORY: oh-my-robot/oh-my-robot-devices
+  # 固定器件仓库 commit；器件发版后改为 tag。
+  DEVICES_REF: 1a03116a95efbdd920ca8ceb3b536996dd4fe1c3
+
 permissions:
   contents: read
 
@@ -93,7 +98,7 @@ jobs:
         run: xmake f --board=rm-c-board --os=freertos --toolchain=gnu-rm -m debug
 
       - name: Build libraries
-        run: xmake build
+        run: xmake build -a
 
   # ③ 测试 gate：host 侧全量（kernel-core / log / 存储），linux 用 gcc 免 mingw 问题
   host-test:
@@ -161,3 +166,61 @@ jobs:
 
       - name: Build flash device host tests
         run: xmake build -P samples/host/flash_dev_test
+
+  # ④ 框架 + 器件库联合构建：用生成壳把两个仓库接起来并产出 ELF
+  devices-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout framework
+        uses: actions/checkout@v4
+
+      - name: Checkout devices
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DEVICES_REPOSITORY }}
+          ref: ${{ env.DEVICES_REF }}
+          path: .ci/oh-my-robot-devices
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+          actions-cache-folder: '.xmake-cache'
+
+      - name: Setup GNU ARM Toolchain (official, pinned 14.2.rel1)
+        run: |
+          wget -q https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi.tar.xz -O /tmp/arm-tc.tar.xz
+          sudo mkdir -p /opt/arm-gnu
+          sudo tar -xJf /tmp/arm-tc.tar.xz -C /opt/arm-gnu --strip-components=1
+
+      - name: Create om_preset.lua
+        run: |
+          cat > om_preset.lua << 'EOF'
+          local preset = {
+            board = {name = "rm-c-board"},
+            os = {name = "freertos"},
+            toolchain_default = {name = "gnu-rm"},
+            toolchain_presets = {
+              ["gnu-rm"] = {
+                sdk = "/opt/arm-gnu",
+                bin = "/opt/arm-gnu/bin",
+              },
+            },
+          }
+          function get_preset() return preset end
+          EOF
+
+      - name: Generate framework + devices shell
+        run: |
+          xmake init_workspace --output=$RUNNER_TEMP/om_devices_shell \
+            --devices=$GITHUB_WORKSPACE/.ci/oh-my-robot-devices \
+            --entry_repo=devices \
+            --entry=samples/motor/p1010b/main.c \
+            --preset=$GITHUB_WORKSPACE/om_preset.lua \
+            --force=true
+
+      - name: Configure and build generated shell
+        run: |
+          xmake f -P $RUNNER_TEMP/om_devices_shell -c --board=rm-c-board --os=freertos --toolchain=gnu-rm -m release
+          xmake -P $RUNNER_TEMP/om_devices_shell
+          test -f $RUNNER_TEMP/om_devices_shell/build/cross/arm/release/robot_project.elf
