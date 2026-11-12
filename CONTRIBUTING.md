@@ -15,8 +15,10 @@ Jira 工作流、版本规划、Epic / Issue 规则、DoR / DoD、Backlog / Boar
 - [Tag、Release、产物归档](docs/process/git_version_release_spec.md)
 - [ADR、过程文档、版本归档](docs/process/document_governance_spec.md)
 
+> Jira key 仅用于变更追溯；构建、测试和运行不依赖 Jira。项目管理规则以 Confluence `OM 项目管理原则` 为准。
+
 ## 提交前
 
 - 代码风格遵循 `.clang-format` / `.clang-tidy`
-- 分支、提交、PR 包含 Jira key
+- 分支、提交、PR 包含 Jira key（仅用于追溯）
 - PR 合并前通过 CI、host 测试和目标板验证

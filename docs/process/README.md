@@ -10,3 +10,5 @@
 
 - [OM 项目管理原则](https://bamboolab.atlassian.net/wiki/spaces/OMR/pages/589827)
 - [OM 项目管理速查](https://bamboolab.atlassian.net/wiki/spaces/OMR/pages/622593)
+
+> Jira key 仅用于变更追溯；构建、测试和运行不依赖 Jira。项目管理规则以 Confluence `OM 项目管理原则` 为准。
