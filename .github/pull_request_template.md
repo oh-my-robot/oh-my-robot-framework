@@ -4,6 +4,8 @@ Refs OMR-XXX
 
 <!-- 到 integration 用 Refs；到 main / 发布 PR 用 Closes。Jira key 仅用于变更追溯，构建、测试和运行不依赖 Jira。项目管理规则见 Confluence OM 项目管理原则。 -->
 
+<!-- 提交 PR 后，jira-link workflow 会在评论中回链此处出现的 OMR key；未找到 key 时评论提醒并将检查标红。 -->
+
 ## 改动
 
 <!-- 做了什么，为什么做。关联的 ADR / 设计文档请贴链接。 -->

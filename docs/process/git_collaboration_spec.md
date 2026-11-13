@@ -425,6 +425,9 @@ git push origin feature/OMR-15-osal-mutex --force-with-lease
 3. 关键字策略统一为：到 `integration` 使用 `Refs OMR-<id>`；到 `main` 使用 `Closes OMR-<id>`。
 4. 全仓库不再使用 `Resolves`；Jira 状态由自动化规则控制。
 5. 评审后若有新增提交，需重新确认通过后再合并。
+6. PR 标题、描述或分支名必须包含 Jira key；`jira-link` workflow 会在 PR 评论中回链工作项。
+7. 未找到 key 时，workflow 评论提醒并将检查标红，作为 PR 门禁的一部分。
+8. 评论由基仓 `GITHUB_TOKEN` 生成（`pull_request_target`，不 checkout PR 代码、不读取 fork secrets）。
 
 ## 12. 本地质量门禁（提交前）
 

@@ -148,7 +148,11 @@ typedef struct SpiControllerOps {
  *===========================================================================*/
 
 typedef struct SpiDeviceCfg {
-    GpioPinSpec csSpec;          /* CS 引脚描述符（controller==NULL 表示硬件 CS） */
+    GpioPinSpec csSpec;          /* CS 引脚描述符。framework 在挂载期解析并配置为推挽
+                                    输出、初始为释放态，调用方不必自行配置方向。
+                                    controller==NULL = 硬件 CS，片选由控制器 ops->setCs
+                                    承担。不得带 GPIO_FLAG_ACTIVE_LOW：低有效由片选
+                                    时序承担，反转标志会使断言与释放整体反相 */
     uint8_t mode;                /* SPI_MODE_0..3 */
     uint32_t maxHz;              /* 最大 SCLK 频率 (Hz) */
     uint8_t dataWidth;           /* SPI_DATA_WIDTH_8 / SPI_DATA_WIDTH_16 */

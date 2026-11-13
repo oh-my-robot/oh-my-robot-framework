@@ -1,0 +1,47 @@
+# 发布期兼容事实源。
+# 发布前由 RC 门禁更新；Confluence 兼容矩阵与 Release notes 由 compat_render.py 生成。
+schema: 1
+
+framework: "0.2.0"
+
+devices:
+  # 器件仓库尚未打 tag；记录已验证的 commit，打 tag 后改为 version。
+  ref: "f79e735"
+  framework: ">=0.2 <0.3"
+
+# App 由应用方自持；框架仓默认不声明。需要时取消注释并填写。
+# app:
+#   version: "1.0.0"
+#   framework: ">=0.2 <0.3"
+
+contracts: {}
+
+builds:
+  - board: rm-a-board
+    chip: STM32F427II
+    os: freertos
+    toolchain: gnu-rm
+    toolchain_version: 14.2.1
+    status: verified
+    evidence: "v0.2.0 RC 四构建矩阵 + link guard PASS；FLASH=115352 RAM=40884"
+  - board: rm-a-board
+    chip: STM32F427II
+    os: freertos
+    toolchain: armclang
+    toolchain_version: "6.19"
+    status: verified
+    evidence: "v0.2.0 RC 四构建矩阵 + link guard PASS；FLASH=65612 RAM=5604"
+  - board: rm-c-board
+    chip: STM32F407IG
+    os: freertos
+    toolchain: gnu-rm
+    toolchain_version: 14.2.1
+    status: verified
+    evidence: "v0.2.0 RC 四构建矩阵 + link guard PASS；FLASH=100664 RAM=38764"
+  - board: rm-c-board
+    chip: STM32F407IG
+    os: freertos
+    toolchain: armclang
+    toolchain_version: "6.19"
+    status: verified
+    evidence: "v0.2.0 RC 四构建矩阵 + link guard PASS；FLASH=58052 RAM=4072"

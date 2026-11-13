@@ -23,6 +23,13 @@ import sys
 PROVIDER_SYMBOLS = {
     "tar_os": ("osal_malloc", "osal_free"),
     "tar_sync": ("completion_init", "completion_wait"),
+    "tar_awdrivers": ("device_register", "device_find"),
+    "tar_awdevices": (),
+}
+
+# 器件 provider 不得重新实现框架注册表；注册表由 tar_awdrivers 提供。
+PROVIDER_FORBIDDEN = {
+    "tar_awdevices": ("device_register", "device_find"),
 }
 
 BINARY_STRONG_SYMBOLS = ("HardFault_Handler",)
@@ -126,10 +133,30 @@ def read_symbols(
         opaque_lto = ".llvmbc" in output
         return parse_fromelf(output), opaque_lto
 
-    program = find_tool("arm-none-eabi-nm", bin_dir) or find_tool("nm", bin_dir)
+    # gcc-nm loads the LTO plugin, so slim LTO archives expose real symbols.
+    program = (
+        find_tool("arm-none-eabi-gcc-nm", bin_dir)
+        or find_tool("arm-none-eabi-nm", bin_dir)
+        or find_tool("nm", bin_dir)
+    )
     if not program:
-        raise RuntimeError("arm-none-eabi-nm / nm not found")
-    return parse_nm(run(program, ["-g", path])), False
+        raise RuntimeError("arm-none-eabi-gcc-nm / arm-none-eabi-nm / nm not found")
+    try:
+        output = run(program, ["-g", path])
+    except RuntimeError:
+        # GCC LTO archives are plugin-specific bitcode containers; skip
+        # symbol-level checks on them. The linked binary is still checked.
+        if path.lower().endswith(".a"):
+            return None, True
+        raise
+    states = parse_nm(output)
+    # GCC slim LTO objects expose only __gnu_lto_slim to nm without the LTO
+    # plugin; treat the archive as opaque and rely on the linked ELF checks.
+    if "__gnu_lto_slim" in states:
+        return None, True
+    if path.lower().endswith(".a") and not states:
+        return None, True
+    return states, False
 
 
 def boundary_symbols(toolchain: str, level_count: int) -> tuple[str, ...]:
@@ -172,6 +199,36 @@ def check_group(
         failures.append(f"{label} weak-only symbols: {', '.join(weak)}")
 
 
+def check_forbidden(
+    label: str,
+    path: str,
+    symbols: tuple[str, ...],
+    toolchain: str,
+    bin_dir: str | None,
+    failures: list[str],
+) -> None:
+    states, _ = read_symbols(path, toolchain, bin_dir)
+    if states is None:
+        return
+    defined = [name for name in symbols if states.get(name) in ("weak", "strong")]
+    if defined:
+        failures.append(f"{label} must not define: {', '.join(sorted(defined))}")
+
+
+def check_not_empty(
+    label: str,
+    path: str,
+    toolchain: str,
+    bin_dir: str | None,
+    failures: list[str],
+) -> None:
+    states, _ = read_symbols(path, toolchain, bin_dir)
+    if states is None:
+        return
+    if not any(state == "strong" for state in states.values()):
+        failures.append(f"{label} has no strong symbols")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--elf", required=True, help="linked ELF path")
@@ -200,13 +257,18 @@ def main() -> int:
             continue
         name, path = item.split("=", 1)
         symbols = PROVIDER_SYMBOLS.get(name)
-        if not symbols:
+        if symbols is None:
             failures.append(f"unknown provider: {name}")
             continue
         if not os.path.isfile(path):
             failures.append(f"provider {name} not found: {path}")
             continue
         check_group(name, path, symbols, args.toolchain, args.bin_dir, failures)
+        forbidden = PROVIDER_FORBIDDEN.get(name)
+        if forbidden:
+            check_forbidden(name, path, forbidden, args.toolchain, args.bin_dir, failures)
+        if name == "tar_awdevices":
+            check_not_empty(name, path, args.toolchain, args.bin_dir, failures)
 
     if not os.path.isfile(args.elf):
         failures.append(f"binary not found: {args.elf}")

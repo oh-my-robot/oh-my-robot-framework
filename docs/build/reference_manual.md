@@ -45,6 +45,15 @@ xmake init_workspace --output="../workspaces/oh-my-robot/my-task"
 xmake init_workspace --output="../workspaces/oh-my-robot/my-task" --preset="D:/project/om_preset.lua"
 ```
 
+需要同时接入器件库时，传 `--devices=<oh-my-robot-devices checkout>`，并用
+`--entry_repo=devices` 指定入口来自器件仓库：
+```sh
+xmake init_workspace --output="../workspaces/oh-my-robot/my-task" \
+  --devices="../oh-my-robot-devices" \
+  --entry_repo=devices \
+  --entry="samples/motor/p1010b/main.c"
+```
+
 ### 5.1 配置
 ```sh
 xmake f -c --board=rm-c-board --os=freertos --toolchain=gnu-rm \
@@ -148,6 +157,7 @@ end
 - 框架根：当前 `oh-my-robot` checkout 所在目录，用于加载构建模块、样例、BSP 数据与框架版本信息。
 - 单独 worktree 开发时，建议把 `oh-my-robot` 保持为“框架根”，再用 `xmake init_workspace` 生成项目根。
 - `xmake init_workspace` 生成的项目壳不会复制框架源码，而是会创建本地 `oh-my-robot` 目录链接/junction 指向当前 checkout，并在项目根生成 `om_preset.lua` 模板；框架版本信息仍以框架根的 Git 状态为准。
+- 传入 `--devices=<path>` 时，项目壳额外创建 `oh-my-robot-devices` 目录链接/junction，并让顶层目标依赖 `tar_awdevices`；器件库与框架使用同一 board/os/toolchain 配置构建。
 - 若传入 `--preset=<path>`，项目壳中的 `om_preset.lua` 将从该路径复制；若目标文件已存在，则需要 `--force=true` 才会覆盖。
 
 ### 8.2 名称映射（xmake/launch）

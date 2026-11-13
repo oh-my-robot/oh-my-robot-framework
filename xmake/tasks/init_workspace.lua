@@ -12,7 +12,9 @@ task("init_workspace")
             {"p", "preset", "kv", nil, "Preset source file to copy as om_preset.lua"},
             {"n", "project_name", "kv", nil, "Project name (default: output directory name)"},
             {"t", "target", "kv", "robot_project", "Top-level target name"},
-            {"e", "entry", "kv", "samples/motor/p1010b/main.c", "Entry source path relative to framework root"},
+            {"d", "devices", "kv", nil, "oh-my-robot-devices checkout path"},
+            {"r", "entry_repo", "kv", "framework", "Entry repository: framework|devices"},
+            {"e", "entry", "kv", "samples/osal/osal_thread/main.c", "Entry source path relative to the selected repository"},
             {"F", "force", "kv", "false", "Overwrite existing generated files (true/false)"},
         }
     }
@@ -72,9 +74,16 @@ task("init_workspace")
             "--output", path.absolute(output_option, os.projectdir()),
             "--framework", framework_root,
             "--target", option.get("target") or "robot_project",
-            "--entry", option.get("entry") or "samples/motor/p1010b/main.c",
+            "--entry-repo", option.get("entry_repo") or "framework",
+            "--entry", option.get("entry") or "samples/osal/osal_thread/main.c",
             "--rules-file", rules_file,
         }
+
+        local devices = option.get("devices")
+        if devices and devices ~= "" then
+            argv[#argv + 1] = "--devices"
+            argv[#argv + 1] = path.absolute(devices, os.projectdir())
+        end
 
         local preset = option.get("preset")
         if preset and preset ~= "" then

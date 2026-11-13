@@ -256,6 +256,41 @@ void spi_bus_deinit(SpiBus *bus)
  * 设备挂载 / 移除
  *===========================================================================*/
 
+/** 解析并配置片选引脚。
+ *  框架直控片选时序，故引脚的电气配置也归框架：调用方只给描述符，不必自己配方向。
+ *  初始电平取释放态——与 spi_cs_deassert_dev 的写 1 同为逻辑语义，故两类引脚都不会
+ *  在上电时被误选中。
+ *  片选描述符不接受电平反转标志：低有效由时序承担，带 ACTIVE_LOW 会让"断言写 0"
+ *  变成物理高，选中与释放整体反相，故在挂载期直接拒绝。 */
+static OmRet spi_cs_resolve(HalSpiDevice *dev, const GpioPinSpec *spec)
+{
+    if (!spec->controller)
+    {
+        /* 无 GPIO 控制器：片选由控制器 ops->setCs 承担，框架不持有引脚 */
+        memset(&dev->cs, 0, sizeof(dev->cs));
+        return OM_OK;
+    }
+    if ((spec->flags & GPIO_FLAG_ACTIVE_LOW) != 0U)
+    {
+        return OM_ERR_INVALID_ARG;
+    }
+
+    OmRet ret = gpio_pin_get(spec, &dev->cs);
+    if (ret != OM_OK)
+    {
+        return ret;
+    }
+
+    const GpioPinConfig pin_cfg = {
+        .direction = GPIO_DIR_OUTPUT,
+        .pull = GPIO_PULL_UP, /* 释放态上拉：配置生效前引脚不悬空 */
+        .drive = GPIO_DRIVE_PUSH_PULL,
+        .speed = GPIO_DRIVE_STRENGTH_MEDIUM,
+        .init_high = true,
+    };
+    return gpio_pin_configure(dev->cs, &pin_cfg);
+}
+
 OmRet spi_device_attach(uint8_t busIdx, HalSpiDevice *dev,
                         const char *name, const SpiDeviceCfg *cfg)
 {
@@ -272,12 +307,9 @@ OmRet spi_device_attach(uint8_t busIdx, HalSpiDevice *dev,
     memset(dev, 0, sizeof(*dev));
     dev->cfg = *cfg;
 
-    if (cfg->csSpec.controller != NULL)
-    {
-        OmRet pin_ret = gpio_pin_get(&cfg->csSpec, &dev->cs);
-        if (pin_ret != OM_OK)
-            return pin_ret;
-    }
+    OmRet cs_ret = spi_cs_resolve(dev, &cfg->csSpec);
+    if (cs_ret != OM_OK)
+        return cs_ret;
 
     static const DevInterface g_spi_dev_interface = {
         .init = spi_dev_init,
@@ -460,18 +492,11 @@ OmRet spi_dev_control(Device *dev, size_t cmd, void *arg)
         }
 
         spi_dev->cfg = *new_cfg;
-        if (new_cfg->csSpec.controller != NULL)
+        ret = spi_cs_resolve(spi_dev, &new_cfg->csSpec);
+        if (ret != OM_OK)
         {
-            ret = gpio_pin_get(&new_cfg->csSpec, &spi_dev->cs);
-            if (ret != OM_OK)
-            {
-                spi_bus_unlock(spi_dev->bus);
-                return ret;
-            }
-        }
-        else
-        {
-            memset(&spi_dev->cs, 0, sizeof(spi_dev->cs));
+            spi_bus_unlock(spi_dev->bus);
+            return ret;
         }
 
         ret = spi_ensure_configured(spi_dev->bus, spi_dev);

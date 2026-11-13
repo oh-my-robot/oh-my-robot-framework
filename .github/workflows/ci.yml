@@ -9,6 +9,11 @@ on:
       - integration
       - main
 
+env:
+  DEVICES_REPOSITORY: oh-my-robot/oh-my-robot-devices
+  # 固定器件仓库 commit；器件发版后改为 tag。
+  DEVICES_REF: f79e73509c1a56105c2257029589db96f284c090
+
 permissions:
   contents: read
 
@@ -31,7 +36,34 @@ jobs:
         run: |
           find lib platform samples -name '*.[ch]' -print0 | xargs -0 clang-format --dry-run --Werror
 
-  # ② 编译 gate：交叉构建全库（验证 PR 可编译；binary 构建依赖板级 preset 留本地）
+  # ② 兼容性数据 gate：compat.yaml schema/一致性 + 生成器回归
+  compat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PyYAML
+        run: pip install pyyaml==6.0.3
+
+      - name: Validate compat.yaml
+        run: |
+          python3 tools/omcheck/compat_check.py --compat tools/omcheck/compat.yaml \
+            --devices-ref "$DEVICES_REF"
+
+      - name: Test compatibility tools
+        run: python3 -m unittest discover -s tools/omcheck/tests -v
+
+      - name: Render compatibility views
+        run: |
+          python3 tools/omcheck/compat_render.py --compat tools/omcheck/compat.yaml \
+            --format confluence --date 2026-01-01 > /tmp/compat-page.md
+          python3 tools/omcheck/compat_render.py --compat tools/omcheck/compat.yaml \
+            --format release-notes --date 2026-01-01 > /tmp/compat-release.md
+          test -s /tmp/compat-page.md
+          test -s /tmp/compat-release.md
+
+  # ③ 编译 gate：交叉构建全库（验证 PR 可编译；binary 构建依赖板级 preset 留本地）
   build:
     runs-on: ubuntu-latest
     steps:
@@ -58,6 +90,15 @@ jobs:
             fi
           done < <(sed -n 's/^    "\([a-z_]*\)",$/\1/p' xmake/modules/binary_rules.lua)
           exit $fail
+
+      - name: Devices dependency gate (negative fixture)
+        # 负向 fixture 必须被拒绝；若通过则说明门禁失效。
+        run: |
+          if python3 tools/omcheck/check_devices_deps.py \
+              --devices-root tools/omcheck/fixtures/devices_dep_violation; then
+            echo "::error::negative devices dependency fixture unexpectedly passed"
+            exit 1
+          fi
 
       - name: Setup GNU ARM Toolchain (official, pinned 14.2.rel1)
         # 弃用 carlosperate action（latest 版本波动 + 系统依赖不确定导致硬浮点试编译失败）；
@@ -93,9 +134,9 @@ jobs:
         run: xmake f --board=rm-c-board --os=freertos --toolchain=gnu-rm -m debug
 
       - name: Build libraries
-        run: xmake build
+        run: xmake build -a
 
-  # ③ 测试 gate：host 侧全量（kernel-core / log / 存储），linux 用 gcc 免 mingw 问题
+  # ④ 测试 gate：host 侧全量（kernel-core / log / 存储），linux 用 gcc 免 mingw 问题
   host-test:
     runs-on: ubuntu-latest
     steps:
@@ -161,3 +202,73 @@ jobs:
 
       - name: Build flash device host tests
         run: xmake build -P samples/host/flash_dev_test
+
+  # ⑤ 框架 + 器件库联合构建：用生成壳把两个仓库接起来并产出 ELF
+  devices-integration:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        board:
+          - rm-a-board
+          - rm-c-board
+    steps:
+      - name: Checkout framework
+        uses: actions/checkout@v4
+
+      - name: Checkout devices
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DEVICES_REPOSITORY }}
+          ref: ${{ env.DEVICES_REF }}
+          path: .ci/oh-my-robot-devices
+
+      - name: Check device dependency boundaries
+        run: python3 tools/omcheck/check_devices_deps.py --devices-root .ci/oh-my-robot-devices
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+          actions-cache-folder: '.xmake-cache'
+
+      - name: Setup GNU ARM Toolchain (official, pinned 14.2.rel1)
+        run: |
+          wget -q https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi.tar.xz -O /tmp/arm-tc.tar.xz
+          sudo mkdir -p /opt/arm-gnu
+          sudo tar -xJf /tmp/arm-tc.tar.xz -C /opt/arm-gnu --strip-components=1
+
+      - name: Create om_preset.lua
+        run: |
+          cat > om_preset.lua << 'EOF'
+          local preset = {
+            board = {name = "rm-c-board"},
+            os = {name = "freertos"},
+            toolchain_default = {name = "gnu-rm"},
+            toolchain_presets = {
+              ["gnu-rm"] = {
+                sdk = "/opt/arm-gnu",
+                bin = "/opt/arm-gnu/bin",
+              },
+            },
+          }
+          function get_preset() return preset end
+          EOF
+
+      - name: Generate framework + devices shell
+        run: |
+          xmake init_workspace --output=$RUNNER_TEMP/om_devices_shell \
+            --devices=$GITHUB_WORKSPACE/.ci/oh-my-robot-devices \
+            --entry_repo=devices \
+            --entry=samples/motor/p1010b/main.c \
+            --preset=$GITHUB_WORKSPACE/om_preset.lua \
+            --force=true
+
+      - name: Configure and build generated shell
+        run: |
+          cd $RUNNER_TEMP/om_devices_shell
+          xmake f -c --board=${{ matrix.board }} --os=freertos --toolchain=gnu-rm -m release
+          xmake
+          elf=$(find build -name 'robot_project.elf' -print -quit)
+          echo "generated ELF: $elf"
+          test -n "$elf"

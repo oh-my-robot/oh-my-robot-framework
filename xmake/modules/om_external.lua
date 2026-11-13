@@ -88,7 +88,7 @@ function run_link_guard(target, context)
         argv[#argv + 1] = bin_dir
     end
     local project = import("core.project.project")
-    for _, name in ipairs({"tar_os", "tar_sync"}) do
+    for _, name in ipairs({"tar_os", "tar_sync", "tar_awdrivers", "tar_awdevices"}) do
         local provider = project.target(name)
         if provider then
             local artifact = provider:targetfile()
