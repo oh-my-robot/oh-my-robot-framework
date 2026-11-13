@@ -15,6 +15,7 @@ local GNURM_SAFE_TARGETS = {
     tar_awcore = true,
     tar_awalgo = true,
     tar_awdrivers = true,
+    tar_awdevices = true,
     tar_awsystems = true,
     tar_sync = true,
 }

@@ -64,6 +64,15 @@ jobs:
           done < <(sed -n 's/^    "\([a-z_]*\)",$/\1/p' xmake/modules/binary_rules.lua)
           exit $fail
 
+      - name: Devices dependency gate (negative fixture)
+        # 负向 fixture 必须被拒绝；若通过则说明门禁失效。
+        run: |
+          if python3 tools/omcheck/check_devices_deps.py \
+              --devices-root tools/omcheck/fixtures/devices_dep_violation; then
+            echo "::error::negative devices dependency fixture unexpectedly passed"
+            exit 1
+          fi
+
       - name: Setup GNU ARM Toolchain (official, pinned 14.2.rel1)
         # 弃用 carlosperate action（latest 版本波动 + 系统依赖不确定导致硬浮点试编译失败）；
         # 官方发布包直装到固定路径（与本地 14.2 同版本），版本固定防漂移。
@@ -170,6 +179,12 @@ jobs:
   # ④ 框架 + 器件库联合构建：用生成壳把两个仓库接起来并产出 ELF
   devices-integration:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        board:
+          - rm-a-board
+          - rm-c-board
     steps:
       - name: Checkout framework
         uses: actions/checkout@v4
@@ -180,6 +195,9 @@ jobs:
           repository: ${{ env.DEVICES_REPOSITORY }}
           ref: ${{ env.DEVICES_REF }}
           path: .ci/oh-my-robot-devices
+
+      - name: Check device dependency boundaries
+        run: python3 tools/omcheck/check_devices_deps.py --devices-root .ci/oh-my-robot-devices
 
       - name: Setup xmake
         uses: xmake-io/github-action-setup-xmake@v1
@@ -222,7 +240,7 @@ jobs:
       - name: Configure and build generated shell
         run: |
           cd $RUNNER_TEMP/om_devices_shell
-          xmake f -c --board=rm-c-board --os=freertos --toolchain=gnu-rm -m release
+          xmake f -c --board=${{ matrix.board }} --os=freertos --toolchain=gnu-rm -m release
           xmake
           elf=$(find build -name 'robot_project.elf' -print -quit)
           echo "generated ELF: $elf"

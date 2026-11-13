@@ -172,9 +172,12 @@ end
 --- 解析 LTO 策略计划
 ---@param toolchain_name string|nil 工具链名称
 ---@param lto_mode string|nil LTO 模式（auto/on/off）
+---@param target_name string|nil 目标名称
+---@param target_kind string|nil 目标类型
+---@param lto_scope string|nil LTO 范围（auto/safe/full）
 ---@return table plan
-function resolve_lto_plan(toolchain_name, lto_mode)
-    return lto_module.resolve_lto_plan(toolchain_name, lto_mode)
+function resolve_lto_plan(toolchain_name, lto_mode, target_name, target_kind, lto_scope)
+    return lto_module.resolve_lto_plan(toolchain_name, lto_mode, target_name, target_kind, lto_scope)
 end
 
 --- 返回工具链工具库

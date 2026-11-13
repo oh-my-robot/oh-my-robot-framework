@@ -31,7 +31,12 @@ rule("oh_my_robot.context")
         local include_arch_ldflags = toolchain_lib.should_include_arch_ldflags(toolchain_config, context.toolchain_name)
         local semihosting_mode = toolchain_lib.resolve_semihosting_mode(config.get("semihosting"))
         local lto_mode = toolchain_lib.resolve_lto_mode(nil)
-        local lto_plan = toolchain_lib.resolve_lto_plan(context.toolchain_name, lto_mode)
+        local lto_plan = toolchain_lib.resolve_lto_plan(
+            context.toolchain_name,
+            lto_mode,
+            target:name(),
+            target:kind()
+        )
         target:add("defines", string.format("FRAMEWORK_VERSION=\"%s\"", framework_version), {public = true})
         -- 注入架构参数与工具链参数
         toolchain_lib.add_target_flag_set(target, arch_flags, {
