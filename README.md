@@ -42,7 +42,7 @@ oh-my-robot/
 └── build/             # 构建输出（生成目录，不入库）
 ```
 
-具体器件实现（电机、SPI NOR、传感器等）位于独立仓库 `oh-my-robot-devices`，只依赖驱动框架公开契约与 kernel/sync，不进入本仓库。
+具体器件实现位于独立仓库 `oh-my-robot-devices`，只依赖驱动框架公开契约与 kernel/sync，不进入本仓库；器件清单与用法以该仓库文档为准。
 
 ## 文档
 
