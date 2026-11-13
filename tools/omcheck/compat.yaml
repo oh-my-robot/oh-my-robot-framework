@@ -23,25 +23,25 @@ builds:
     toolchain: gnu-rm
     toolchain_version: 14.2.1
     status: verified
-    evidence: "OMR-17 本地四构建矩阵 + link guard PASS"
+    evidence: "v0.2.0 RC 四构建矩阵 + link guard PASS；FLASH=115352 RAM=40884"
   - board: rm-a-board
     chip: STM32F427II
     os: freertos
     toolchain: armclang
     toolchain_version: "6.19"
     status: verified
-    evidence: "OMR-17 本地四构建矩阵 + link guard PASS"
+    evidence: "v0.2.0 RC 四构建矩阵 + link guard PASS；FLASH=65612 RAM=5604"
   - board: rm-c-board
     chip: STM32F407IG
     os: freertos
     toolchain: gnu-rm
     toolchain_version: 14.2.1
     status: verified
-    evidence: "OMR-17 本地四构建矩阵 + link guard PASS"
+    evidence: "v0.2.0 RC 四构建矩阵 + link guard PASS；FLASH=100664 RAM=38764"
   - board: rm-c-board
     chip: STM32F407IG
     os: freertos
     toolchain: armclang
     toolchain_version: "6.19"
     status: verified
-    evidence: "OMR-17 本地四构建矩阵 + link guard PASS"
+    evidence: "v0.2.0 RC 四构建矩阵 + link guard PASS；FLASH=58052 RAM=4072"
