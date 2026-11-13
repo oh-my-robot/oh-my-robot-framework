@@ -375,7 +375,12 @@ function om_print_build_profile(target)
     print("[oh-my-robot] build mode: " .. build_mode)
     local toolchain_lib = import("toolchain_lib", {rootdir = modules_root})
     local lto_mode = toolchain_lib.resolve_lto_mode(nil)
-    local lto_plan = toolchain_lib.resolve_lto_plan(context.toolchain_name, lto_mode)
+    local lto_plan = toolchain_lib.resolve_lto_plan(
+        context.toolchain_name,
+        lto_mode,
+        target and target:name() or nil,
+        target and target:kind() or nil
+    )
     print(string.format("[oh-my-robot] lto: %s (mode=%s, reason=%s)",
         lto_plan.enabled and "on" or "off",
         lto_plan.mode,

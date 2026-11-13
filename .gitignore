@@ -2,3 +2,4 @@
 # xmake 构建输出目录（构建系统源码在顶层 xmake/，不入此忽略）
 /build/
 /om_preset.lua
+__pycache__/
