@@ -12,7 +12,7 @@ on:
 env:
   DEVICES_REPOSITORY: oh-my-robot/oh-my-robot-devices
   # 固定器件仓库 commit；器件发版后改为 tag。
-  DEVICES_REF: 1a03116a95efbdd920ca8ceb3b536996dd4fe1c3
+  DEVICES_REF: f79e73509c1a56105c2257029589db96f284c090
 
 permissions:
   contents: read
@@ -36,7 +36,34 @@ jobs:
         run: |
           find lib platform samples -name '*.[ch]' -print0 | xargs -0 clang-format --dry-run --Werror
 
-  # ② 编译 gate：交叉构建全库（验证 PR 可编译；binary 构建依赖板级 preset 留本地）
+  # ② 兼容性数据 gate：compat.yaml schema/一致性 + 生成器回归
+  compat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PyYAML
+        run: pip install pyyaml==6.0.3
+
+      - name: Validate compat.yaml
+        run: |
+          python3 tools/omcheck/compat_check.py --compat tools/omcheck/compat.yaml \
+            --devices-ref "$DEVICES_REF"
+
+      - name: Test compatibility tools
+        run: python3 -m unittest discover -s tools/omcheck/tests -v
+
+      - name: Render compatibility views
+        run: |
+          python3 tools/omcheck/compat_render.py --compat tools/omcheck/compat.yaml \
+            --format confluence --date 2026-01-01 > /tmp/compat-page.md
+          python3 tools/omcheck/compat_render.py --compat tools/omcheck/compat.yaml \
+            --format release-notes --date 2026-01-01 > /tmp/compat-release.md
+          test -s /tmp/compat-page.md
+          test -s /tmp/compat-release.md
+
+  # ③ 编译 gate：交叉构建全库（验证 PR 可编译；binary 构建依赖板级 preset 留本地）
   build:
     runs-on: ubuntu-latest
     steps:
@@ -109,7 +136,7 @@ jobs:
       - name: Build libraries
         run: xmake build -a
 
-  # ③ 测试 gate：host 侧全量（kernel-core / log / 存储），linux 用 gcc 免 mingw 问题
+  # ④ 测试 gate：host 侧全量（kernel-core / log / 存储），linux 用 gcc 免 mingw 问题
   host-test:
     runs-on: ubuntu-latest
     steps:
@@ -176,7 +203,7 @@ jobs:
       - name: Build flash device host tests
         run: xmake build -P samples/host/flash_dev_test
 
-  # ④ 框架 + 器件库联合构建：用生成壳把两个仓库接起来并产出 ELF
+  # ⑤ 框架 + 器件库联合构建：用生成壳把两个仓库接起来并产出 ELF
   devices-integration:
     runs-on: ubuntu-latest
     strategy:

@@ -75,17 +75,40 @@ git push upstream v0.2.1
 3. **日志输出：** 应用层启动时，必须在初始化 Log 中优先打印 `FRAMEWORK_VERSION` 宏的值，作为排查问题的第一依据。
 
 
-## 4. GitHub Release 归档与冻结流程
+## 4. 兼容性数据与发布检查单
+
+`tools/omcheck/compat.yaml` 是发布期兼容事实源。RC 门禁须完成：
+
+- [ ] 将 `framework` 更新为目标版本；按实际填写 `devices`、`app`、`contracts`。
+- [ ] 在 `builds` 中列出本次验证的 board / os / toolchain 组合、状态与测试证据。
+- [ ] 校验文件：`python3 tools/omcheck/compat_check.py --compat tools/omcheck/compat.yaml --tag vX.Y.Z`。
+- [ ] 生成 Confluence 子页与 Release notes 片段（见下）。
+- [ ] 将子页挂到 OMR Compatibility Matrix；将片段加入 Draft Release 的「✅ 兼容性」一节。
+- [ ] 发布视图中的版本数字只来自 `compat.yaml`，不手工改第二份矩阵。
+
+```sh
+# Confluence 子页正文
+python3 tools/omcheck/compat_render.py --compat tools/omcheck/compat.yaml \
+    --format confluence --tag vX.Y.Z --out compat-page.md
+
+# Release notes 的兼容性一节
+python3 tools/omcheck/compat_render.py --compat tools/omcheck/compat.yaml \
+    --format release-notes --tag vX.Y.Z --out compat-release.md
+```
+
+字段定义与扩展方式见 [`tools/omcheck/README.md`](../../tools/omcheck/README.md)。
+
+## 5. GitHub Release 归档与冻结流程
 
 标签推送到官方主仓库 (`upstream`) 后，须经由 GitHub Releases 完成正式归档。此页面为下游业务获取产物的唯一受控入口。因仓库已启用 Release Immutability，发布动作不可逆，须严格执行以下单向流程：
 
-1. **创建发布草稿 (Draft Release)：** 基于目标 Tag 新建 Release，并在整个准备期间保持为 **Draft (草稿)** 状态。利用 "Generate release notes" 自动抓取 PR 历史，经人工校对后，严格按 `✨ Features`、`🐛 Bug Fixes`、`⚠️ Breaking Changes` 三级结构化梳理更新日志。
+1. **创建发布草稿 (Draft Release)：** 基于目标 Tag 新建 Release，并在整个准备期间保持为 **Draft (草稿)** 状态。利用 "Generate release notes" 自动抓取 PR 历史，经人工校对后，严格按 `✨ Features`、`🐛 Bug Fixes`、`⚠️ Breaking Changes` 三级结构化梳理更新日志。「✅ 兼容性」一节由 `compat_render.py` 生成，不手工维护矩阵数字。
 2. **挂载构建产物 (Attach Assets)：** 必须在 Draft 状态下，完整上传与该版本绝对对应的编译产物（如 `.bin`, `.hex`, `.elf`, `.a` 及说明文档）。
 3. **终态发布 (Publish & Lock)：** 复核更新日志与所有附件产物。确认无误后，点击 **Publish release**。**注意：发布即冻结。** 系统将永久锁定该版本的全部资产，禁止任何后续的修改、覆盖或增删。若发现遗漏或错误，唯一合规路径为按序发起新的 Patch 修订版本流程。
 4. **追溯性验证 (Verification)：** 发版完成后，抽检该 Release 页面由系统生成的源码压缩包，验证其解压代码树的 Commit SHA 与原始 Tag 指针保持绝对一致。
 
 
-## 5. 权限与安全红线
+## 6. 权限与安全红线
 
 为了防止版本混乱，GitHub 仓库启用以下保护规则：
 
